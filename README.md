@@ -1,4 +1,4 @@
-### Basinc / Basınç
+### BasinC / Basınç
 
 (C) 2003 Paul Dunn 
 (C) 2011 Arda Erdikmen
@@ -16,3 +16,8 @@ You will require following 3rd party packages:
 - G-Soft's FastLib
 - DirectX7 for Delphi
 - Delphi 5
+
+## Download Binaries for Windows
+
+You may find BasinC release binaries and development blog here:
+https://arda.kisafilm.org/blog/?cat=13&lang=en
