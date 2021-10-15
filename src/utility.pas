@@ -117,8 +117,8 @@ Var
   INI:                    TStringList;
   DisplayScale:           Integer;
 
-  ReleaseName:            String = 'BasinC v1.74';  //Unreleased!
-  ReleaseDate:            String = 'Dec,17 2018';
+  ReleaseName:            String = 'BasinC v1.77';
+  ReleaseDate:            String = 'Oct,14 2021';
   DefaultProjectName:     String = 'Untitled';
   CurProjectName:         String = 'Untitled';
   CurProjectFilename:     String = 'Untitled';
@@ -144,6 +144,7 @@ Var
 
   Opt_Indenting:          Boolean = False;              // Text indenting of special loop keywords: FOR..NEXT & IF  arda
   Opt_IndentSize:         Integer = 4;                  // Indent size
+  Opt_ShowNotes:          Boolean = True;
 
   SpeedBackup:            Integer = 69888;              //to store original speed of emulation temporarily
   Opt_CPUSpeed:           Integer = 69888;              // The speed (in TStates) of the CPU - Ts/Frame
@@ -754,7 +755,10 @@ Begin
   CurProjectName := TrimExtension(CurProjectFullPathFile);
   CurProjectFilename := Name;
   ProjectSaved := True;
+  BASinOutput.Label1.Caption := 'Project ' + CurProjectName ;
   BASinOutput.SetCaption;
+
+
 End;
 
 Function TrimExtension(Name: String): String;
@@ -941,10 +945,11 @@ Begin
 
   // .BAS Files
 
-  Opt_LoadAutoStart :=          INIRead('BASFiles', 'Opt_LoadAutoStart', Opt_LoadAutoStart);
-  Opt_Autostart :=          INIRead('BASFiles', 'Opt_Autostart', Opt_Autostart);
+  Opt_LoadAutoStart :=       INIRead('BASFiles', 'Opt_LoadAutoStart', Opt_LoadAutoStart);
+  Opt_Autostart :=           INIRead('BASFiles', 'Opt_Autostart', Opt_Autostart);
   Opt_SavePretty :=          INIRead('BASFiles', 'Opt_SavePretty', Opt_SavePretty);
-   Opt_AutoBackup :=         INIRead('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
+  Opt_AutoBackup :=         INIRead('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
+  Opt_ShowNotes :=          INIRead('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
 
   // Tape Images
 
@@ -1173,7 +1178,7 @@ Begin
   INIWrite('BASFiles', 'Opt_LoadAutoStart', Opt_LoadAutoStart);
   INIWrite('BASFiles', 'Opt_Autostart', Opt_Autostart);
   INIWrite('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
-
+   INIWrite('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
 
 
   // Tape Images

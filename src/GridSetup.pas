@@ -23,6 +23,10 @@ type
     Edit3: TEdit;
     ComboBox1: TComboBox;
     Label4: TLabel;
+    Edit5: TEdit;
+    Label7: TLabel;
+    Edit6: TEdit;
+    Label8: TLabel;
     procedure FormShow(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Edit4KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -37,7 +41,10 @@ type
     EditTop,
     EditType,
     EditWidth,
+    Address,
+    NumChars,
     EditHeight: Integer;
+
     Cancelled: Boolean;
   end;
 
@@ -58,8 +65,16 @@ begin
      EditHeight := UDGWindow.EditHeight;
      Caption := 'Editing Grid Setup';
      Label5.Caption := 'Grid Size Options';
+     Label6.Visible := True;
+     Edit2.Visible := True;
+     Label2.Visible := True;
+     Edit4.Visible := True;
      Label1.Visible := False;
      Label3.Visible := False;
+     Label8.Visible := False;
+     Edit6.Visible := False;
+     Label7.Visible := False;
+     Edit5.Visible := False;
      Edit1.Visible := False;
      Edit3.Visible := False;
      Label4.Visible := False;
@@ -68,7 +83,16 @@ begin
      Edit4.SetFocus;
   End Else
      If EditType = 1 Then Begin
+
         Caption := 'Set Grid Size';
+                Label6.Visible := True;
+        Edit2.Visible := True;
+        Label2.Visible := True;
+        Edit4.Visible := True;
+        Label7.Visible := False;
+        Label8.Visible := False;
+        Edit6.Visible := False;
+        Edit5.Visible := False;
         Label5.Caption := 'Grid Size Options';
         Label1.Visible := False;
         Label3.Visible := False;
@@ -81,16 +105,53 @@ begin
      End Else If EditType = 2 Then Begin
         Label5.Caption := 'Selection Options';
         Caption := 'Set Selection';
+        Label7.Visible := False;
+        Label8.Visible := False;
+        Edit6.Visible := False;
+        Edit5.Visible := False;
         Label1.Visible := True;
         Label3.Visible := True;
         Edit1.Visible := True;
         Edit3.Visible := True;
         Edit1.Text := IntToStr(EditLeft);
         Edit3.Text := IntToStr(EditTop);
+
+        Label6.Visible := True;
+        Edit2.Visible := True;
+        Label2.Visible := True;
+        Edit4.Visible := True;
+
         ComboBox1.Visible := True;
         Label4.Visible := True;
         ClientHeight := ComboBox1.Top + ComboBox1.Height + Button1.Height + 24;
         Edit1.SetFocus;
+     End Else If EditType = 3 Then Begin
+        EditWidth := UDGWindow.EditWidth;
+        EditHeight := UDGWindow.EditHeight;
+        Caption := 'Character Count Setup';
+        Label5.Caption := 'Character Set Options';
+        Label1.Visible := False;
+        Label3.Visible := False;
+        Edit1.Visible := False;
+        Edit3.Visible := False;
+        Label4.Visible := False;
+        ComboBox1.Visible := False;
+        Label7.Visible := True;
+        Edit5.Visible := True;
+        Label8.Visible := True;
+        Edit6.Visible := True;
+
+        Label6.Visible := False;
+        Edit2.Visible := False;
+        Label2.Visible := False;
+        Edit4.Visible := False;
+
+        Edit5.Text := IntToStr(NumChars);
+        Edit6.Text := IntToStr(Address);
+        ClientHeight := Edit6.Top + Edit6.Height + Button1.Height + 24;
+        Edit5.SetFocus;
+
+
      End;
 
   Edit4.Text := IntToStr(EditWidth);
@@ -121,6 +182,9 @@ begin
 
   Val1 := Round(EvaluateNum(Edit4.Text, -1));
   Val2 := Round(EvaluateNum(Edit2.Text, -1));
+  NumChars := Round(EvaluateNum(Edit5.Text, -1));
+  Address := Round(EvaluateNum(Edit6.Text, -1));
+
   If EditType = 0 Then Begin
      If (Val1 < 1) or (Val1 > 16) Then Begin
         MessageBox(Handle, pChar('Valid grid sizes are in the range 1 to 15'), pChar('Invalid grid size'), MB_OK or MB_ICONWARNING);

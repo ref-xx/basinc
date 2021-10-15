@@ -65,6 +65,12 @@ type
     procedure PageControl1Change(Sender: TObject);
     procedure CheckBox1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure Button1KeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure FormShortCut(var Msg: TWMKey; var Handled: Boolean);
+
   private
     { Private declarations }
   public
@@ -849,11 +855,36 @@ Begin
      End;
   End;
   if GetASyncKeyState(VK_SHIFT) and 1 = 1 Then Result := Chr(Character);
+
+
 End;
 
 procedure TTokenForm.Button2Click(Sender: TObject);
 begin
   HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_token_table.html'), HH_DISPLAY_TOPIC, 0);
+end;
+
+
+
+procedure TTokenForm.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+        If (Key = 84) and (Shift = [ssCtrl]) then begin
+             Close;
+        End;
+end;
+
+procedure TTokenForm.Button1KeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+        If (Key = 84) and (Shift = [ssCtrl]) then begin
+             Close;
+        End;
+end;
+
+procedure TTokenForm.FormShortCut(var Msg: TWMKey; var Handled: Boolean);
+begin
+ if (GetKeyState(VK_Control) < 0) and (Msg.CharCode = Ord('T')) Then Close;
 end;
 
 end.

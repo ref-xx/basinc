@@ -507,7 +507,7 @@ Begin
 
      If GetFile('.bsd') <> 'Ok' Then Exit;
 
-     If FileArray[0] <> 1 Then Begin
+     If FileArray[0] <> 2 Then Begin //was 1.. 2 for string mybe?
         DoError($1A, 'Wrong Var Type');
         Exit;
      End;
@@ -550,6 +550,7 @@ Begin
 
   If CodeAddress = 0 Then FTypes := [FTBsc, FTTape] Else FTypes := [FTBsc, FTScr, FTTape, FTAll];
 
+
   If Filename = '' Then Begin
      Filename := OpenFile(BASinOutput.Handle, 'Load Code Block', FTypes, '', False, False);
      If Filename = '' Then Begin
@@ -565,9 +566,12 @@ Begin
 
   End Else Begin
 
+
      If GetFile('.bsc') <> 'Ok' Then Exit;
 
-     Extension := Lowercase(Copy(Filename, Length(Filename)-3, 4));
+
+
+     Extension := Lowercase(ExtractFileExt(Filename)); //Lowercase(Copy(Filename, Length(Filename)-3, 4));
 
      PrepareBlankFileHeader;
 
@@ -1764,17 +1768,24 @@ Begin
 
   End;
 
+
   if (trim(Copy(ExtractFilename(Filename),1,8))<>'autoback') Then BASinOutput.AddToMRUList(Filename);
   GenerateBASICChecksum(BASICChecksum);
+  
 
 End;
 
 Procedure SaveCode;
 Var
-  Ext, NewFilename: AnsiString;
+  Ext,FilePath, NewFilename: AnsiString;
   StartAddr, DataLen: Word;
 
 Begin
+
+  //arda comments v1.76
+  // it looks like basin can load RAW BINARY files.
+  // so a Legal Zx Spectrum Code file has .bsc extension, if user will not give an extension it will be saved as a bsc
+  // if user wants to save a raw binary they must be specify an extension other than bsc
 
   If Filename = '' Then Begin
      Filename := OpenFile(BASinOutput.Handle, 'Save CODE Block', [FTBsc, FTAll], '', True, False);
@@ -1783,10 +1794,18 @@ Begin
      End;
   End;
 
-  Ext := Lowercase(ExtractFileExt(Filename));
 
-  NewFileName := ExtractFilename(Filename);
-  NewFilename := Copy(NewFilename, 1, Length(NewFilename)-Length(Ext));
+  FilePath := ExtractFilePath(Filename);
+  Ext := Lowercase(ExtractFileExt(Filename));
+  NewFileName := ExtractFilename(Filename); //this will be used as blockname
+
+  If Length(Ext)>0 Then Begin
+        NewFilename := Copy(NewFilename, 1, Length(NewFilename)-Length(Ext));
+  End Else Begin
+        Ext:='.bsc';
+        Filename:=Filename + '.bsc';
+  End;
+
   CopyMemory(@FileHeader[2], @NewFilename[1], 10);
 
   DataLen := GetWord(@FileHeader[$C]);
@@ -1833,9 +1852,14 @@ Begin
   FilePath := ExtractFilePath(Filename);
   Ext := Lowercase(ExtractFileExt(Filename));
 
+  if Ext<>'.bsd' Then Begin
+        Filename:=Filename+'.bsd'; //this is the filename that will written on disk
+        Ext:='.bsd';
+  End;
+
   NewFileName := ExtractFilename(Filename);
-  NewFilename := Copy(NewFilename, 1, Length(NewFilename)-Length(Ext));
-  Filename := FilePath+NewFilename + '.bsd';
+  NewFilename := Copy(NewFilename, 1, Length(NewFilename)-Length(Ext));  // this is used in the tape header
+  //Filename := FilePath+NewFilename + '.bsd'; //as of 1.76 we will not change the extension if specified
 
   While Length(NewFilename) < 10 Do NewFilename := NewFilename + ' ';
   CopyMemory(@FileHeader[2], @NewFilename[1], 10);

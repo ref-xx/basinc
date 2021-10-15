@@ -155,6 +155,7 @@ type
     ThemeBevel5: TThemeBevel;
     Label45: TLabel;
     CheckBox32: TCheckBox;
+    CheckBox33: TCheckBox;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -314,6 +315,7 @@ begin
   CheckBox27.Checked := Opt_LoadAutoStart;
   CheckBox26.Checked := Opt_Autostart;
   CheckBox7.Checked := Opt_SavePretty;
+  CheckBox33.Checked := Opt_ShowNotes; //arda
 
   // Tape Images
 
@@ -431,7 +433,7 @@ begin
   // Programming Aids
 
 
-  
+
   Opt_AutoLoadSession := CheckBox1.Checked;
   Opt_ShowingSyntax := CheckBox2.Checked;
   Opt_AutoList:= CheckBox3.Checked;
@@ -448,6 +450,7 @@ begin
     Opt_IndentSize:= TrackBar6.Position; //arda
     Opt_FastResets := CheckBox25.Checked; //arda
     Opt_KMouse := CheckBox28.Checked;     //arda
+    Opt_ShowNotes := CheckBox33.Checked; //arda
 
   // CPU Speed options
 

@@ -240,6 +240,8 @@ type
     procedure FastIMG6MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure ScrollBox1MouseWheelDown(Sender: TObject; Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
     procedure ScrollBox1MouseWheelUp(Sender: TObject; Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+    procedure CoolBar2MouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
   private
     { Private declarations }
     oldScrollBoxWndMethod, OldPanelWndMethod: TWndMethod;
@@ -6956,6 +6958,14 @@ begin
 
   LastMWheelTime := Time;
 
+end;
+
+procedure TScrPaintForm.CoolBar2MouseMove(Sender: TObject;
+  Shift: TShiftState; X, Y: Integer);
+  Var
+  Msg: TMessage; // Dummy message for later on.
+begin
+  OnEnterMenuLoop(Msg);
 end;
 
 end.

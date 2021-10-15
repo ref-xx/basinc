@@ -73,7 +73,7 @@ Var
 
 implementation
 
-Uses FastCore, ROMUtils, Filing, Utility, LogWind;
+Uses FastCore, ROMUtils, Filing, Utility, LogWind, notes;
 
 Function GetCRC32FromString(Str: String): String;
 Var
@@ -126,7 +126,7 @@ Procedure DecodeBAS;
 Var
   TempValue: Extended;
   AutoLine: Word;
-  InString, Done: Boolean;
+  NotesPresent, InString, Done: Boolean;
   LinePos, CurPos, LineNum, Idx, Idx2, NumElements: Integer;
   TempStr, CurBASICLine, VarSpace, CurLine, VarString: String;
 Label
@@ -139,7 +139,8 @@ Begin
   // It supports all of zmakebas's escape codes and labeling systems.
 
   Log('Loading BAS file - '+Filename);
-
+  NotesWindow.Memo1.Lines.Clear;  //rather punch in the face type entry by arda
+  
   CheckCRC;
 
   BASLineReadNum := 0;
@@ -415,6 +416,18 @@ Begin
                  CurBASICLine := '';
 
               End;
+           End Else Begin
+              // Special Memo added by Arda
+              If Lowercase(Copy(CurLine, 1, 5)) = '#note' Then Begin
+                    LinePos := 5;
+                    TempStr := '';
+                    // Grab the memo now.
+
+                    NotesWindow.Memo1.Lines.Add(Copy(CurLine,16,Length(CurLine)-16));
+                    NotesPresent:=True;
+
+              End;
+
            End;
         End;
      End;
@@ -435,6 +448,8 @@ Begin
   PutWord(@FileHeader[$B], Word(Length(FileBody)));
 
   Log('Loading BAS file - Success');
+
+  if Opt_ShowNotes and NotesPresent Then ShowWindow(NotesWindow, False);
 
 End;
 
@@ -1515,7 +1530,7 @@ End;
 Procedure SaveBAS(SaveEdit, DoSave: Boolean);
 Var
   TempByte: Byte;
-  LinePos: Integer;
+  LinePos, TempInt: Integer;
   TempValue: Extended;
   TempDWord, SaveDWord: DWord;
   Done, FirstLine, InString: Boolean;
@@ -1531,9 +1546,8 @@ Begin
   FileBody := '';
   CurAddress := GetWord(@Memory[PROG]);
 
-  // If we need to save the edit line, then do so now.
-  // This precludes the AutoStart.
-
+   // If we need to save the edit line, then do so now.
+   // This precludes the AutoStart.
 
   If SaveEdit Then Begin
 
@@ -1547,6 +1561,14 @@ Begin
      If AutoStart < $8000 Then
         FileBody := 'Auto '+IntToStr(AutoStart)+#13#10;
 
+  End;
+
+  // If there is something written in notes window, dump them now.
+  // added by arda >1.75
+  If length(NotesWindow.Memo1.Text)>0 Then Begin
+     for TempInt:=0 to NotesWindow.Memo1.Lines.Count-1 Do Begin
+        FileBody := FileBody + '#Note 00000000 '+ NotesWindow.Memo1.Lines[TempInt] + #13#10;
+     End;
   End;
 
   // Now grab the VARS
@@ -1769,9 +1791,13 @@ Begin
 
      FileBody := FileBody + BASICStr + #13#10;
 
+
+
   End;
 
   Until CurAddress >= GetWord(@Memory[VARS]);
+
+
 
   If DoSave Then Begin
 

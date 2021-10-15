@@ -221,6 +221,11 @@ type
     CodeControlIcons1: TMenuItem;
     Timer3: TTimer;
     LabelDebug: TLabel;
+    ProjectNotes1: TMenuItem;
+    AddNote1: TMenuItem;
+    N20: TMenuItem;
+    N21: TMenuItem;
+    N22: TMenuItem;
 
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
     procedure IdleProc             (Sender: TObject; var Done: Boolean);
@@ -469,7 +474,7 @@ Uses FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
      BreakpointProperties, WatchProps, MessageBox, MemBlockAdd, ColoursWind, UDGOptions,
      PrinterOutput, Printing, Profiling, ProfilingForm, ProgInfo, CPUDisplay, AsmEditor,
      BlockProps, AsmForm, GrabParms, GridSetup, BinaryGrab, PaintBox, Binaries,
-  MemManager, UlaColours; // basinet
+     MemManager, UlaColours, basinet, notes; // basinet
 
 Procedure ControlEmulation(Start: Boolean);
 Begin
@@ -604,7 +609,9 @@ End;
 
 procedure TBASinOutput.FormShow(Sender: TObject);
 begin
-   DumpDoneQuit:=false;
+
+  DumpDoneQuit:=false;
+
 
   NeedDisplayUpdate := True;
   InitWorkerThread;
@@ -687,7 +694,7 @@ begin
   Application.CreateForm(TMemManagerForm, MemManagerForm);
   Application.CreateForm(TConsoleOutForm, ConsoleOutForm);
   Application.CreateForm(TUlaColoursWindow, UlaColoursWindow);
-  //Application.CreateForm(TBasinetWindow, BasinetWindow);
+  Application.CreateForm(TBasinetWindow, BasinetWindow);
   //DebugLog('Create Windows - AnimPreviewWindow');
   Application.CreateForm(TAnimPreviewWindow, AnimPreviewWindow);
 
@@ -741,6 +748,7 @@ begin
 
      SetLanguage(Opt_Language);  //arda
 
+     NotesWindow.Memo1.Lines.Clear;
      //end arda
 
      ShowWindows;
@@ -826,7 +834,7 @@ end;
 procedure TBASinOutput.MenuItemClick(Sender: TObject);
 Var
   Token: Byte;
-   Idx: Integer;
+  Idx: Integer;
   TempKey: Word;
   Expr: TExpression;
   HelpKeyword, LastText, TempStr, BASIC: String;
@@ -834,6 +842,7 @@ Var
   NewLines: TStringlist;
   FStream: TFilestream;
   Parameters: String;
+  lpos: integer; //arda's temp integer
 begin
   If (opt_GraphicsMethod = gmAltGr) and Not (Sender Is TSpeedButton) Then Begin
      // A quirk of Delphi (or maybe Windows) is that if you press Alt-Gr and
@@ -871,7 +880,9 @@ begin
            If CheckForSave Then Begin
               If Not Registers.EmuRunning Then ControlEmulation(True);
               SaveEmulationState(UndoState);
+              NotesWindow.Memo1.Lines.Clear; //arda. I can't remember if this is ok here.
                //FASTMode := True; //arda
+
               Reset;
 
            End;
@@ -1365,6 +1376,22 @@ begin
         Begin // Edit Variable
            VariablesWindow.Button1Click(nil);
         End;
+     112:
+        Begin // Add note
+        //NotesWindow.Memo1.Text:= NotesWindow.Memo1.Text + '/r/n' +Token1.Caption;
+          lpos:=Pos(IntToStr(CursLineNum) + ':' + IntToStr(CursStatementNum) +' ' + stringreplace(Token1.Caption,'&','',[rfReplaceAll, rfIgnoreCase]), NotesWindow.Memo1.Text);
+          if (lpos > 0) Then Begin
+                NotesWindow.Memo1.SelStart:= lpos-1;
+                NotesWindow.Memo1.SelLength := length(IntToStr(CursLineNum) + ':' + IntToStr(CursStatementNum) +' ' + stringreplace(Token1.Caption,'&','',[rfReplaceAll, rfIgnoreCase]));
+
+          End Else Begin
+                NotesWindow.Memo1.Lines.Add(IntToStr(CursLineNum) + ':' + IntToStr(CursStatementNum) +' ' + stringreplace(Token1.Caption,'&','',[rfReplaceAll, rfIgnoreCase])+ ' ');
+                NotesWindow.Memo1.SelStart:= Length(NotesWindow.Memo1.Text)-2;
+                NotesWindow.Memo1.SelLength:=0;
+                End;
+
+          ShowWindow(NotesWindow, False);
+        End;
      79:
         Begin // Find Line
            If FindLine1.Caption = '&Find Line' Then
@@ -1450,7 +1477,7 @@ begin
 
      109:
         Begin // BasCloud
-           //ShowWindow(BasinetWindow, False)
+           ShowWindow(BasinetWindow, False)
 
         End;
 
@@ -1461,6 +1488,13 @@ begin
 
         End;
 
+     111:
+        Begin // My Memos - Project Notes
+          ShowWindow(NotesWindow, False);
+
+        End;
+
+        //112 add note
      119:
         Begin //Export Tap
         TapeWindow.ExportTape;
@@ -2159,6 +2193,8 @@ Procedure TBASinOutput.SetCaption;
 Begin
   Caption := ReleaseName;
   Application.Title := CurProjectName + ' - BasinC';
+
+
 End;
 
 procedure TBASinOutput.Token1DrawItem(Sender: TObject; ACanvas: TCanvas; ARect: TRect; Selected: Boolean);
@@ -2684,8 +2720,8 @@ Begin
                  End;
 
               if Opt_Indenting Then Begin
-                 //this is a new line, so we can reset our indenting
-                 if (Copy(WordStack, Length(WordStack), 1)='I') Then
+                 //this is a new line!
+                 if (Copy(WordStack, Length(WordStack), 1)='I') Then     //if last keyword was "IF" then get back
                  Begin
                      Wordstack:= Copy(WordStack, 1, Length(WordStack)-1);
                      Dec(ViewX, ((Opt_Indentsize*8)*Opt_FontScale)); //flist
@@ -4800,6 +4836,7 @@ Begin
      // And if we errored, bail out setting CodeError so we get the red cursor.
 
      If Not Result Then Begin
+
         CodeError := True;
         While (CursLineStart > 1) And Not (BASICMem[CursLineStart] = #13) Do Dec(CursLineStart);
         While BASICMem[CursLineStart] = #13 Do Inc(CursLineStart);
@@ -6428,6 +6465,8 @@ begin
      Token1.Caption := AsciiKeywords[Idx];
      Token1.ImageIndex := Idx;
      Help2.Visible := True;
+     AddNote1.Caption := 'Add Note to Line ' + IntToStr(CursLineNum) + ':' + IntToStr(CursStatementNum);
+
      If IsToken Then Begin
         Tokenise1.Caption := 'Detokenise';
         Tokenise1.Tag := -Idx;
@@ -6589,8 +6628,20 @@ begin
      FindLine1.Visible := False;
      WatchVariable1.Visible := False;
 
+
+
   End;
 
+  if Not Token1.Visible Then Begin
+        //There is nothing there, so show selection
+        if (EditorSelEnd - EditorSelStart)<>0 Then Begin
+        TempStr := InsertEscapes(Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart)));
+        End Else
+        TempStr := InsertEscapes(Copy(BASICMem, EditorSelStart, 1));
+
+        if Length(TempStr)>15 Then Token1.Caption:= 'Selection: '+Copy(TempStr, 1, 14)+'...'  Else Token1.Caption:= 'Selection: '+TempStr;
+        Token1.Visible:=True;
+  End;
   Exit_Proc:
 
   Paste2.Enabled := ClipBoard.AsText <> '';
@@ -6921,11 +6972,34 @@ end.
 
 // history & todo:
 
+// 1.77 (14.10.2021)
+// Added - UDG editor character setup option
+// Added - UDG editor keyboard shortcuts
+// Added - Add/Edit a note to Notes Window by right clicking on a statement in listing
+//         This is a step to overlay comments over program listing in a future release
+// Added - Auto Show Note option in BasinC Options window. Disabling this will prevent project window to popup, even if a BAS file does contain notes.
+// Fixed - save as.. Does not modify project name. (A workaround rather than a fix. Needs a bit more time)
+// Fixed - Undo/redo buttonts on Image Editor (former Screen Paintbox) wouldn't work at start.
+// Changed-Some Ctrl+Alt+ keyboard shortcuts was clashing with AltGR+A..U graphics mode shortcut. So all of them changed. Sorry.
+// Added - Hotkey Toggle Tools. You may open *and* close following tools with single keycombo:
+//         Crtl-T Tokens, Ctrl+Alt+Z Notes, Ctrl+Alt+X Tapes, Ctrl+I Image Editor, Ctrl+U Udg Editor
+// Changed-English tool names Graphics/Sprite Editor become UDG Editor, and Screen Paintbox become Image Editor for simplicity.
+
+
+// 1.76 (11.10.2020)
+// Added - Project Notes Window
+// Fixed - tooltip variables not showing correctly (hopefully fixed)
+
+//1.75 (22.05.2019)
+// Fixed - Parser fix (reported by: James Davis)
+
 //1.74
-// Added: Save Display Window as BMP 
+// Added - Save Display Window as BMP
+// Added - basin now is on github! https://github.com/ref-xx/basinc
+
 
 //1.73
-// Undocumented fixes
+// Fixed - Undocumented fixes
 
 // 1.72
 // Added: -dumptxt commandline parameter. Extracts and saves BASIC portion of a basinc compatible program (eg. BAS/SNA/TAP).
@@ -6986,12 +7060,11 @@ end.
 
   // pd- The printing process happened to be such a high consuming task that It almost froze my whole system for several minutes...
   // a- top toolbar "bytes free/address" display corrupts when resizing horizontally
-  // a- tooltip variables not showing correctly (couldn't replicate the bug)
-  // a- tracing in double size wont follow cursor
+  // a- tracing in double size will not follow cursor
   // a- undo still causes corruptions
-  // a- save as.. Does not modify project name. it remains "untitled"
-  
-  
+
+
+
 
 // FEATURES to add (in order of priority)
 
@@ -7023,6 +7096,7 @@ end.
   // Languages
   // Kempston Mouse Support
   // Allow instances
+  // Project Notes Editor
 
 
 
