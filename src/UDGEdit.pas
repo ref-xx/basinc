@@ -105,6 +105,8 @@ type
     FastIMG6: TFastIMG;
     N7: TMenuItem;
     ExportCharacter1: TMenuItem;
+    SetupCount1: TMenuItem;
+    N9: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -164,6 +166,7 @@ type
     procedure FastIMG6MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FastIMG6MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure ExportCharacter1Click(Sender: TObject);
+    procedure SetupCount1Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -171,7 +174,7 @@ type
     PaletteLineWidth: Integer;
     Address:  Word;
     CurChar:  DWord;         // CurChar is the current character being edited
-    NumChars: Integer;
+    NumChars: Integer;        // Number of characters to be edited
     CurChars: AnsiString;        // Curchars holds the current chunk of memory being edited.
     AssignedChars: AnsiString;   // Assigned characters - which UDG is assigned to which section of the editing grid
     OnionChars: AnsiString;      // As for AssignedChars, but for the onion-skin display
@@ -255,7 +258,7 @@ Var
 begin
   StoreUndo;
   While (Address -1 + (NumChars * DataWidth * DataHeight) > 65535) or (NumChars > 255) Do Dec(NumChars);
-  // Now Grab to the CurChars AnsiString.
+  // Now Grab to the CurChars String.
   CurChars := '';
   For F := 0 To (NumChars * DataWidth * DataHeight) -1 Do
      CurChars := CurChars + AnsiChar(Memory[F+Address]);
@@ -2512,10 +2515,13 @@ procedure TUDGWindow.Setup1Click(Sender: TObject);
 begin
 
   GridSetUpWindow.EditType := 0;
+  GridSetUpWindow.NumChars := NumChars;
   CentreFormOnForm(GridSetupWindow, Self);
   ShowWindow(GridSetupWindow, True);
   If Not GridSetUpWindow.Cancelled Then Begin
+
      SetUpGrid(GridSetUpWindow.EditWidth, GridSetUpWindow.EditHeight, DataWidth, DataHeight);
+
      FormResize(nil);
      RepaintChars;
   End;
@@ -2957,6 +2963,27 @@ begin
   Inc(CurObj);
   MouseDown := False;
 
+end;
+
+procedure TUDGWindow.SetupCount1Click(Sender: TObject);
+begin
+GridSetUpWindow.EditType := 3;
+  GridSetUpWindow.NumChars := NumChars;
+  GridSetUpWindow.Address := Address;
+
+  CentreFormOnForm(GridSetupWindow, Self);
+  ShowWindow(GridSetupWindow, True);
+  If Not GridSetUpWindow.Cancelled Then Begin
+
+        Address := GridSetUpWindow.Address;
+        NumChars := GridSetUpWindow.NumChars;
+        While (Address -1 + (NumChars*8) > 65535) or (NumChars > 96) Do Dec(NumChars);
+        GrabFromMemory;
+
+     FormResize(nil);
+     RepaintChars;
+  End;
+  MouseDown := False;
 end;
 
 End.
