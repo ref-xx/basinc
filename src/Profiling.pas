@@ -73,7 +73,7 @@ implementation
                           Str[Idx2] := Chr(Ord(Str[Idx2])-79)
                        Else
                           If Str[Idx2] in [#165..#255] Then
-                             Str := Copy(Str, 1, Idx2 -1)+ AsciiKeywords[Ord(Str[Idx2])-164] + Copy(Str, Idx2+1, 999999);
+                             Str := Copy(Str, 1, Idx2 -1)+ AsciiKeywords[Ord(Str[Idx2])-163] + Copy(Str, Idx2+1, 999999);
                  Inc(Idx2);
               End;
 
