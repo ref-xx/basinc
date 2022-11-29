@@ -53,7 +53,7 @@ end;
 
 procedure TAboutBox.FormShow(Sender: TObject);
 begin
-  Label1.Caption := ReleaseName;
+  Label1.Caption := ReleaseBuild;
   Label6.Caption := 'BasinC is distributed as Freeware. ' + ReleaseDate;
 
 end;
