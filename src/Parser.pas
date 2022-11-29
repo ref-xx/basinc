@@ -221,9 +221,15 @@ Begin
               End;
            End;
         End;
-     2: Result := ParseCodeLine(Line, False);
-     3: Result := ParseCodeLine(Line, True);
-     4: Result.Syntax := 'LineNumber ['+AnsiChar(16)+AnsiChar(1)+'Statement'+AnsiChar(16)+AnsiChar(1)+']';
+     2: Begin
+        Result := ParseCodeLine(Line, False);
+        End;
+     3: Begin
+        Result := ParseCodeLine(Line, True);
+        End;
+     4: Begin
+        Result.Syntax := 'LineNumber ['+AnsiChar(16)+AnsiChar(1)+'Statement'+AnsiChar(16)+AnsiChar(1)+']';
+        End;
   End;
   If Temptype <> 3 Then Result.LineNum := 0;
   If Result.ErrorCode < 0 Then Begin
@@ -748,7 +754,7 @@ End;
 
 // ************************ Build Parse Stack *****************************
 // * The real meat of the pre-parsing process - this tokenises everything *
-// * in the AnsiString out to a stack of tokens. See the comments for the     *
+// * in the String out to a stack of tokens. See the comments for the     *
 // * types. Handle floats, Sci-Notation and quote-in-quote systems itself *
 // ************************************************************************
 
@@ -762,15 +768,20 @@ Var
 Begin
   NegSI.ItemType := -1; NegSI.Position := -1;
   Result := TParseStack.Create;
-  WordType := SIUnknown; Word := ''; F := 0;
+  WordType := SIUnknown;
+  Word := '';
+  F := 0;
   Line := Line + ' ';
   Result.Push(0, 0);
   While F < Length(Line) Do Begin
-     Inc(F); S := Uppercase(Line[F]); S2 := Line[F];
+     Inc(F);
+     S := Uppercase(Line[F]);
+     S2 := Line[F];
      Case WordType Of
         SIComment:   Begin
                           Result.Push(SIComment, F);
                           F := Length(Line);
+
                      End;
         SIUnknown:   Begin
                           If S <> ' ' Then Begin
@@ -896,7 +907,7 @@ Begin
                        End;
      End;
   End;
-  If Word <> '' Then
+  If (Word <> '') and (Word <> 'REM') Then
      If WordType in [SINumliteral, SITextItem, SINumLiteral, SIComment] Then
         Result.Push(WordType, StartPos);
   If WordType = SIStrLiteral Then Result.Push(SIUnterminated, StartPos);
@@ -904,7 +915,7 @@ Begin
 End;
 
 // **************************** Is Reserved *******************************
-// * Checks a AnsiString against the internal database of keywords, and   *
+// * Checks a String against the internal database of keywords, and   *
 // * returns -1 if not a keyword, or the index of that keyword.           *
 // ************************************************************************
 
@@ -1035,11 +1046,13 @@ Begin
               If NextType in [SIStrVar, SiStrLiteral] Then
                  CurItem := ParseStrSubs(Start, PS, NextType)
               Else Begin
+                  //ardafix: Print a$(1)(3 to 5) will generate an error
                  ErrorMsg := 'Only single letter variables can be dimensioned.';
                  Result := -1;
                  If GlobalPos = 0 Then GlobalPos := Start;
                  Start := TempStart;
                  Exit;
+                 //endardafix
               End;
            If CurItem <= 0 Then Begin
               Result := CurItem;
@@ -1622,7 +1635,7 @@ Begin
   If (GlobalReturn = SIColourItem) and Statement and (ReturnBak <> 0) Then GlobalReturn := SIStatement;
   If Statement and (Result = SIColourItem) Then Result := SIStatement;
   If ((Result = SIStatement) or (Statement and (Result = SIColourItem))) and (PS.GetItemType(Start) <> SIEol) Then Begin
-     Result := -1;
+     if ((start>3) and (not (PS.GetItemType(Start-1)=1039))) Then Result := -1;    //ardafix: Dirty patch. "if then rem error" workaround --I don't have time to find the real cause, good luck :D
   End;
   If result > 0 Then Begin
      For F := 1 to Length(SyntaxTemplate) Do Begin

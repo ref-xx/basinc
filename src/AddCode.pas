@@ -7,7 +7,7 @@ uses
   StdCtrls;
 
 type
-  TAddCodeWindow = class(TForm)
+    TAddCodeWindow = class(TForm)
     Memo1: TMemo;
     Button1: TButton;
     Button2: TButton;

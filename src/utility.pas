@@ -3,7 +3,7 @@ unit Utility;
 interface
 
 Uses StdCtrls, ExtCtrls, Dialogs, Graphics, Windows, Classes, SysUtils,
-     Messages, Parser, Forms, Controls, FastDIB, FastCore;
+     Messages, Parser, Forms, Controls, FastDIB, FastCore, Basinet;
 
 Type
 
@@ -106,6 +106,9 @@ Type
 
   Procedure SizeForm(Form: TForm; X, Y, W, H: Integer);
 
+  function GetBuildInfoAsString(BuildIncluded: Boolean): string;
+  procedure GetBuildInfo(var V1, V2, V3, V4: word);
+
   Procedure Register;
 
 Var
@@ -117,14 +120,16 @@ Var
   INI:                    TStringList;
   DisplayScale:           Integer;
 
-  ReleaseName:            String = 'BasinC v1.77';
-  ReleaseDate:            String = 'Oct,14 2021';
-  DefaultProjectName:     String = 'Untitled';
-  CurProjectName:         String = 'Untitled';
-  CurProjectFilename:     String = 'Untitled';
+  ReleaseName:            String = 'BasinC'; //is now set from the Project Options > Version Info.
+  ReleaseBuild:           String = 'Private Build';
+  ReleaseDate:            String = 'May,19 2022';
+  DefaultProjectName:     String = 'My Basic';
+  CurProjectName:         String = 'My Basic';
+  CurProjectFilename:     String = 'My Basic';
   CurProjectFullPathFile: String = '';
   SessionProjectName:     String;
   SessionProjectFilename: String;
+  SessionID:              String = '';
 
 
 
@@ -141,12 +146,13 @@ Var
   Opt_Language:           String='English';             // interface language
 
   Opt_ConsoleAddon:       Boolean = True;               // Console Output Window  arda
+  Opt_CheckUpdates:       Boolean = False;               // Alert when update available
 
   Opt_Indenting:          Boolean = False;              // Text indenting of special loop keywords: FOR..NEXT & IF  arda
   Opt_IndentSize:         Integer = 4;                  // Indent size
   Opt_ShowNotes:          Boolean = True;
 
-  SpeedBackup:            Integer = 69888;              //to store original speed of emulation temporarily
+  SpeedBackup:            Integer = 69888;              // to store original speed of emulation temporarily
   Opt_CPUSpeed:           Integer = 69888;              // The speed (in TStates) of the CPU - Ts/Frame
   Opt_64Colours:          Boolean = True;               // Use the new 64 colour ULA?
   Opt_AllowMultipleInstances: Boolean = True;           // Allow running multiple instances of basin
@@ -794,6 +800,7 @@ Begin
   BASICCheckSum :=           INIRead('LastSession', 'Checksum', Integer(0));
   SessionProjectName :=      INIRead('LastSession', 'SessionProjectName', SessionProjectName);
   SessionProjectFilename :=  INIRead('LastSession', 'SessionProjectFileName', SessionProjectFileName);
+  SessionID :=               INIRead('LastSession', 'SessionID', SessionID);
 
   If Opt_AutoLoadSession Then
      If Value <> '' Then
@@ -906,6 +913,9 @@ Begin
   Opt_KMouse :=              INIRead('EnhancedHardware', 'Opt_KMouse', Opt_KMouse);
   Opt_AllowMultipleInstances := INIRead('Programming', 'Opt_AllowMultipleInstances', Opt_AllowMultipleInstances);
 
+   // Basinet
+  Opt_CheckUpdates:=         INIRead('Basinet', 'Opt_CheckUpdates', Opt_CheckUpdates);
+
   // Scaling Options
 
   Opt_FontScale :=           INIRead('Scaling', 'Opt_FontScale', Opt_FontScale);
@@ -1007,7 +1017,9 @@ Begin
   LoadEditorFont(BASinOutput.Handle, Opt_EditorFontFilename, Opt_EditorCustomFont);
 
   INI.Free;
-
+  ReleaseName := 'BasinC v'+ GetBuildInfoAsString(False);
+  ReleaseBuild:= 'BasinC v'+ GetBuildInfoAsString(True);
+  BasinetWindow.AnnounceSnippet;
 End;
 
 Procedure SaveOptions;
@@ -1029,6 +1041,14 @@ Begin
   INIWrite('LastSession', 'SessionProjectName', CurProjectName);
   INIWrite('LastSession', 'SessionProjectFileName', CurProjectFileName);
   INIWrite('LastSession', 'LastFileOpened', CurProjectFullPathFile);
+  If (Length(SessionID)<7) Then Begin
+        SessionID := inttostr(Round((Now() - 25569.0 ) * 86400));
+        SessionID := inttostr(100 + Random(899)) + SessionID;
+        INIWrite('LastSession', 'SessionID', SessionID);
+  End Else Begin
+        INIWrite('LastSession', 'SessionID', SessionID);
+  End;
+
   // Programming Aids
 
   INIWrite('Programming', 'Opt_ShowingSyntax', Opt_ShowingSyntax);
@@ -1132,6 +1152,11 @@ Begin
   INIWrite('EnhancedHardware', 'Opt_64Colours', Opt_64Colours);
   INIWrite('EnhancedHardware', 'Opt_ConsoleAddon', Opt_ConsoleAddon);
   INIWrite('EnhancedHardware', 'Opt_KMouse', Opt_KMouse);
+
+    //Basinet
+   INIWrite('Basinet', 'Opt_CheckUpdates', Opt_CheckUpdates);
+
+
 
   // Scaling Options
 
@@ -2023,6 +2048,54 @@ End;
 
 
 
+procedure GetBuildInfo(var V1, V2, V3, V4: word);
+var
+  VerInfoSize, VerValueSize, Dummy: DWORD;
+  VerInfo: Pointer;
+  VerValue: PVSFixedFileInfo;
+begin
+  VerInfoSize := GetFileVersionInfoSize(PChar(ParamStr(0)), Dummy);
+  if VerInfoSize > 0 then
+  begin
+      GetMem(VerInfo, VerInfoSize);
+      try
+        if GetFileVersionInfo(PChar(ParamStr(0)), 0, VerInfoSize, VerInfo) then
+        begin
+          VerQueryValue(VerInfo, '\', Pointer(VerValue), VerValueSize);
+          with VerValue^ do
+          begin
+            V1 := dwFileVersionMS shr 16;
+            V2 := dwFileVersionMS and $FFFF;
+            V3 := dwFileVersionLS shr 16;
+            V4 := dwFileVersionLS and $FFFF;
+          end;
+        end;
+      finally
+        FreeMem(VerInfo, VerInfoSize);
+      end;
+  end;
+end;
+
+function GetBuildInfoAsString(BuildIncluded: Boolean): string;
+var
+  V1, V2, V3, V4: word;
+begin
+  GetBuildInfo(V1, V2, V3, V4);
+  If (BuildIncluded) Then Begin
+    If (V3>0) Then Begin
+        Result := IntToStr(V1) + '.' + IntToStr(V2) + ' Iteration ' +IntToStr(V3) + ' Build ' + IntToStr(V4);
+    End Else Begin
+        Result := IntToStr(V1) + '.' + IntToStr(V2) + ' Build' + IntToStr(V4);
+    End;
+  End Else Begin
+    If (V3>0) Then Begin
+        Result := IntToStr(V1) + '.' + IntToStr(V2) + IntToStr(V3) ;
+    End Else Begin
+        Result := IntToStr(V1) + '.' + IntToStr(V2) ;
+    End;
+  End;
+
+end;
 
 Procedure GetBASinDIR;
 Begin

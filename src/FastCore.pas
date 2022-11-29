@@ -15818,10 +15818,12 @@ Begin
         Goto SetFlags;
      End;
 
-     If (Port and 4) = 0 Then Begin // ZX Printer
-        If opt_ConsoleAddon then begin
-          if Port=1515 then begin
-            Result:=ConsoleAddon[ConsoleAddon[0]+1];
+     If (Port and 4) = 0 Then Begin
+        If opt_ConsoleAddon then begin    // SimpleCon Interface Read
+          if Port=1515 then begin         // Reading from console!
+            Result:=ConsoleAddon[ConsoleAddon[0]];   //read byte
+            ConsoleAddon[0]:=ConsoleAddon[0]+1;       //increase index
+            if ConsoleAddon[0]>255 then ConsoleAddon[0]:=1;  //only 255 slots!
             goto SetFlags;
           End;
         End;
@@ -15930,16 +15932,17 @@ Begin
 
   If Port and 4 = 0 Then Begin
      If Opt_ConsoleAddon Then Begin
-         // SimpleCon Console Addon is handled here
+         // SimpleCon Console V2 Addon is handled here
          // user sets the index of console text.
-         // if 04EB(1259) value is 255 it's regarded as linefeed.
+         // if 04EB(1259) value is 0 it's regarded as linefeed.
          // values of 0..254 can be set without changing other parts of text
          // port 05EB(1515) sets the text and increases the index value of port 1259
          // see example in examples folder
          If Port = $04EB then begin
-             ConsoleAddon[0]:=value;
+             ConsoleAddon[0]:=value; //set the index variable
 
-             if (value=255) then begin
+             if (value=0) then begin
+                ConsoleAddon[0]:=1; //reset index to beginning of the buffer
                 if(ConsoleOutForm.CheckBox1.Checked) then begin
                  ConsoleOutForm.memo1.Lines.add (Trim(ConsoleOutForm.Edit1.Text));
                 end else begin
@@ -15950,14 +15953,19 @@ Begin
          end;
 
          If (Port = $05EB) then begin
-             if (ConsoleAddon[0]<>255) then begin
-                ConsoleAddon[0]:=ConsoleAddon[0]+1;
-                ConsoleAddon[ConsoleAddon[0]]:=value;
+             if (ConsoleAddon[0]<>0) then begin    //if index is not in linefeed mode
+
+                ConsoleAddon[ConsoleAddon[0]]:=value;//set the value at #index
+                ConsoleAddon[0]:=ConsoleAddon[0]+1;  //Increase index
+                if ConsoleAddon[0]>255 then ConsoleAddon[0]:=1;  //max. 255 slots
+                //Now update console output line
                 ConsText:='';
                 For x:=1 to 255 Do Begin
                   ConsText:=ConsText + Chr(ConsoleAddon[x]);
                 end;
                 ConsoleOutForm.Edit1.Text:=ConsText;
+
+                //Force popup console window
                 ShowWindow(ConsoleOutForm,False);
               End;
          End;

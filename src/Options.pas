@@ -156,6 +156,20 @@ type
     Label45: TLabel;
     CheckBox32: TCheckBox;
     CheckBox33: TCheckBox;
+    TabSheet8: TTabSheet;
+    Label46: TLabel;
+    ThemeBevel6: TThemeBevel;
+    Edit3: TEdit;
+    CheckBox35: TCheckBox;
+    Label47: TLabel;
+    ThemeBevel7: TThemeBevel;
+    Label48: TLabel;
+    Button6: TButton;
+    Label49: TLabel;
+    Label50: TLabel;
+    Edit4: TEdit;
+    Edit5: TEdit;
+    CheckBox34: TCheckBox;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -168,7 +182,7 @@ type
     procedure TrackBar2Change(Sender: TObject);
     procedure TrackBar3Change(Sender: TObject);
     procedure CheckBox16Click(Sender: TObject);
-    procedure Button6Click(Sender: TObject);
+    procedure BtnFontSelectClick(Sender: TObject);
     Procedure GatherFonts;
     Function  FileLook(Filespec: string; Node: TTreeNode): boolean;
     Procedure RenderFontPreview;
@@ -187,6 +201,7 @@ type
     procedure ButtonResetClick(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure SpeedButton2Click(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
   private
     { Private declarations }
     ComboBoxL: TListLessComboBox;
@@ -262,6 +277,7 @@ begin
   CheckBox28.Checked  := Opt_KMouse;
   CheckBox29.Checked  := Opt_ConsoleAddon;
   CheckBox31.Checked  := Opt_AllowMultipleInstances;
+  CheckBox35.Checked  := Opt_CheckUpdates;
 
   If Not Opt_OverwriteProtect Then
      ComboBox9.ItemIndex := 0
@@ -451,7 +467,7 @@ begin
     Opt_FastResets := CheckBox25.Checked; //arda
     Opt_KMouse := CheckBox28.Checked;     //arda
     Opt_ShowNotes := CheckBox33.Checked; //arda
-
+    Opt_CheckUpdates := CheckBox35.Checked;   //arda
   // CPU Speed options
 
   Opt_CPUSpeed := TrackBar4.Position;
@@ -652,7 +668,7 @@ begin
   ComboBox8.Enabled := CheckBox16.Checked;
 end;
 
-procedure TOptionsWindow.Button6Click(Sender: TObject);
+procedure TOptionsWindow.BtnFontSelectClick(Sender: TObject);
 begin
 
   FolderBrowser1.Title := 'Browse for Fonts folder';
@@ -954,6 +970,12 @@ begin
      If Filename = '' Then
         Exit;
      Edit2.Text := Filename;
+end;
+
+procedure TOptionsWindow.Button6Click(Sender: TObject);
+begin
+Edit3.Text:='Optional Url';
+
 end;
 
 Initialization
