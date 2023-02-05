@@ -634,10 +634,12 @@ Function FindDEFFN(Line: String): Integer;
 Var
   Found: Boolean;
 Begin
+  // TO-DO: This needs a complete rewrite.
   Result := 0;
   Found := False;
+
   If Length(Line) >= 1 Then Begin
-     Result := 1; //r16 fix by arda //Result := 5; R15 fix by dunny
+     Result := 1; //R16 fix by Arda --original value was 5. But it misses the def fn if line number is shorter than 4 digits. fix (result=1) causes false detection of def fn caused by number 206 in line number bytes.
      While Not Found and (Result < Length(Line)) Do Begin
         If Line[Result] = #$CE Then Found := True;
         Inc(Result);

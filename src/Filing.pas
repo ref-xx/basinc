@@ -6,7 +6,7 @@ Uses Windows, Classes, SysUtils, CommDlg, Dialogs, Controls, FastFiles;
 
 Type
 
-  TBASICFileTypes   = (FTSession, FTBas, FTSnap, FTBsc, FTBsd, FTScr, FTTape, FTBmp, FTGif, FTPng, FTJPeg, FTLoadPics, FTSavePics, FTBin,
+  TBASICFileTypes   = (FTSession, FTBas, FTSnap, FTBsc, FTCh8, FTBsd, FTScr, FTTape, FTBmp, FTGif, FTPng, FTJPeg, FTLoadPics, FTSavePics, FTBin,
                        FTSpecCHR, FTExec, FTAssembly, FTSelection, FTTap, FTTZX, FTSna, FTZ80, FTAll);
   TBASICFiles       = Set Of TBASICFileTypes;
 
@@ -322,6 +322,11 @@ Begin
   If FTBsc  in Types Then Begin
      TempFilter := TempFilter + 'Basinc CODE Files (*.bsc)'#0'*.bsc'#0;
      AddFilter(AllFilter, ExpFilters, '*.bsc');
+     Inc(Numfilters);
+  End;
+  If FTCh8  in Types Then Begin
+     TempFilter := TempFilter + 'Spectrum Font Files (*.ch8)'#0'*.ch8'#0;
+     AddFilter(AllFilter, ExpFilters, '*.ch8');
      Inc(Numfilters);
   End;
   If FTBsd  in Types Then Begin

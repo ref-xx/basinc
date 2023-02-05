@@ -226,6 +226,7 @@ type
     N20: TMenuItem;
     N21: TMenuItem;
     N22: TMenuItem;
+    AddSnippet1: TMenuItem;
 
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
     procedure IdleProc             (Sender: TObject; var Done: Boolean);
@@ -1392,6 +1393,36 @@ begin
 
           ShowWindow(NotesWindow, False);
         End;
+     113:
+        Begin  // Add Snippet
+
+          BasinetWindow.ClearSnippet;
+
+          TempStr := InsertEscapes(Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart)));
+          BasinetWindow.Memo_RawCode.Lines.Clear;
+          BasinetWindow.Memo_RawCode.Lines.Add(TempStr);
+
+          TempStr :=  Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart));
+
+
+         NewLines := TStringlist.Create;
+	 Repeat
+		BASIC := Copy(TempStr, 1, Pos(#13, TempStr)-1);
+		TempStr :=  Copy(TempStr, Pos(#13, TempStr)+1, 999999);
+		If BASIC <> '' Then
+		   NewLines.Add(InsertEscapes(BASIC));
+	 Until Pos(#13, TempStr) = 0;
+
+	 If TempStr <> '' Then
+		NewLines.Add(TempStr);
+                
+	 BasinetWindow.AddSnippet(NewLines);
+         BasinetWindow.AddingSnippet;
+	 NewLines.Free;
+
+	 ShowWindow(BasinetWindow, False);
+
+        End;
      79:
         Begin // Find Line
            If FindLine1.Caption = '&Find Line' Then
@@ -1477,6 +1508,7 @@ begin
 
      109:
         Begin // BasCloud
+           BasinetWindow.ClearSnippet;
            ShowWindow(BasinetWindow, False)
 
         End;
@@ -1495,6 +1527,7 @@ begin
         End;
 
         //112 add note
+        //113 add snipped --added upper part of the list due to priority
      119:
         Begin //Export Tap
         TapeWindow.ExportTape;
@@ -1846,11 +1879,24 @@ begin
    //MainMenu1.OwnerDraw:=True;
    //Screen.MenuFont.Size:=12;
 
+
+   //init SimpleCON register so it can be displayed at editbox
+
+   if ConsoleAddon[255]= 0 Then Begin
+        for Idx:=1 to 255 do begin
+            ConsoleAddon[Idx]:=ord(' ');
+        end;
+   End;
+
+   ConsoleAddon[0]:=1; //set simpleCon index to 1, so it's ready.
+
+
  //arda  end
 
   Abort := False;
 
   GetOSVersion;
+
 
   RunningAck := Not Running;
   RunLine := 65536;
@@ -2567,6 +2613,7 @@ Begin
         CurChar := #0;
      End;
 
+
      Case CurChar of
         #0:
            Begin
@@ -2744,7 +2791,7 @@ Begin
               LineBreak := False;
               REMCommand := False;
            End;
- 
+
         #58:
            Begin // ':' Separator
               If InString or REMCommand Then Goto ColonChar;
@@ -2828,10 +2875,11 @@ Begin
                                 End;   //flist
 
                                 NewWord(DIB, CurWord, CurWordOrg, YPos, Ink, Paper, Bright, LineBreak, REMCommand, InString, DoPaint, CurWordPos);
-
-                                //If Opt_Indenting and (UpperCase(CurWord) = 'NEXT') and (WordOffset>0) Then begin //flist
-                                //Dec(XPos,(Opt_Indentsize*8)*Opt_FontScale);
+                                //indenting178
+                                //If Opt_Indenting and (UpperCase(CurWord) = 'NEXT') Then Begin//and (WordOffset>0) Then begin //flist
+                                //        Dec(XPos,(Opt_Indentsize*8)*Opt_FontScale);
                                 //End;
+                                //enindent78
                           End;
                           If Not (CurChar in ['$', '0'..'9', 'A'..'Z', 'a'..'z']) Then
                              NewWord(DIB, CurChar, XPos, YPos, Ink, Paper, Bright, LineBreak, REMCommand, InString, DoPaint, CurPos)
@@ -4878,7 +4926,7 @@ Begin
         Registers.A := 13;
         TempStr := '';
         UpdateCursorPos(CursLineStart, False);
-        BASICMem := Copy(BASICMem, 1, LineStart -1) + Copy(BASICMem, LineStart +1, 999999);
+        //BASICMem := Copy(BASICMem, 1, LineStart -1) + Copy(BASICMem, LineStart +1, 999999);   //ardafix 1.78 This causes erasing first characher of next line if an immediate command executed between two lines.
         If Not DisplayWindow.Visible Then ShowWindow(DisplayWindow, False);
         BracketLevel := 0;
 
@@ -6647,7 +6695,9 @@ begin
   Paste2.Enabled := ClipBoard.AsText <> '';
   Cut2.Enabled := (EditorSelLength <> 0);
   Copy2.Enabled := Cut2.Enabled;
-
+  AddSnippet1.Enabled := Cut2.Enabled;
+  AddNote1.Enabled := Cut2.Enabled;
+  
   StringOperation1.Visible := PosInString;
   WordWrapString1.Visible := PosInString and (StringLen > 32);
   If PosInString Then Begin
@@ -6972,6 +7022,27 @@ end.
 
 // history & todo:
 
+// 1.79.4
+
+// Added - UDG Editor Window, "Save" file option, CTRL+S, CTRL+O shortcuts, keeps track of open file and notify if there is a pixel modified as * in the title bar.
+// Fixed - SimpleCON register couldn't be displayed as text because it was initialized as 0, now it is spaces.
+// Changed-SimpleCON window was popping up in every character output. Now it only pops up when linefeed.
+
+
+// 1.79.3
+// Fixed - Profile window was showing wrong token in strings. (reported by: lippmaje)
+
+
+
+// 1.79.1 19.05.2022
+// Added - BasinC Snippets
+// Changed - SimpleCon behaviour. Not port 1515 commands sets the byte *then* increment the index. Port 1259,0 feeds the line to the log instead of 255.
+
+// 1.78 (24.10.2021)
+// Fixed - IF x THEN REM couldn't parsed by basinc, now patched, but may present new issues, due it's just a workaround.
+// Fixed - When you execute a direct command, basic was corrupted temporarily. It's fixed by removing a wild syntax cropper.
+
+
 // 1.77 (14.10.2021)
 // Added - UDG editor character setup option
 // Added - UDG editor keyboard shortcuts
@@ -7097,7 +7168,7 @@ end.
   // Kempston Mouse Support
   // Allow instances
   // Project Notes Editor
-
+  // Snippets
 
 
 

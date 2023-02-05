@@ -15943,6 +15943,9 @@ Begin
 
              if (value=0) then begin
                 ConsoleAddon[0]:=1; //reset index to beginning of the buffer
+                //Force popup console window
+                ShowWindow(ConsoleOutForm,False);
+
                 if(ConsoleOutForm.CheckBox1.Checked) then begin
                  ConsoleOutForm.memo1.Lines.add (Trim(ConsoleOutForm.Edit1.Text));
                 end else begin
@@ -15965,8 +15968,6 @@ Begin
                 end;
                 ConsoleOutForm.Edit1.Text:=ConsText;
 
-                //Force popup console window
-                ShowWindow(ConsoleOutForm,False);
               End;
          End;
      End;

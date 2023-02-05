@@ -122,7 +122,7 @@ Var
 
   ReleaseName:            String = 'BasinC'; //is now set from the Project Options > Version Info.
   ReleaseBuild:           String = 'Private Build';
-  ReleaseDate:            String = 'May,19 2022';
+  ReleaseDate:            String = 'Feb,04 2023';
   DefaultProjectName:     String = 'My Basic';
   CurProjectName:         String = 'My Basic';
   CurProjectFilename:     String = 'My Basic';

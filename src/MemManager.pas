@@ -2,6 +2,7 @@ unit MemManager;
 
 interface
 
+// memManager
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, Math, ShellAPI, AxCtrls,
   FastIMG, ExtCtrls, StdCtrls, ComCtrls, FastDIB, FastDraw, FastDrawEx, FastFiles, FastSize, FastFX, GraphicEx,
