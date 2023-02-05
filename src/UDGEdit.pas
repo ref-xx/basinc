@@ -107,6 +107,7 @@ type
     ExportCharacter1: TMenuItem;
     SetupCount1: TMenuItem;
     N9: TMenuItem;
+    Save1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -167,10 +168,13 @@ type
     procedure FastIMG6MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure ExportCharacter1Click(Sender: TObject);
     procedure SetupCount1Click(Sender: TObject);
+    procedure Save1Click(Sender: TObject);
   private
     { Private declarations }
   public
     { Public declarations }
+    UdgFileName: AnsiString;  //last open/saved filename //arda--requested by DamienG >1.793
+    changed: Boolean;         //keep track of change (not really, only tracks mouse downs)
     PaletteLineWidth: Integer;
     Address:  Word;
     CurChar:  DWord;         // CurChar is the current character being edited
@@ -212,6 +216,7 @@ type
     Function  GetAssignedChars: AnsiString;
     Procedure SetUpGrid(Ew, Eh, Dw, Dh: Integer);
     Procedure RepaintChars;
+    Procedure SaveAs(Filenamez: AnsiString);
     Procedure DrawChar(DIB: TFastDIB; X, Y, Index: Integer; Selected: Boolean);
     Procedure UpdateChar(Index: Integer; Selected: Boolean);
     Procedure GetBIGChar(ForceDraw: Boolean);
@@ -272,7 +277,8 @@ End;
 
 procedure TUDGWindow.FormCreate(Sender: TObject);
 begin
-
+  changed:=false;
+  UdgFileName:='';
   AnimList := TStringlist.Create;
 
   Panel3.SetBounds(Panel3.Left, Panel3.Top, Panel3.Width, SpeedButton1.Top - Panel3.Top - 4);
@@ -458,7 +464,7 @@ Var
   F, G, H, ByteVal: Byte;
   X1: Integer;
 Begin
-   
+
   Index := ((Index -1)*(DataWidth * DataHeight))+1; // Convert to an offset into the array
   Y := DIB.Height - Y;
 
@@ -822,6 +828,10 @@ begin
      MouseDown := True;
      GetBIGChar(True);
   End;
+  if (changed=false) Then Begin
+        UDGWindow.Caption:= UDGWindow.Caption+'*';
+        changed:=true;
+  End;
 end;
 
 procedure TUDGWindow.FastIMG1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -935,21 +945,21 @@ begin
   MouseDown := False;
 end;
 
-procedure TUDGWindow.SaveAs1Click(Sender: TObject);
+Procedure TUDGWindow.SaveAs(Filenamez: AnsiString);
 Var
-  Ext, NewFilename: AnsiString;
+ Ext, NewFilename: AnsiString;
   StartAddr, DataLen: Word;
   FTypes: TBASICFiles;
 Begin
 
   MouseDown := False;
-  Filename := '';
+  Filename := Filenamez;
 
   While NumChars > 255 Do Dec(NumChars);
 
   // Save the DATA as a CODE (.bsc) or Binary block.
   If Filename = '' Then Begin
-     FTypes := [FTBsc, FTBin, FTAll];
+     FTypes := [FTBsc, FTBin, FTCh8, FTAll];
      If (DataWidth = 1) and (DataHeight = 8) Then
         FTYpes := FTypes + [FTSpecCHR];
      Filename := OpenFile(Handle, 'Save CODE Block', FTypes, '', True, False);
@@ -984,9 +994,17 @@ Begin
      CopyMemory(@FileBody[1], @CurChars[1], DataLen);
 
   End;
-
+  UdgFileName:=Filename;
+  UDGWindow.Caption:='UDG Character Editor - '+ ExtractFilename(UdgFileName);
+  changed:=false;
   SaveFile;
 
+end;
+procedure TUDGWindow.SaveAs1Click(Sender: TObject);
+
+
+Begin
+  SaveAs('');
 end;
 
 procedure TUDGWindow.Open1Click(Sender: TObject);
@@ -1002,7 +1020,7 @@ begin
 
   MouseDown := False;
 
-  Filename := OpenFile(Handle, 'Load Code Block', [FTBsc, FTBin, FTSpecCHR, FTAll], '', False, False);
+  Filename := OpenFile(Handle, 'Load Code Block', [FTBsc, FTBin, FTCh8, FTSpecCHR, FTAll], '', False, False);
   If Filename = '' Then Exit;
   If GetFile('.bsc') <> 'Ok' Then Exit;
   Extension := Lowercase(ExtractFileExt(Filename));
@@ -1054,6 +1072,9 @@ begin
      RepaintChars;
      GetBigChar(True);
      UpdateStatusBar;
+     UdgFileName:=FileName;
+     UDGWindow.Caption:='UDG Character Editor - '+ ExtractFilename(UdgFileName);
+     changed:=false;
 
   End;
 
@@ -2588,6 +2609,9 @@ begin
      RepaintChars;
      GetBigChar(True);
      UpdateStatusBar;
+     UdgFileName:='';
+     UDGWindow.Caption:='UDG Character Editor';
+     changed:=false;
 
   End;
   MouseDown := False;
@@ -2984,6 +3008,11 @@ GridSetUpWindow.EditType := 3;
      RepaintChars;
   End;
   MouseDown := False;
+end;
+
+procedure TUDGWindow.Save1Click(Sender: TObject);
+begin
+     SaveAs(UdgFileName);
 end;
 
 End.
