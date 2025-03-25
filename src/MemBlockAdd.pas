@@ -77,7 +77,7 @@ end;
 procedure TMemBlockWindow.Button3Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_add_memory_block.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_add_memory_block.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

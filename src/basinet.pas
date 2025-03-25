@@ -4,16 +4,11 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, ComCtrls, ExtCtrls, idhttp, Menus, ShellAPI;
+  StdCtrls, ComCtrls, ExtCtrls, Menus, ShellAPI;
 
 type
-  TMyWorkerThread = class(TThread)
-  public
-    procedure Execute; override;
 
-  end;
-
-  TBasinetWindow = class(TForm)
+    TBasinetWindow = class(TForm)
     BtnClose: TButton;
     GroupBox1: TGroupBox;
     Label1: TLabel;
@@ -40,6 +35,26 @@ type
     ListView1: TListView;
     GroupBox3: TGroupBox;
     ListView2: TListView;
+    GroupBox4: TGroupBox;
+    MemoDisclaimer: TMemo;
+    Button1: TButton;
+    GroupBox5: TGroupBox;
+    GroupBox6: TGroupBox;
+    Edit5: TEdit;
+    Edit6: TEdit;
+    Edit7: TEdit;
+    Button3: TButton;
+    Label3: TLabel;
+    Label4: TLabel;
+    Label5: TLabel;
+    GroupBox7: TGroupBox;
+    Button2: TButton;
+    Label6: TLabel;
+    Edit3: TEdit;
+    Label7: TLabel;
+    Edit4: TEdit;
+    Button4: TButton;
+    Label8: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure BtnCloseClick(Sender: TObject);
     procedure BtnSaveClick(Sender: TObject);
@@ -50,11 +65,14 @@ type
     procedure BtnPasteClick(Sender: TObject);
     procedure CheckBox2Click(Sender: TObject);
     procedure Edit2Change(Sender: TObject);
-    procedure BtnShareClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     { Private declarations }
   public
     { Public declarations }
+    LatestVersionAvailable: String;
     AddingNewSnippet: Boolean;
     MyWorkerThread: TThread;
     Procedure ClearSnippet;
@@ -75,7 +93,7 @@ type
   end;
 
 var
-  idttp: TIdHTTP;
+  //idttp: TIdHTTP;
   BasinetWindow: TBasinetWindow;
   SNIPS: TStringList;
   SelectedID: String;
@@ -91,32 +109,6 @@ uses BasinMain, Sound, Utility, LogWind, FastCore, BASSupport,AddCode;
 
 {$R *.DFM}
 
-procedure TMyWorkerThread.Execute;
-var
-version: string;
-idx: integer;
-begin
-  
-  Try
-  idttp := TIdHTTP.Create(nil);
-  BasinetWindow.BtnShare.Caption:='Checking...';
-  if (SessionID='') Then SessionID:='B'+GetBuildInfoAsString(False);
-  version := idttp.Get('url'+SessionID);
-  if (Opt_CheckUpdates) Then Begin
-        if (version<>GetBuildInfoAsString(False)) Then Begin
-                idx:=MessageDlg('a New ('+version+') version of BasinC is available. Open Web Browser?', mtConfirmation, [mbYes, mbIgnore], 0);
-                If Idx = mrYes Then Begin
-                ShellExecute(0,'open','https://arda.kisafilm.org/blog/?cat=13&lang=en',nil,nil, SW_SHOWNORMAL);
-                End;
-        End;
-  End;
-
-
-  Except
-  
-  end;
-
-end;
 
 Procedure TBasinetWindow.PopulateList;
 Var
@@ -272,8 +264,11 @@ Panel2.Top:=Panel1.Top;
 Panel2.Left:=Panel1.Left;
 Panel2.Width:=Panel1.Width;
 Panel2.Height:=Panel1.Height;
+if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
 
 DisableAll;
+
+
 
 PopulateList;
 if Visible Then TxtSnipName.SetFocus;
@@ -327,9 +322,7 @@ End;
 
 Procedure TBasinetWindow.AnnounceSnippet;
 Begin
-           if MyWorkerThread=nil Then Begin
-                MyWorkerThread:= TMyWorkerThread.Create(false);
-           End;
+
 End;
 
 Procedure TBasinetWindow.FetchSnippet;
@@ -548,30 +541,26 @@ procedure TBasinetWindow.Edit2Change(Sender: TObject);
 begin
  //CheckBox1.Checked:=False;
  CheckBox2.Checked:=False;
+ if (Edit2.Text='id') Then BasinetWindow.GroupBox2.Caption:=SessionID;
+
 
 end;
 
-procedure TBasinetWindow.BtnShareClick(Sender: TObject);
+procedure TBasinetWindow.Button1Click(Sender: TObject);
 begin
-            if MyWorkerThread=nil Then Begin
-                MyWorkerThread:= TMyWorkerThread.Create(false);
-                BtnShare.Caption:='Fetching...';
-            End Else Begin
-                BtnShare.Caption:='Finished';
-                if (WaitForSingleObject(MyWorkerThread.Handle, 0)<>WAIT_OBJECT_0) then begin
-                   MessageBox(Self.Handle, pchar('Connection is still open!'), pchar('Still running'), MB_OK);
-                End Else Begin
-                   MyWorkerThread:= TMyWorkerThread.Create(false);
-                   BtnShare.Caption:='Fetching...';
-                End;
+    GroupBox4.Visible:=False;
+end;
 
-            End;
-                //MyWorkerThread.Free;
-                //if (WaitForSingleObject(MyWorkerThread.Handle, 0)<>WAIT_OBJECT_0) then  MessageBox(Self.Handle, pchar('The work is not yet done!'), pchar('Still running'), MB_OK);
+procedure TBasinetWindow.Button4Click(Sender: TObject);
+begin
+  GroupBox6.Visible:=True;
+end;
 
-
-   //BtnShare.Enabled:=False;
-
+procedure TBasinetWindow.FormShow(Sender: TObject);
+begin
+if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
+if Opt_ToolFontSize>0 Then Memo_Snippet.Font.Size:=Opt_ToolFontSize;
+Edit3.Text:= SessionID;
 end;
 
 end.

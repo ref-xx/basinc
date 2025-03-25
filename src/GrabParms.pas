@@ -164,9 +164,9 @@ procedure TUDGGrabWindow.Button3Click(Sender: TObject);
 begin
 
   If Copy(Label1.Caption, 1, 4) = 'Grab' Then
-     HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_grab.html'), HH_DISPLAY_TOPIC, 0)
+     BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_grab.html'), HH_DISPLAY_TOPIC, 0)
   Else
-     HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_send.html'), HH_DISPLAY_TOPIC, 0);
+     BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_send.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

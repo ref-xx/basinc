@@ -46,11 +46,14 @@ implementation
 Uses FastCore, ROMUtils, BASSupport, Watches, QueryForm, Evaluate, SpecialVarEdit, Utility,
      BasinMain;
 
+
+
+
 Procedure TVariablesWindow.BuildVarsList;
 Var
   Done: Boolean;
   TempByte: Byte;
-  VarAddress, TempWord: Word;
+  ardaTemp, VarAddress, TempWord: Word;
   VarCount, TempDWord, SaveDWord: DWord;
   TempValue: Extended;
   LI: TListItem;
@@ -157,19 +160,32 @@ Begin
                     SaveDWord := 1;
                     Inc(VarAddress, 4);
                     While TempByte > 0 Do Begin
+                       ardaTemp:=GetWord(@Memory[E_LINE]);
                        TempWord := GetWord(@Memory[VarAddress]);
                        SaveDWord := SaveDWord * TempWord;
+
                        If TempByte > 1 Then
                           TempStr := TempStr + IntToStr(TempWord) + ', '
                        Else
                           TempStr := TempStr + IntToStr(TempWord) + ')';
                        Dec(TempByte);
                        Inc(VarAddress, 2);
+
+                       If VarAddress + 2 > GetWord(@Memory[E_LINE]) Then Begin   // ardafix Prevent invalid access
+                         Done := True;
+                         break;
+                       End;
+
                     End;
                     LI.SubItems.Add(TempStr);
                     TempStr := '"';
                     While SaveDWord > 0 Do Begin
-                       TempStr := TempStr + Chr(Memory[VarAddress]);
+                    If VarAddress + 1 > GetWord(@Memory[E_LINE]) Then Begin   // ardafix 1795 Prevent invalid access
+                        Done := True;
+                        SaveDWord := 1;
+                       End else begin
+                        TempStr := TempStr + Chr(Memory[VarAddress]);
+                    End;
                        If SaveDWord = 1 Then TempStr := TempStr + '"';
                        Inc(VarAddress);
                        Dec(SaveDWord);
@@ -238,6 +254,8 @@ End;
 
 procedure TVariablesWindow.FormShow(Sender: TObject);
 begin
+ if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
+
   BuildVarsList;
 end;
 
@@ -248,12 +266,16 @@ end;
 
 procedure TVariablesWindow.FormCreate(Sender: TObject);
 begin
+
   ListView1.DoubleBuffered := True;
   ListView1.SetBounds(8, 8, ClientWidth - 16, ClientHeight - 24 - Button1.Height - ListView1.Top);
   Button2.SetBounds(8, ClientHeight - Button2.Height - 8, Button2.Width, Button2.Height);
   Button1.SetBounds(Button2.Width + 12, Button2.Top, Button1.Width, Button1.Height);
   Button3.SetBounds(ClientWidth - 8 - Button3.Width, Button1.Top,Button3.Width, Button3.Height);
   Button4.SetBounds(Button3.Left - Button4.Width - 4, Button3.Top, Button4.Width, Button3.Height);
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
+
+
 end;
 
 procedure TVariablesWindow.PopupMenu1Popup(Sender: TObject);
@@ -277,8 +299,9 @@ begin
         If WatchWindow.Visible Then WatchWindow.BuildWatchList;
      End;
   End Else Begin
+
      WatchWindow.CreateWatch(True, 1, 0, 0, 0, '', Listview1.Items[BASinOutput.WatchVariable1.ImageIndex].Caption, False);
-     If WatchWindow.Visible Then WatchWindow.BuildWatchList;
+     If WatchWindow.Visible Then WatchWindow.BuildWatchList Else ShowWindow(WatchWindow, False);
   End;
 end;
 
@@ -398,7 +421,7 @@ end;
 procedure TVariablesWindow.Button4Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_variables.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_variables.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

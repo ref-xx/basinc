@@ -248,9 +248,9 @@ end;
 procedure TGridSetUpWindow.Button3Click(Sender: TObject);
 begin
   If EditType = 0 Then
-     HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_editor.html#gridsetup'), HH_DISPLAY_TOPIC, 0)
+     BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_editor.html#gridsetup'), HH_DISPLAY_TOPIC, 0)
   Else If EditType = 1 Then
-     HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_scr_editor.html#gridsetup'), HH_DISPLAY_TOPIC, 0);
+     BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_scr_editor.html#gridsetup'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

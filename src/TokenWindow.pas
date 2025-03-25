@@ -1,4 +1,4 @@
-unit TokenWindow; // Quite possibly the neatest utility I've ever written :-)
+unit TokenWindow; // Quite possibly the neatest utility I've ever written :-)  [dunny]  //but it's hard to fix things here [arda]
 
 interface
 
@@ -98,8 +98,8 @@ var
 
 Const
 
-  AttributeTokens: Array[0..5] of String =
-     ('Flash Off', 'Flash On', 'Bright Off', 'Bright On', 'True Video', 'Inverse Video');
+  AttributeTokens: Array[0..9] of String =
+     ('Flash Off', 'Flash On', 'Bright Off', 'Bright On', 'True Video', 'Inv Video','Flash 8','Bright 8','Inverse 8','Over 8');
 
   ColourTokens: Array[0..7] of String =
      ('Black', 'Blue', 'Red', 'Magenta', 'Green', 'Cyan', 'Yellow', 'White');
@@ -253,30 +253,31 @@ End;
 
 Procedure TTokenForm.DrawATTRChars;
 Var
-  X, Y, Y1, F: Integer;
+  BW,X, Y, Y1, F: Integer;
+
 Begin
 
   // Attribute controls
-
+  BW:=86;
   FastIMG6.Bmp.SetSize(FastIMG6.Width, FastIMG6.Height, 32);
   FastIMG6.Bmp.Clear(TFSpecWhite);
   FastDraw.PolyLine(FastIMG6.Bmp, [Point(0, 0), Point(FastIMG6.Width -1, 0), Point(FastIMG6.Width-1, FastIMG6.Height -1), Point(0, FastIMG6.Height -1)], TfBlack);
   X := 2; Y := 3;
   For F := 0 to 5 Do Begin
-     FastDraw.Line(FastIMG6.Bmp, X-2, Y-3, X+110, Y-3, TFSpecBlack);
+     FastDraw.Line(FastIMG6.Bmp, X-2, Y-3, X+BW, Y-3, TFSpecBlack);
      FastDraw.Line(FastIMG6.Bmp, X-2, Y-3, X-2, Y+11, TFSpecBlack);
      If FastIMG6.Tag = F Then Begin
         For Y1 := Y-1 To Y+10 Do
-           FastDraw.Line(FastIMG6.Bmp, X, Y1, X+108, Y1, TFSpecBlack);
+           FastDraw.Line(FastIMG6.Bmp, X, Y1, X+BW-2, Y1, TFSpecBlack);
         SpecTextToDIB(FastIMG6.Bmp, X+2, Y+2, AttributeTokens[F], 7, 0, 1, False, False);
      End Else Begin
         SpecTextToDIB(FastIMG6.Bmp, X+2, Y+2, AttributeTokens[F], 0, 7, 0, False, False);
      End;
      AttrsPos[F].Pt.X := X-1;
      AttrsPos[F].Pt.Y := Y-2;
-     AttrsPos[F].Width := 108;
-     Inc(X, 112);
-     If X > FastIMG6.Bmp.Width -1 Then Begin
+     AttrsPos[F].Width := BW-2;
+     Inc(X, BW+2);
+     If (X+BW) > FastIMG6.Bmp.Width -1 Then Begin
         X := 2;
         Inc(Y, 15);
      End;
@@ -708,6 +709,7 @@ end;
 procedure TTokenForm.FastIMG5MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 Var
   F: DWord;
+
 begin
   If FastIMG5.Tag > -2 Then
      For F := 0 To 7 Do
@@ -715,6 +717,7 @@ begin
            If (Y >= EDITPos[F].Pt.Y) Then
               If (Y < EDITPos[F].Pt.Y + 12) Then
                  If (X < EDITPos[F].Pt.X + EDITPos[F].Width) Then Begin
+
                     FastIMG5.Tag := F;
                     DrawEDITChars;
                     UpdateLabel8(F+6);
@@ -861,7 +864,7 @@ End;
 
 procedure TTokenForm.Button2Click(Sender: TObject);
 begin
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_token_table.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_token_table.html'), HH_DISPLAY_TOPIC, 0);
 end;
 
 

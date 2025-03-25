@@ -40,6 +40,7 @@ type
     Button4: TButton;
     Button5: TButton;
     Button6: TButton;
+    Button7: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure PopupMenu1Popup(Sender: TObject);
@@ -57,6 +58,7 @@ type
     procedure ListView1SelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
     procedure ListView1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure Button6Click(Sender: TObject);
+    procedure Button7Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -230,19 +232,24 @@ End;
 
 procedure TWatchWindow.FormCreate(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   ListView1.DoubleBuffered := True;
   ListView1.SetBounds(8, 8, ClientWidth - 16, ClientHeight - 24 - Button2.Height);
   Button2.SetBounds(ClientWidth - 8 - Button2.Width, ClientHeight - 8 - Button2.Height, Button2.Width, Button2.Height);
-  Button1.SetBounds(Button2.Left - Button1.Width - 4, Button2.Top, Button1.Width, Button1.Height);
+  Button6.SetBounds(Button2.Left - Button6.Width - 4, Button2.Top, Button6.Width, Button2.Height);
+  Button1.SetBounds(Button6.Left - Button1.Width - 4, Button6.Top, Button1.Width, Button1.Height);
+  Button7.SetBounds(Button1.Left - Button7.Width - 4, Button1.Top, Button7.Width, Button1.Height);
   Button3.SetBounds(8, ClientHeight - 8 - Button3.Height, Button3.Width, Button3.Height);
   Button4.SetBounds(Button3.Left + Button3.Width + 4, Button3.Top, Button4.Width, Button4.Height);
   Button5.SetBounds(Button4.Left + Button4.Width + 4, Button3.Top, Button5.Width, Button5.Height);
-  Button6.SetBounds(Button1.Left - Button6.Width - 4, Button1.Top, Button6.Width, Button1.Height);
+
+
   Watchlist := '';
 end;
 
 procedure TWatchWindow.FormShow(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   BuildWatchList;
 end;
 
@@ -390,7 +397,18 @@ end;
 
 procedure TWatchWindow.Button6Click(Sender: TObject);
 begin
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_watch.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_watch.html'), HH_DISPLAY_TOPIC, 0);
+end;
+
+procedure TWatchWindow.Button7Click(Sender: TObject);
+var
+  i: Integer;
+begin
+      for i := Low(WatchArray) to High(WatchArray) do
+      begin
+         WatchArray[i].Valid := False;
+      end;
+      BuildWatchList;
 end;
 
 end.

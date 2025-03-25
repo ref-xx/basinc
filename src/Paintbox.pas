@@ -395,6 +395,7 @@ var
 Const
 
   CM_DENYSUBCLASSING = CM_BASE + 2000;
+  EDITORNAME = 'BasinC Image Editor - ';
 
 implementation
 
@@ -581,7 +582,7 @@ Begin
      TabControl1.Tabs.Add('Untitled'+IntToStr(Untitled));
      TabControl1.TabIndex := CurScreenIndex;
      TabControl1Change(nil);
-     Caption := 'SCREEN$ Paintbox - ' + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
+     Caption := EDITORNAME + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
      Filename := '';
 
   End;
@@ -4063,7 +4064,7 @@ Begin
      If TextForm.Showing Then
         TextForm.Backup.ZoomLevel := CurScreen^.ZoomLevel;
      RenderScreen(CurScreenIndex, ShowingAttrs);
-     Caption := 'SCREEN$ Paintbox - ' + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
+     Caption := EDITORNAME + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
 
   End;
 
@@ -4077,7 +4078,7 @@ Begin
      If TextForm.Showing Then
         TextForm.Backup.ZoomLevel := CurScreen^.ZoomLevel;
      RenderScreen(CurScreenIndex, ShowingAttrs);
-     Caption := 'SCREEN$ Paintbox - ' + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
+     Caption := EDITORNAME + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
      FormResize(Nil);
   End;
 
@@ -5229,7 +5230,7 @@ begin
 
      45: // Help Contents
         Begin
-           HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/paintbox.html'), HH_DISPLAY_TOPIC, 0);
+           BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/paintbox.html'), HH_DISPLAY_TOPIC, 0);
         End;
 
      48: // Paint with all attrs
@@ -5366,9 +5367,7 @@ begin
 
            TempStr := ScreenToSCR(CurScreenIndex);
 
-           // this code is based on bitbuster by team bomba
-           // but this is optimized
-
+           // Einar Saukas' ZX0 compressor
 
 
 
@@ -5599,7 +5598,7 @@ begin
 
   MakePreview;
 
-  Caption := 'SCREEN$ Paintbox - ' + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
+  Caption := EDITORNAME + TabControl1.Tabs[CurScreenIndex] + '  [' + IntToStr(CurScreen^.ZoomLevel) + ':1]';
 
 end;
 

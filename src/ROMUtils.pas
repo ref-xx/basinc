@@ -8,7 +8,7 @@
 // * hard disk rather than tape.                *
 // *                                            *
 // * (C) 2002-2007 By Paul Dunn.                *
-// *                                            *
+// * (C) 2008-2024 By Arda Erdikmen             *
 // **********************************************
 
 
@@ -593,7 +593,9 @@ Function LoadRom(Var Location: Array of Byte): Boolean;
 Var
 	F: TFileStream;
 Begin
+
   DebugLog('Load 48k ROM from '+Filename);
+  Result:=False;
   If Not FileExists(Filename) Then Begin
      DebugLog('ROM load failed');
      MessageBox(BASinOutput.Handle, 'The 48k Spectrum Rom could not be opened.'#13'BasinC cannot run without this file,'#13'and will now close.', PChar('Missing ROM File'), MB_OK or MB_ICONWARNING);
@@ -780,7 +782,7 @@ Var
   LoadLen, MemPtr, F, Idx, ModAddr, PokeAddr, TempIX, TempWord, DataLoadLen: Word;
   MemAtIX, ChkSum, SaveByte: Byte;
   NeedProgPosUpdate, n128Command, TapeOp, TempBool1, InString, Done: Boolean;
-  TokenStr, TempStr: AnsiString;
+  TokenStr, TempStr, RegionSet: AnsiString;
   KeyState: TKeyboardState;
   TAPSaveStart,
   TAPSaveLen: Word;
@@ -791,6 +793,16 @@ Begin
   // ROM Traps
   Trapped := True;
 	Case Registers.PC Of
+
+  {  //arda begin
+     $0010:
+        Begin
+        // Output printed character to console
+             WriteLn(Chr(Registers.A));
+
+        End;
+   } //arda end
+
      $0297:
         Begin
            // Prevent the ROM keyboard routine from getting keys from the ports,
@@ -1046,7 +1058,7 @@ Begin
            If Registers.zByte1 <> 0 Then Begin
               If Not TapeTrapLOAD Then
                  // We're LOADing, so anything goes.
-                 Registers.PC := $0644
+                 Registers.PC := $064B  //ardafix--previously $0644 (reported by ignacobo) v1795
               Else
                  If Registers.F and 1 = 0 Then
                     Registers.PC := $64B
@@ -1836,6 +1848,7 @@ Begin
                        BorderUpdate := True;
                     End Else If TempStr = 'slow'+#13 Then Begin
                        FASTMode := False;
+                       Opt_CPUSpeed := 69888;
                        BorderUpdate := True;
                     End Else If copy(TempStr, 1, 3) = 'log' Then Begin
                        TempStr := '';
@@ -1845,15 +1858,16 @@ Begin
                           Inc(F);
                        End;
                        LogTextExpression(CurPPC, CurSUBPPC, TempStr);
-                    End Else If copy(TempStr, 1, 3) = 'speed' Then Begin
+                    End Else If TempStr = 'speed' Then Begin
                        TempStr := '';
-                       F := GetWord(@Memory[CH_ADD])+4;
+                       F := GetWord(@Memory[CH_ADD])+6;
                        While Memory[F] <> 13 Do Begin
                           TempStr := TempStr + AnsiChar(Memory[F]);
                           Inc(F);
                        End;
-
-                       Opt_CPUSpeed := 200025*strtoint(TempStr);
+                       Opt_CPUSpeed := 4935*strtoint(TempStr);
+                       //19742=1mhz
+                       //4935=0.25 mhz
                     End;
                  End;
                  If NeedProgPosUpdate Then

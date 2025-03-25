@@ -589,7 +589,7 @@ end;
 procedure TPrinterForm.Button2Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_zx_printer_output.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_zx_printer_output.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

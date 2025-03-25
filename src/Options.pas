@@ -156,20 +156,9 @@ type
     Label45: TLabel;
     CheckBox32: TCheckBox;
     CheckBox33: TCheckBox;
-    TabSheet8: TTabSheet;
-    Label46: TLabel;
-    ThemeBevel6: TThemeBevel;
-    Edit3: TEdit;
-    CheckBox35: TCheckBox;
-    Label47: TLabel;
-    ThemeBevel7: TThemeBevel;
-    Label48: TLabel;
-    Button6: TButton;
-    Label49: TLabel;
-    Label50: TLabel;
-    Edit4: TEdit;
-    Edit5: TEdit;
-    CheckBox34: TCheckBox;
+    ComboBox12: TComboBox;
+    Label52: TLabel;
+    chkOpt_OnlineHelp: TCheckBox;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -201,7 +190,6 @@ type
     procedure ButtonResetClick(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure SpeedButton2Click(Sender: TObject);
-    procedure Button6Click(Sender: TObject);
   private
     { Private declarations }
     ComboBoxL: TListLessComboBox;
@@ -252,7 +240,7 @@ end;
 
 procedure TOptionsWindow.FormShow(Sender: TObject);
 Var
-  Idx: Integer;
+  i,Ci,Idx: Integer;
 begin
 
   SizingTree := False;
@@ -277,7 +265,8 @@ begin
   CheckBox28.Checked  := Opt_KMouse;
   CheckBox29.Checked  := Opt_ConsoleAddon;
   CheckBox31.Checked  := Opt_AllowMultipleInstances;
-  CheckBox35.Checked  := Opt_CheckUpdates;
+  //CheckBox35.Checked  := Opt_CheckUpdates;
+  chkOpt_OnlineHelp.Checked:=Opt_OnlineHelp;
 
   If Not Opt_OverwriteProtect Then
      ComboBox9.ItemIndex := 0
@@ -310,6 +299,17 @@ begin
   CheckBox5.Checked := Opt_IntegerScaling;
   CheckBox11.Checked := Opt_8BitStretch;
   ComboBox2.ItemIndex := Ord(Opt_RenderMethod);
+
+       Ci:=0;
+       for i := 0 to ComboBox12.Items.Count - 1 do
+       begin
+           if ComboBox12.Items[i] = IntToStr(Opt_ToolFontSize) then
+            begin
+              Ci := i;
+           end;
+       end;
+       ComboBox12.ItemIndex := Ci;
+
   ComboBox2Change(Nil);
 
   // Frameskip
@@ -458,6 +458,7 @@ begin
   Opt_GraphicsMethod := TGraphicsMethod(ComboBox1.ItemIndex);
   Opt_Predictive := CheckBox15.Checked;
   Opt_64Colours := CheckBox24.Checked;
+  Opt_OnlineHelp:= chkOpt_OnlineHelp.Checked;
 
     Opt_AllowMultipleInstances := CheckBox31.Checked;  //arda
     Opt_ConsoleAddon := CheckBox29.Checked;    //arda
@@ -467,7 +468,8 @@ begin
     Opt_FastResets := CheckBox25.Checked; //arda
     Opt_KMouse := CheckBox28.Checked;     //arda
     Opt_ShowNotes := CheckBox33.Checked; //arda
-    Opt_CheckUpdates := CheckBox35.Checked;   //arda
+    //Opt_CheckUpdates := CheckBox35.Checked;   //arda --removed 1.8
+    
   // CPU Speed options
 
   Opt_CPUSpeed := TrackBar4.Position;
@@ -583,6 +585,8 @@ begin
   Opt_EditorCustomFont := Integer(Treeview1.Selected.Data) <> 0;
   Opt_EditorFontFolder := Edit1.Text;
   Opt_ExternalExec:=Edit2.Text;
+
+  if ComboBox12.ItemIndex=0 Then Opt_ToolFontSize:=0 else Opt_ToolFontSize:=StrToInt(ComboBox12.Items[ComboBox12.ItemIndex]) ;
 
   AlterSoundSettings;
   ResetSound;
@@ -853,6 +857,7 @@ begin
   Ht := Min(Ht, TabSheet7.ClientHeight - 16 - TreeView1.Top);
 
   TreeView1.SetBounds(ComboBoxL.Left, ComboBoxL.Top + ComboBoxL.Height + 2, ComboBoxL.Width, Ht);
+
   TreeView1.Visible := True;
   TreeView1.Selected.MakeVisible;
   TreeView1.SetFocus;
@@ -934,13 +939,13 @@ procedure TOptionsWindow.HelpBtnClick(Sender: TObject);
 begin
 
   Case PageControl1.ActivePageIndex of
-     0: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_basin.html'), HH_DISPLAY_TOPIC, 0);
-     1: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_editor_fonts.html'), HH_DISPLAY_TOPIC, 0);
-     2: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_error_reporting.html'), HH_DISPLAY_TOPIC, 0);
-     3: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_emulation.html'), HH_DISPLAY_TOPIC, 0);
-     4: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_display.html'), HH_DISPLAY_TOPIC, 0);
-     5: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_sound.html'), HH_DISPLAY_TOPIC, 0);
-     6: HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_files.html'), HH_DISPLAY_TOPIC, 0);
+     0: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_basin.html'), HH_DISPLAY_TOPIC, 0);
+     1: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_editor_fonts.html'), HH_DISPLAY_TOPIC, 0);
+     2: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_error_reporting.html'), HH_DISPLAY_TOPIC, 0);
+     3: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_emulation.html'), HH_DISPLAY_TOPIC, 0);
+     4: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_display.html'), HH_DISPLAY_TOPIC, 0);
+     5: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_sound.html'), HH_DISPLAY_TOPIC, 0);
+     6: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_files.html'), HH_DISPLAY_TOPIC, 0);
   End;
 
 
@@ -970,12 +975,6 @@ begin
      If Filename = '' Then
         Exit;
      Edit2.Text := Filename;
-end;
-
-procedure TOptionsWindow.Button6Click(Sender: TObject);
-begin
-Edit3.Text:='Optional Url';
-
 end;
 
 Initialization

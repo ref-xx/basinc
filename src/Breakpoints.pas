@@ -53,6 +53,7 @@ type
     procedure       ListView1SelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
     procedure       ListView1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure       Button1Click(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     { Private declarations }
   public
@@ -410,6 +411,7 @@ end;
 
 procedure TBreakpointsWindow.FormCreate(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   ListView1.DoubleBuffered := True;
   ListView1.SetBounds(8, 8, ClientWidth - 16, ClientHeight - 22 - Button2.Height);
   Button2.SetBounds(ClientWidth - 8 - Button2.Width, ClientHeight - 8 - BUtton2.Height, Button2.Width, Button2.Height);
@@ -441,8 +443,13 @@ end;
 procedure TBreakpointsWindow.Button1Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_breakpoints.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_breakpoints.html'), HH_DISPLAY_TOPIC, 0);
 
+end;
+
+procedure TBreakpointsWindow.FormShow(Sender: TObject);
+begin
+if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
 end;
 
 end.

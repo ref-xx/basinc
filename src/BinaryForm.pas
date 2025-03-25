@@ -103,7 +103,7 @@ Begin
   SetLength(Options, Num +1);
   Options[Num] := TStringlist.Create;
   Options[Num].Add(Chr(0));
-  For Idx := 1 To 4 Do Options[Num].Add('0');
+  For Idx := 1 To 4 Do Options[Num].Add('10');
   Options[Num].Add(Chr(0));
   Options[Num].Add(Chr(0));
 
@@ -164,7 +164,7 @@ end;
 procedure TBinaryWindow.Button3Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_import_binary_file.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_import_binary_file.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

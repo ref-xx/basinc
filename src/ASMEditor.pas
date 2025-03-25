@@ -93,6 +93,7 @@ type
     procedure FastIMG1MouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure Edit2KeyPress(Sender: TObject; var Key: Char);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
     { Private declarations }
     procedure CMDialogKey(var msg: TCMDialogKey); message CM_DIALOGKEY;
@@ -955,6 +956,7 @@ begin
   ListBox1.Color := TfColorToTColor(TFSpecDark);
   RepaintASM(True);
   FormResize(Self);
+  timer1.Enabled:=true;
   If Visible Then Edit2.SetFocus;
 end;
 
@@ -2744,6 +2746,12 @@ End;
 procedure TASMEditorWindow.Edit2KeyPress(Sender: TObject; var Key: Char);
 begin
   Key := #0;
+end;
+
+procedure TASMEditorWindow.FormClose(Sender: TObject;
+  var Action: TCloseAction);
+begin
+ timer1.Enabled:=false;
 end;
 
 Initialization

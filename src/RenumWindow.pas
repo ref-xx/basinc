@@ -170,7 +170,7 @@ end;
 procedure TRenumberForm.Button3Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_renumber.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_renumber.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

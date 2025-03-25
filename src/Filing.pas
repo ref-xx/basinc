@@ -12,7 +12,7 @@ Type
 
 	// Filing and disk access procs
 
-	Procedure DebugLog(Text: AnsiString);
+  Procedure DebugLog(Text: AnsiString);
   Function  GetFile(DefExt: AnsiString): AnsiString;
   Function  OpenFile(hWnd: Integer; Caption: PChar; Types: TBASICFiles; CurFile: AnsiString; Save, Multifile: Boolean): AnsiString;
   Procedure PrepareBlankFileHeader;
@@ -37,7 +37,7 @@ Type
   Function  SaveCurrentProgram(NewFilename: AnsiString): Boolean;
   Function  CheckForSave: Boolean;
   Function  Get128kOptions: Boolean;
-
+  Function  FileSizeX(fileName : String) : Int64;
 Var
 
   DumpDoneQuit:     Boolean;
@@ -1896,6 +1896,19 @@ Begin
   Result := SaveProgram;
 
 End;
+
+
+function FileSizeX(fileName : String) : Int64;
+var
+sr : TSearchRec;
+begin
+if FindFirst(fileName, faAnyFile, sr ) = 0 then
+result := Int64(sr.FindData.nFileSizeHigh) shl Int64(32) + Int64(sr.FindData.nFileSizeLow)
+else
+result := -1;
+FindClose(sr);
+end;
+
 
 Function CheckForSave: Boolean;
 Var

@@ -229,7 +229,7 @@ end;
 procedure TCommandWindow.Button3Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_command_history.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_command_history.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

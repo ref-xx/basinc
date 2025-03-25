@@ -17,6 +17,9 @@ type
     ComboBox1: TComboBox;
     Button4: TButton;
     Button5: TButton;
+    Button6: TButton;
+    Timer1: TTimer;
+    CheckBox1: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -32,11 +35,15 @@ type
     procedure Button4Click(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Button5Click(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
+    procedure CheckBox1Click(Sender: TObject);
   private
     { Private declarations }
   public
     { Public declarations }
     procedure GetMemory(Address, Count: DWord; WinCap: String);
+    procedure Refresh();
   end;
 
 var
@@ -73,13 +80,26 @@ begin
   Button2.SetBounds(Button1.Left - 4 - Button2.Width, ClientHeight - 8 - Button2.Height, Button2.Width, Button2.Height);
   Panel1.SetBounds(8, Button2.Top, Button2.Left - 16, Button2.Height);
   Button5.SetBounds(ClientWidth - 8 - Button5.Width, 8, Button5.Width, Button4.Height);
+  Button6.SetBounds(ClientWidth - 8 - Button5.Width - 8 - Button6.Width, 8, Button6.Width, Button4.Height);
+  CheckBox1.SetBounds(ClientWidth - 8 - Button5.Width - 8 - Button6.Width-8-CheckBox1.Width, 8, CheckBox1.Width, Button4.Height);
+  if Opt_ToolFontSize>0 Then MPHexEditor1.Font.Size:=Opt_ToolFontSize;
 end;
 
 procedure THexWindow.FormResize(Sender: TObject);
 Var
   LetterW, CurValue: Integer;
 begin
-  LetterW := Canvas.TextWidth('a');
+
+
+  if Opt_ToolFontSize>0 Then Begin
+     Canvas.Font.Size:=Opt_ToolFontSize;
+     LetterW := Canvas.TextWidth('a');
+     //LetterW :=Opt_ToolFontSize;
+     MPHexEditor1.GutterWidth := LetterW*6;
+     End else Begin
+     LetterW := Canvas.TextWidth('a');
+  End;
+
   CurValue := MPHexEditor1.ClientWidth - MPHexEditor1.GutterWidth - (LetterW * 2);
   CurValue := CurValue Div 4;
   If (CurValue Div LetterW) > 0 Then MPHexEditor1.BytesPerRow := CurValue Div LetterW;
@@ -104,6 +124,7 @@ procedure THexWindow.FormShow(Sender: TObject);
 Var
   Bool: Boolean;
 begin
+  if Opt_ToolFontSize>0 Then MPHexEditor1.Font.Size:=Opt_ToolFontSize;
   Bool := False;
   If (DataSize = 0) or (DataSize = 65536) Then Begin
      ComboBox1.Visible := True;
@@ -291,6 +312,8 @@ Var
   Changed: Boolean;
 begin
 
+  checkbox1.Checked:=false;
+  timer1.Enabled:=false;
   Changed := False;
 
   For F := StartAddr To StartAddr + DataSize -1 Do
@@ -321,7 +344,38 @@ end;
 procedure THexWindow.Button5Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_memory_viewer.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_memory_viewer.html'), HH_DISPLAY_TOPIC, 0);
+
+end;
+
+procedure THexWindow.Button6Click(Sender: TObject);
+begin
+  Refresh();
+end;
+
+procedure THexWindow.Refresh();
+Var
+  cpos,pos: Integer;
+  Bool: Boolean;
+
+begin
+  pos:=MPHexEditor1.GetTopLeftPosition(Bool);
+  //GetMemory(0, 65536, 'Memory Viewer');
+  MPHexEditor1.SelectAll;
+  MPHexEditor1.ReplaceSelection(@Memory[0], 65536);
+  MPHexEditor1.ResetSelection(True);
+  MPHexEditor1.SetTopLeftPosition(pos,Bool);
+end;
+
+
+procedure THexWindow.Timer1Timer(Sender: TObject);
+begin
+Refresh;
+end;
+
+procedure THexWindow.CheckBox1Click(Sender: TObject);
+begin
+timer1.Enabled:=CheckBox1.Checked;
 
 end;
 

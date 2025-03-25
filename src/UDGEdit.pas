@@ -245,6 +245,7 @@ type
     Procedure SetPaletteSize;
     Procedure RenderCurrentAnim(NewSet: Boolean);
     Procedure AnimScrollInView(Index: Integer);
+    Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles; //arda
   end;
 
 var
@@ -255,7 +256,37 @@ implementation
 {$R *.DFM}
 
 Uses GridSetup, FastCore, ROMUtils, Filing, InputUtils, Utility, UDGOptions, AnimPreview,
-     AddCode, Evaluate, BasinMain, TokenWindow, GrabParms, BinaryForm, Binaries;
+     AddCode, Evaluate, BasinMain, TokenWindow, GrabParms, BinaryForm, Binaries, ShellAPI;
+
+
+
+
+Procedure TUDGWindow.FileIsDropped(Var Msg: TMessage);
+Var
+  hDrop: THandle;
+  fName: Array[0..1024] of Char;
+  Name: AnsiString;
+begin
+  hDrop := Msg.WParam; Name := '';
+  DragQueryFile(hDrop,0,fName,254);
+  DragFinish(hDrop);
+  DragAcceptFiles(Handle, True);
+
+  Name := fName;
+
+  If (Lowercase(ExtractFileExt(Name)) = '.specchr') or
+  (Lowercase(ExtractFileExt(Name)) = '.bin') or
+  (Lowercase(ExtractFileExt(Name)) = '.chr') or
+  (Lowercase(ExtractFileExt(Name)) = '.ch8') or
+  (Lowercase(ExtractFileExt(Name)) = '.bsc')
+       then Begin
+          Filename := ':' + Name;
+          Open1Click(Self);
+       End;
+
+End;
+
+
 
 procedure TUDGWindow.GrabFromMemory;
 Var
@@ -302,7 +333,7 @@ begin
   SetPaletteSize;
 
   FastIMG1.Bmp.SetSize(FastIMG1.Width, FastIMG1.Height, 32);
-  FastIMG2.Bmp.SetSize(ScrollBox1.Width-100,FastIMG2.Height, 32);
+  //FastIMG2.Bmp.SetSize(ScrollBox1.Width-200,FastIMG2.Height, 32);
   FastIMG4.Bmp.SetSize(FastIMG4.Width, FastIMG4.Height, 32);
 
   FirstRun := True;
@@ -310,7 +341,7 @@ begin
   PaintMode := BitSet;
 
   RenderCurrentAnim(True);
-
+  DragAcceptFiles(Handle, True);
 end;
 
 Procedure TUDGWindow.SetUpGrid(Ew, Eh, Dw, Dh: Integer);
@@ -1019,8 +1050,12 @@ begin
   // Basically lifted and modified from Filing.LoadCode().
 
   MouseDown := False;
+  if (Length(Filename) > 0) and (Filename[1] = ':') Then Begin
+      Delete(Filename, 1, 1);
+  End Else Begin
+      Filename := OpenFile(Handle, 'Load Code Block', [FTBsc, FTBin, FTCh8, FTSpecCHR, FTAll], '', False, False);
+  End;
 
-  Filename := OpenFile(Handle, 'Load Code Block', [FTBsc, FTBin, FTCh8, FTSpecCHR, FTAll], '', False, False);
   If Filename = '' Then Exit;
   If GetFile('.bsc') <> 'Ok' Then Exit;
   Extension := Lowercase(ExtractFileExt(Filename));
@@ -1586,7 +1621,7 @@ end;
 
 procedure TUDGWindow.UDGEditorHelp1Click(Sender: TObject);
 begin
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_editor.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_editor.html'), HH_DISPLAY_TOPIC, 0);
   MouseDown := False;
 end;
 
@@ -1633,6 +1668,8 @@ begin
   FastIMG6.SetBounds(Panel3.ClientWidth - 8 - PreW, FastIMG3.Top + FastIMG3.Height + 8, PreW, PreH);
   FastIMG6.Bmp.SetSize(FastIMG6.Width, FastIMG6.Height, 32);
 
+
+
   GetBIGChar(True);
   If AnimList <> Nil Then
      RenderCurrentAnim(False);
@@ -1665,6 +1702,8 @@ Begin
 
   FastIMG2.Bmp.SetSize((nW * cW) +1, (nH * cH) + 1, 32);
   FastIMG2.SetBounds(Max((ScrollBox1.ClientWidth Div 2) - (FastIMG2.Bmp.Width Div 2), 0), 8, Max(FastIMG2.Bmp.Width, ScrollBox1.ClientWidth), Max(FastIMG2.Bmp.AbsHeight, ScrollBox1.Height));
+  FastIMG2.Width:=(nW * cW) +1;
+  FastIMG2.Height:=(nH * cH) + 1;
 
   RenderCurrentAnim(True);
   RepaintChars;
@@ -2645,6 +2684,7 @@ begin
   NewHeight := 8 + 6 + 6 + 4 + 4 + 4 + 4 + 4;
   Panel2.Height := NewHeight;
   SizeForm(Self, Left, Top, Width, Height + (NewHeight - CurHeight));
+  DragAcceptFiles(Handle, False);
 
 end;
 

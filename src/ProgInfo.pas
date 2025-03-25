@@ -147,7 +147,7 @@ end;
 procedure TProgInfoForm.Button2Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/program_information.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/program_information.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

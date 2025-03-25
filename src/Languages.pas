@@ -2,7 +2,7 @@ unit Languages;
 
 interface
   Uses Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, Math, ShellAPI, AxCtrls,
-  FastIMG, ExtCtrls, StdCtrls, ComCtrls, FastDIB, FastDrawEx, FastFiles, FastSize, FastFX, GraphicEx,
+  FastIMG, ExtCtrls, StdCtrls, ComCtrls, FastDIB, FastDrawEx, FastFiles, FastSize, FastFX,
   Utility, ROMUtils,AnimPreview;
 
   Procedure SetLanguage(Var lang: String);

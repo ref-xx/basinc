@@ -96,12 +96,12 @@ Const
 	  (Bytes:2;  Name:'STRLEN';   Address:23666;	Desc:'Length of string type destination in assignment.'),
 	  (Bytes:2;  Name:'T_ADDR';   Address:23668;	Desc:'Address of next item in syntax table (very unlikely to be useful).'),
 	  (Bytes:2;  Name:'SEED';     Address:23670;	Desc:'The seed for RND. This is the variable that is set by RANDOMIZE.'),
-    (Bytes:3;  Name:'FRAMES';   Address:23672;	Desc:'3 byte (least significant first), frame counter. Incremented every 20ms.'),
+          (Bytes:3;  Name:'FRAMES';   Address:23672;	Desc:'3 byte (least significant first), frame counter. Incremented every 20ms.'),
 	  (Bytes:2;  Name:'UDG';      Address:23675;	Desc:'Address of 1st user defined graphic You can change this for instance to save space by having fewer user defined graphics.'),
 	  (Bytes:1;  Name:'COORDSX';  Address:23677;	Desc:'x-coordinate of last point plotted.'),
 	  (Bytes:1;  Name:'COORDSY';  Address:23678;	Desc:'y-coordinate of last point plotted.'),
 	  (Bytes:1;  Name:'P_POSN';   Address:23679;	Desc:'33 column number of printer position'),
-	  (Bytes:1;  Name:'PR_CC';    Address:23680; Desc:'Less significant byte of address of next position for LPRINT to print at (in printer buffer).'),
+	  (Bytes:1;  Name:'PR_CC';    Address:23680;    Desc:'Less significant byte of address of next position for LPRINT to print at (in printer buffer).'),
 	  (Bytes:1;  Name:'UNUSED1';  Address:23681;	Desc:'Not used.'),
 	  (Bytes:2;  Name:'ECHO_E';   Address:23682;	Desc:'33 column number and 24 line number (in lower half) of end of input buffer.'),
 	  (Bytes:2;  Name:'DF_CC';    Address:23684;	Desc:'Address in display file of PRINT position.'),
@@ -138,6 +138,7 @@ begin
   Timer1.Enabled := False;
   CanUpdate := True;
   ListView1.DoubleBuffered := True;
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
 end;
 
 Procedure TSysVarsWindow.Populate;
@@ -215,6 +216,7 @@ End;
 
 procedure TSysVarsWindow.FormShow(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   UpdateSysVars(0);
 end;
 
@@ -366,7 +368,7 @@ end;
 
 procedure TSysVarsWindow.Button3Click(Sender: TObject);
 begin
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_system_variables.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_system_variables.html'), HH_DISPLAY_TOPIC, 0);
 end;
 
 end.

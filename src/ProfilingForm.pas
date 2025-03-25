@@ -52,7 +52,7 @@ Uses Profiling, BASinMain, FastCore, Utility;
 
 procedure TProfileForm.FormShow(Sender: TObject);
 begin
-
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   SelectedList.Clear;
   ShowingSelected := False;
   BuildProfileTree;
@@ -167,6 +167,7 @@ end;
 
 procedure TProfileForm.FormCreate(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   Button1.SetBounds(ClientWidth - Button1.Width - 8, ClientHeight - Button1.Height - 8, Button1.Width, Button1.Height);
   Button2.SetBounds(Button1.Left - Button2.Width - Button3.Width - 12, Button1.Top, Button2.Width, Button2.Height);
   Button3.SetBounds(Button1.Left - Button3.Width - 4, Button1.Top, Button3.Width, Button1.Height);
@@ -200,11 +201,13 @@ end;
 procedure TProfileForm.ListView1AdvancedCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState; Stage: TCustomDrawStage; var DefaultDraw: Boolean);
 Var
   ItemRect: TRect;
+
 begin
 
   ListView1.Canvas.Pen.Color := ClBlack;
   ListView1.Canvas.Pen.Style := PsClear;
   ListView1.Canvas.Brush.Style := BsSolid;
+
 
   If Item.Selected Then
      ListView1.Canvas.Brush.Color := ClWhite
@@ -224,6 +227,8 @@ begin
   ListView1.Canvas.Pen.Style := PsSolid;
   ListView1.Canvas.Brush.Style := BsSolid;
   ListView1.Canvas.Brush.Color := ClWindow;
+
+
 
 end;
 
@@ -313,7 +318,7 @@ end;
 procedure TProfileForm.Button3Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_profiling_results.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_profiling_results.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

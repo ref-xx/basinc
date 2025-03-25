@@ -6,6 +6,7 @@ Uses StdCtrls, ExtCtrls, Dialogs, Graphics, Windows, Classes, SysUtils,
      Messages, Parser, Forms, Controls, FastDIB, FastCore, Basinet;
 
 Type
+  TByteArray = array of Byte;
 
   TRenderMethod = (rmGDI, rmBilinear, rmScale2x, rmHq2x, rmSuper2xSAI, rmSuperEagle);
   TGraphicsMethod = (gmAltGr, gmScrollLock, gmNumLock);
@@ -72,6 +73,9 @@ Type
   Procedure SetProjectName(Name: String);
   Function  TrimExtension(Name: String): String;
 
+  Function ArrayToTBytes(Value: array of byte; Ln: integer):  TByteArray;
+  function ColorToHex(Color: TFColor): string;
+
   Procedure GetBASinDIR;
 
   Procedure LoadOptions;
@@ -103,6 +107,7 @@ Type
   procedure LockControl(c: TWinControl; lock: boolean);
 
   Function  FloatToStrEx(Number: Extended): String;
+  function HexToColor(HexValue: string): TFColor;
 
   Procedure SizeForm(Form: TForm; X, Y, W, H: Integer);
 
@@ -122,7 +127,7 @@ Var
 
   ReleaseName:            String = 'BasinC'; //is now set from the Project Options > Version Info.
   ReleaseBuild:           String = 'Private Build';
-  ReleaseDate:            String = 'Feb,04 2023';
+  ReleaseDate:            String = 'Mar,24 2025';
   DefaultProjectName:     String = 'My Basic';
   CurProjectName:         String = 'My Basic';
   CurProjectFilename:     String = 'My Basic';
@@ -162,10 +167,11 @@ Var
   Opt_Scanlines:          Boolean = False;              // Scanlines - (every other line at 75% brightness)
   Opt_IntegerScaling:     Boolean = False;              // Only allow integer window scales (1x, 2x, 3x etc)
   Opt_MaintainAspect:     Boolean = True;               // Maintain a correct aspect ratio?
+  Opt_DisplayFillBorder:   Boolean = True;
   Opt_GraphicsMethod:     TGraphicsMethod = gmAltGr;    // Which key activates graphics mode?
   Opt_ClipCorners:        Boolean = False;              // Rounded corners on the main window?
   Opt_AvgShades:          Boolean = False;              // Stupid Graphic thing.
-  Opt_FontScale:          Integer = 1;                  // Size of the Editor Font - x8 pixels.
+  Opt_FontScale:          Integer = 2;                  // Size of the Editor Font - x8 pixels.
   Opt_8BitStretch:        Boolean = True;               // On some cards, GDI will fly with this option enabled.
 
   Opt_Frameskip:          Integer = 1;                  // Frameskip setting
@@ -181,6 +187,8 @@ Var
   Opt_FollowProgram:      Boolean = False;              // Track program execution in the editor? - a CPU hog though.
   Opt_CharacterRuler:     Boolean = True;               // A ruler device for measuring characters in PRINT statements
   Opt_Controlicons:       Boolean = False;              // Breakpoint control icons
+  Opt_SubRoutines:        Boolean = True;               // Show Sub-Jump Combobox
+  Opt_AutoCollectSubs:    Boolean = True;               // Enable detecting GO SUB commands and add it to Sub-Combo.
   Opt_ShowStatusBar:      Boolean = True;               // Display the status bar?
   Opt_ShowToolBar:        Boolean = True;               // Display the Toolbar?
   Opt_ShowAscii:          Boolean = True;               // Display non-alphanumeric/symbol chars (ie, colour changes) as special glyphs?
@@ -239,6 +247,7 @@ Var
   Opt_Foreground:         Integer = 0;
   Opt_Background:         Integer = 15;
 
+  Opt_OnlineHelp:         Boolean = True;               //use web help
   Opt_AutoBackup:         Boolean = True;               //Automatically save backup files as BAS
   Opt_AutoLoadSession:    Boolean = False;              // Load the previous session on startup?
   Opt_LoadAutoStart:      Boolean = False;               // Allow BAS files to autostart on loading?
@@ -249,7 +258,8 @@ Var
   Opt_SavePretty:         Boolean = False;              // Saves .bas files nicely by splitting up multistatement lines.
   Opt_TapeRewind:         Boolean = True;               // Automatically rewind TZX/TAP tapes when the reach the end.
 
-
+  Opt_DisplaySnap:        Boolean = False;              // snap display to editor window v1.795
+  Opt_DisplayOnTop:       Boolean = False;              // make Display window on top
 
   Opt_FastPrinting:       Boolean = True;               // Accelerate the ROM Printing routine?
   Opt_SavePrinting:       Boolean = True;               // Store the printed output between sessions?
@@ -338,11 +348,29 @@ Var
   Opt_AsmErrorBold:       Boolean = False;
   Opt_AsmErrorItalic:     Boolean = False;
 
+
   Opt_EditorCustomFont:   Boolean = False;
   Opt_EditorFontFolder:   String =  '.\Fonts\';
   Opt_EditorFontFilename: String =  '';
 
+  Opt_ToolFontSize:       Integer = 0;
+
   Opt_ExternalExec:       String = '<not set>';   //arda add
+
+
+  Opt_TFCol24:           String = '#08080A';
+  Opt_TFCol25:           String = '#57ABFF';
+  Opt_TFCol26:           String = '#BFB290';
+  Opt_TFCol27:           String = '#A45A70';
+  Opt_TFCol28:           String = '#6A5EA3';
+  Opt_TFCol29:           String = '#B39487';
+  Opt_TFCol30:           String = '#4FDFAF';
+  Opt_TFCol31:           String = '#6A625F';
+
+  Opt_CursorColor1:      Integer = 1;
+  Opt_CursorColor2:      Integer = 7;
+  Opt_CursorBlinking:    Boolean = True;
+
 
   Opt_MouseImage:         TMouseMode = miCrosshair;
 
@@ -593,6 +621,36 @@ Begin
   Result := Result + HexChars[Value and 15];
 End;
 
+
+
+function HexToColor( HexValue: string): TFColor;    //arda - used for  converting hex color string to TFColor
+var
+  HexStr: string;
+  R, G, B: Byte;
+begin
+  // Remove '#' if present
+  HexStr := HexValue;
+  if HexStr[1] = '#' then
+    Delete(HexStr, 1, 1);
+
+  // Convert hex string to RGB values
+  R := StrToIntDef('$' + Copy(HexStr, 1, 2), 0);
+  G := StrToIntDef('$' + Copy(HexStr, 3, 2), 0);
+  B := StrToIntDef('$' + Copy(HexStr, 5, 2), 0);
+
+  // Assign values to TFColor record
+  Result.R := R;
+  Result.G := G;
+  Result.B := B;
+end;
+
+function ColorToHex(Color: TFColor): string;
+begin
+  // Format the RGB values as a hex string
+  Result := Format('#%.2x%.2x%.2x', [Color.R, Color.G, Color.B]);
+end;
+
+
 Procedure AlignAnchors(Form: TForm);
 Var
   F: Integer;
@@ -635,7 +693,13 @@ Begin
   MoveForm(FormToShow, FormToShow.Left, FormToShow.Top);
   DisplayWindow.WantsFront := False;
   If Not Modal Then Begin
-     FormToShow.Show;
+try
+  FormToShow.Show;
+  Application.ProcessMessages;
+except
+  on E: Exception do
+    ShowMessage('Hata yakalandý: ' + E.Message);
+end;
   End Else Begin
      RunningEmu := Registers.EmuRunning;
      ControlEmulation(False);
@@ -767,6 +831,16 @@ Begin
 
 End;
 
+function ArrayToTBytes(Value: array of byte; Ln: integer):  TByteArray;
+var
+i: Integer;
+Begin
+   if Ln=0 Then Ln:=Length(Value);
+   SetLength(Result, Ln);
+  for i := 0 to Ln-1 do
+    Result[i] := Value[i];
+End;
+
 Function TrimExtension(Name: String): String;
 Var
   N: Integer;
@@ -815,6 +889,8 @@ Begin
   Opt_SeperateDisplay :=     INIRead('Programming', 'Opt_SeperateDisplay', Opt_SeperateDisplay);
   Opt_CharacterRuler :=      INIRead('Programming', 'Opt_CharacterRuler', Opt_CharacterRuler);
   Opt_Controlicons :=        INIRead('Programming', 'Opt_Controlicons', Opt_Controlicons);
+  Opt_SubRoutines:=          INIRead('Programming', 'Opt_SubRoutines', Opt_SubRoutines);           //1.8
+  Opt_AutoCollectSubs:=      INIRead('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs);   //1.8
   Opt_ShowAscii :=           INIRead('Programming', 'Opt_ShowASCII', Opt_ShowAscii);
   Opt_Predictive :=          INIRead('Programming', 'Opt_Predictive', Opt_Predictive);
   Opt_OverwriteProtect :=    INIRead('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
@@ -877,9 +953,41 @@ Begin
   Opt_EditorFontFilename :=  INIRead('Fonts', 'Opt_EditorFontFilename', Opt_EditorFontFilename);
   Opt_EditorFontFolder :=    INIRead('Fonts', 'Opt_EditorFontFolder', Opt_EditorFontFolder);
 
+  Opt_ToolFontSize :=        INIRead('Fonts', 'Opt_ToolFontSize', Opt_ToolFontSize);   //Arda
+
 
   Opt_Indenting :=   INIRead('Highlight', 'Opt_Indenting', Opt_Indenting);   //Arda
   Opt_IndentSize :=   INIRead('Highlight', 'Opt_IndentSize', Opt_IndentSize);   //Arda
+
+  Opt_TFCol24:=   INIRead('CustomColours', 'Opt_TFCol24', Opt_TFCol24);   //Arda
+  Opt_TFCol25:=   INIRead('CustomColours', 'Opt_TFCol25', Opt_TFCol25);
+  Opt_TFCol26:=   INIRead('CustomColours', 'Opt_TFCol26', Opt_TFCol26);
+  Opt_TFCol27:=   INIRead('CustomColours', 'Opt_TFCol27', Opt_TFCol27);
+  Opt_TFCol28:=   INIRead('CustomColours', 'Opt_TFCol28', Opt_TFCol28);
+  Opt_TFCol29:=   INIRead('CustomColours', 'Opt_TFCol29', Opt_TFCol29);
+  Opt_TFCol30:=   INIRead('CustomColours', 'Opt_TFCol30', Opt_TFCol30);
+  Opt_TFCol31:=   INIRead('CustomColours', 'Opt_TFCol31', Opt_TFCol31);
+
+
+  TFCol24:=HexToColor(Opt_TFCol24);
+  TFCol25:=HexToColor(Opt_TFCol25);
+  TFCol26:=HexToColor(Opt_TFCol26);
+  TFCol27:=HexToColor(Opt_TFCol27);
+  TFCol28:=HexToColor(Opt_TFCol28);
+  TFCol29:=HexToColor(Opt_TFCol29);
+  TFCol30:=HexToColor(Opt_TFCol30);
+  TFCol31:=HexToColor(Opt_TFCol31);
+
+  Opt_CursorColor1:=   INIRead('CursorColor1', 'Opt_CursorColor1', Opt_CursorColor1);
+  Opt_CursorColor2:=   INIRead('CursorColor2', 'Opt_CursorColor2', Opt_CursorColor2);
+
+  Opt_CursorBlinking:=    INIRead('CustomColours', 'Opt_CursorBlinking', Opt_CursorBlinking);
+  BasinOutput.Timer1.Enabled:=Opt_CursorBlinking;
+
+  BuildPalette([TFSpecBlack, TFSpecBlue,  TFSpecRed,  TFSpecMagenta,  TFSpecGreen,  TFSpecCyan,  TFSpecYellow,  TFSpecWhite,
+                TFSpecBlack, TFSpecBlueB, TFSpecRedB, TFSpecMagentaB, TFSpecGreenB, TFSpecCyanB, TFSpecYellowB, TFSpecWhiteB,
+                TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,
+                TFCol24,TFCol25,TFCol26,TFCol27,TFCol28,TFCol29,TFCol30,TFCol31]);
 
   BASinoutput.SetDark;
 
@@ -916,6 +1024,11 @@ Begin
    // Basinet
   Opt_CheckUpdates:=         INIRead('Basinet', 'Opt_CheckUpdates', Opt_CheckUpdates);
 
+  // Display Options
+
+  Opt_DisplayOnTop:=   INIRead('DisplayOnTop', 'Opt_DisplayOnTop', Opt_DisplayOnTop);
+  Opt_DisplaySnap :=   INIRead('DisplaySnap', 'Opt_DisplaySnap', Opt_DisplaySnap);
+  
   // Scaling Options
 
   Opt_FontScale :=           INIRead('Scaling', 'Opt_FontScale', Opt_FontScale);
@@ -1019,7 +1132,7 @@ Begin
   INI.Free;
   ReleaseName := 'BasinC v'+ GetBuildInfoAsString(False);
   ReleaseBuild:= 'BasinC v'+ GetBuildInfoAsString(True);
-  BasinetWindow.AnnounceSnippet;
+  
 End;
 
 Procedure SaveOptions;
@@ -1058,6 +1171,8 @@ Begin
   INIWrite('Programming', 'Opt_SeperateDisplay', Opt_SeperateDisplay);
   INIWrite('Programming', 'Opt_CharacterRuler', Opt_CharacterRuler);
   INIWrite('Programming', 'Opt_Controlicons', Opt_Controlicons);
+  INIWrite('Programming', 'Opt_SubRoutines', Opt_SubRoutines);         //1.8
+  INIWrite('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs); //1.8
   INIWrite('Programming', 'Opt_ShowASCII', Opt_ShowAscii);
   INIWrite('Programming', 'Opt_Predictive', Opt_Predictive);
   INIWrite('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
@@ -1117,15 +1232,43 @@ Begin
   INIWrite('Highlight', 'Opt_Foreground', Opt_Foreground);
   INIWrite('Highlight', 'Opt_Background', Opt_Background);
 
+  INIWrite('Fonts', 'Opt_ToolFontSize', Opt_ToolFontSize);   //Arda
   INIWrite('Fonts', 'Opt_EditorCustomFont', Opt_EditorCustomFont);
   INIWrite('Fonts', 'Opt_EditorFontFilename', Opt_EditorFontFilename);
   INIWrite('Fonts', 'Opt_EditorFontFolder', Opt_EditorFontFolder);
+
+
 
   INIWrite('Highlight', 'Opt_Indenting', Opt_Indenting);   //Arda
   INIWrite('Highlight', 'Opt_IndentSize', Opt_IndentSize);   //Arda
 
 
+  Opt_TFCol24:=ColorToHex(TFCol24);
+  Opt_TFCol25:=ColorToHex(TFCol25);
+  Opt_TFCol26:=ColorToHex(TFCol26);
+  Opt_TFCol27:=ColorToHex(TFCol27);
+  Opt_TFCol28:=ColorToHex(TFCol28);
+  Opt_TFCol29:=ColorToHex(TFCol29);
+  Opt_TFCol30:=ColorToHex(TFCol30);
+  Opt_TFCol31:=ColorToHex(TFCol31);
+
+  INIWrite('CustomColours', 'Opt_TFCol24', Opt_TFCol24);        //arda
+  INIWrite('CustomColours', 'Opt_TFCol25', Opt_TFCol25);
+  INIWrite('CustomColours', 'Opt_TFCol26', Opt_TFCol26);
+  INIWrite('CustomColours', 'Opt_TFCol27', Opt_TFCol27);
+  INIWrite('CustomColours', 'Opt_TFCol28', Opt_TFCol28);
+  INIWrite('CustomColours', 'Opt_TFCol29', Opt_TFCol29);
+  INIWrite('CustomColours', 'Opt_TFCol30', Opt_TFCol30);
+  INIWrite('CustomColours', 'Opt_TFCol31', Opt_TFCol31);
+
+  INIWrite('CursorColor1', 'Opt_CursorColor1', Opt_CursorColor1);
+  INIWrite('CursorColor2', 'Opt_CursorColor2', Opt_CursorColor2);
+  INIWrite('CustomColours', 'Opt_CursorBlinking', Opt_CursorBlinking);
+
+
   // Error Notification
+
+
 
   For Idx := 0 To 43 Do
      INIWrite('ErrorNotify', 'Error'+IntToStr(Idx), ErrorAddresses[Idx].Notify);
@@ -1156,6 +1299,9 @@ Begin
     //Basinet
    INIWrite('Basinet', 'Opt_CheckUpdates', Opt_CheckUpdates);
 
+   // Display window options
+   INIWrite('DisplaySnap', 'Opt_DisplaySnap', Opt_DisplaySnap);
+   INIWrite('DisplayOnTop', 'Opt_DisplayOnTop', Opt_DisplayOnTop);
 
 
   // Scaling Options
@@ -1203,7 +1349,7 @@ Begin
   INIWrite('BASFiles', 'Opt_LoadAutoStart', Opt_LoadAutoStart);
   INIWrite('BASFiles', 'Opt_Autostart', Opt_Autostart);
   INIWrite('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
-   INIWrite('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
+  INIWrite('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
 
 
   // Tape Images
@@ -2075,6 +2221,8 @@ begin
       end;
   end;
 end;
+
+
 
 function GetBuildInfoAsString(BuildIncluded: Boolean): string;
 var

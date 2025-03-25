@@ -4,7 +4,8 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  FastIMG, ExtCtrls, FastDIB, Math, FastSize, Menus, Clipbrd, SyncObjs;
+  FastIMG, ExtCtrls, FastDIB, Math, FastSize, Menus, Clipbrd, SyncObjs,
+  ComCtrls;
 
 type
   TDisplayWindow = class(TForm)
@@ -39,6 +40,20 @@ type
     Emulation1: TMenuItem;
     FullSpeed1: TMenuItem;
     SaveImage1: TMenuItem;
+    DisplayStatusBar1: TStatusBar;
+    DisplayFillBorderCheck: TMenuItem;
+    N4: TMenuItem;
+    KeepOnTop1: TMenuItem;
+    CopyImageToClipboard1: TMenuItem;
+    insPlot1: TMenuItem;
+    insPrint1: TMenuItem;
+    insDraw1: TMenuItem;
+    N5: TMenuItem;
+    InsCircle1: TMenuItem;
+    InsRect1: TMenuItem;
+    InsPeek1: TMenuItem;
+    N6: TMenuItem;
+    SnaptoCodeWindow1: TMenuItem;
 
     procedure FormShow(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -60,6 +75,7 @@ type
       Shift: TShiftState; X, Y: Integer);
     procedure DisplayIMGMouseMove(Sender: TObject; Shift: TShiftState; X,
       Y: Integer);
+    procedure PopupMenuClick(Sender: TObject);
 
 
   private
@@ -72,7 +88,8 @@ type
     Procedure SizeForm(Scale: Integer);
     Procedure SizeDIBS;
     Procedure InitScaleDIBs;
-      Procedure SaveImage;
+    Procedure SaveImage;
+    procedure CopyImage;
 
   end;
 
@@ -86,7 +103,13 @@ var
     DisplayMouseY,
     DisplayMouseBtn:            dword;
 
-
+    LastAddress,
+    MousePosX,
+    MousePosY,
+    LocateX,
+    LocateY,
+    LastPlotX,
+    LastPlotY:                      Integer;
 
   _LUT16To32:       Array[0..65535] of DWord;
   _RGBToYUV:        Array[0..65535] of DWord;
@@ -141,6 +164,12 @@ begin
   InitScaleDIBs;
 
   FrameCounter := 1;
+  DisplayFillBorderCheck.checked:= Opt_DisplayFillBorder;
+
+   if (Opt_DisplayOnTop) Then Begin
+       SetWindowPos(Handle, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE);
+   End;
+
 
 end;
 
@@ -176,7 +205,7 @@ begin
   //OutputDebugString(Pchar(IntToStr(Key) + Chr(Key)));
 
   If ((Key<65) or (Key>90)) and ((Key<48) or (Key>57)) and (Key<>32) and (Key<>13) Then
-  Memory[KSTATE+4]:=255
+   Memory[KSTATE+4]:=255
   else
    Memory[KSTATE+4]:=Key;
 
@@ -231,7 +260,7 @@ begin
 
   NW := Max(Panel1.Width -8, 320);
   NH := Max(Panel1.Height -8, 240);
-
+  
   If Opt_IntegerScaling or (Opt_RenderMethod in [rmScale2x, rmHq2x, rmSuper2xSAI, rmSuperEagle]) Then Begin
      NW := (NW Div 256) * 320;
      NH := (NH Div 192) * 240;
@@ -596,7 +625,7 @@ End;
 
 Procedure TDisplayWindow.SizeForm(Scale: Integer);
 Var
-  Dw, Dh, Nw, Nh: Integer;
+  temp, Dw, Dh, Nw, Nh: Integer;
 Begin
 
   If Scale = 0 Then Scale := Round((DisplayIMG.Width/320)*100);
@@ -606,11 +635,13 @@ Begin
   Nw := Dw + 8  + (GetSystemMetrics(SM_CXSIZEFRAME)*2);
   Nh := Dh + 8  +  GetSystemMetrics(SM_CYMENU) +
                    GetSystemMetrics(SM_CYCAPTION) +
-                  (GetSystemMetrics(SM_CYSIZEFRAME)*2);
+                  (GetSystemMetrics(SM_CYSIZEFRAME)*2) + DisplayStatusBar1.Height;
 
   DisplayIMG.SetBounds(DisplayIMG.Left, DisplayIMG.Height, Dw, Dh);
-  DisplayWindow.SetBounds(Left, Top, Nw, Nh);
 
+
+
+  DisplayWindow.SetBounds(Left, Top, Nw, Nh);
 End;
 
 procedure TDisplayWindow.DisplayIMGMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -621,6 +652,12 @@ Var
   Idx, Index, SearchPos, StartPos, CurPos: Integer;
   
 begin
+    insPlot1.Enabled:=false;
+    insDraw1.Enabled:=false;
+    insPrint1.Enabled:=false;
+    insCircle1.Enabled:=false;
+    insRect1.Enabled:=false;
+    InsPeek1.Enabled:=false;
 
     // If Not MouseHooked Then
      //   If MouseFunction = 1 Then
@@ -634,7 +671,25 @@ begin
         DisplayMouseBtn := 2;
 
 
+  If Button = mbLeft Then Begin
 
+  End;
+  If Button = mbRight Then Begin
+           if (MousePosY<>999) Then
+           Begin
+             insPlot1.Enabled:=true;
+             insDraw1.Enabled:=true;
+             insPrint1.Enabled:=true;
+             insCircle1.Enabled:=true;
+             insRect1.Enabled:=true;
+
+           End;
+           if (LastAddress>16384) Then  InsPeek1.Enabled:=true;
+
+             PopUpPoint := DisplayIMG.ClientToScreen(Point(X, Y));
+             PopUpMenu1.Popup(PopUpPoint.X, PopUpPoint.Y);
+
+  End;
 
   If Button = mbRight Then Begin
 
@@ -737,6 +792,8 @@ begin
            Detokenise1.Caption := 'Tokenise';
            EditTokenPos := CurPos;
            EditToken := Idx + 164;
+           Detokenise1.Visible:=true;
+           Help2.Visible:=true;
            PopUpPoint := DisplayIMG.ClientToScreen(Point(IMGx, IMGy));
            PopUpMenu1.Popup(PopUpPoint.X, PopUpPoint.Y);
 
@@ -765,6 +822,17 @@ end;
 
 procedure TDisplayWindow.MenuItemClick(Sender: TObject);
 begin
+
+  {if (TMenuItem(Sender).Tag = 13) or (TMenuItem(Sender).Tag = 3) then
+  Begin
+  End Else Begin
+        if TMenuItem(Sender).Checked then
+        Begin
+                Exit;
+        End;
+  End;
+   }
+
   Case (Sender As TComponent).Tag of
      1:
         Begin // 100% Window Size
@@ -773,8 +841,9 @@ begin
         End;
      2:
         Begin // 200% Window Size
-           DisplayWindow.Show;
+                   DisplayWindow.Show;
            DisplayWindow.SizeForm(200);
+
 
         End;
      3:
@@ -799,12 +868,12 @@ begin
            DeleteEditLine;
         End;
      8:
-        Begin // Delete
+        Begin // x300
            DisplayWindow.Show;
            DisplayWindow.SizeForm(300);
         End;
      9:
-        Begin // Delete
+        Begin // x400
            DisplayWindow.Show;
            DisplayWindow.SizeForm(400);
         End;
@@ -813,11 +882,58 @@ begin
                SaveImage;
         End;
      10:
-        Begin // Delete
+        Begin // x600
            DisplayWindow.Show;
            DisplayWindow.SizeForm(600);
         End;
+     13:
+        Begin //Fill border
+          DisplayFillBorderCheck.Checked:= Not DisplayFillBorderCheck.Checked;
+          Opt_DisplayFillBorder:=DisplayFillBorderCheck.checked;
+          If Opt_DisplayFillBorder Then Begin
+              BorderUpdate:= True;
+              DisplayWindow.Panel1.Color := clBtnShadow ;
+          End Else Begin
+              BorderUpdate:= True;
+              DisplayWindow.Panel1.Color := 0;
+          End;
+          SetPortByte(766,getPortByte(766));
+        End;
 
+     14:
+        Begin //Always on top
+
+             KeepOnTop1.Checked:=Not KeepOnTop1.Checked;
+             Opt_DisplayOnTop:=KeepOnTop1.Checked;
+
+             if (Opt_DisplayOnTop) Then Begin
+                 SetWindowPos(DisplayWindow.Handle, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE);
+             End Else Begin
+                 SetWindowPos(DisplayWindow.Handle, HWND_NOTOPMOST, 0,0,0,0, SWP_NOMOVE or SWP_NOSIZE);
+             End;
+
+        End;
+
+     15:
+        Begin //Copy to clipboard
+            CopyImage;
+        End;
+
+     16:
+        Begin //snap to display
+           Opt_DisplaySnap:= Not Opt_DisplaySnap;
+           BasinOutput.SnaptoEditor1.Checked:=Opt_DisplaySnap;
+           SnaptoCodeWindow1.Checked:=Opt_DisplaySnap;
+           if (Opt_DisplaySnap) Then Begin
+                 DisplayWindow.Top:=BASinOutput.Top;
+                 DisplayWindow.Left:=BASinOutput.Left+BASinOutput.Width;
+           End;
+        End;
+
+     50:
+     Begin //update checks
+       KeepOnTop1.Checked:=Opt_DisplayOnTop;
+     End;
   End;
 end;
 
@@ -846,8 +962,8 @@ Begin
      DisplayWindow.DisplayIMG.Bmp.Draw(Result.hDc, 0, 0);
 
     // get a filename.
-              Filename := OpenFile(Handle, 'Save Display as Bitmap Image', [FTBmp], '', True, False);
-              If Filename = '' Then Exit;
+    Filename := OpenFile(Handle, 'Save Display as Bitmap Image', [FTBmp], '', True, False);
+    If Filename = '' Then Exit;
 
     Result.SaveToFile(Filename);
     Result.Free;
@@ -914,6 +1030,31 @@ Begin
 
 End;
 
+
+procedure TDisplayWindow.CopyImage; //by arda
+Var
+   Result: TFastDIB;
+   Bitmap: TBitmap;
+Begin
+
+
+     Result := TFastDIB.Create;
+     Result.SetSize(DisplayWindow.DisplayIMG.Bmp.Width, DisplayWindow.DisplayIMG.Bmp.AbsHeight, 32);
+     DisplayWindow.DisplayIMG.Bmp.Draw(Result.hDc, 0, 0);
+
+     Bitmap := TBitmap.Create;
+      Bitmap.Width := Result.Width;
+      Bitmap.Height := Result.Height;
+      Bitmap.PixelFormat := pf24bit;
+      Result.Draw(Bitmap.Canvas.Handle, 0, 0);
+      Clipboard.Assign(Bitmap);
+      Bitmap.Free;
+
+    Result.Free;
+
+
+End;
+
 procedure TDisplayWindow.OnEnterMenuLoop(var Message: TMessage);
 Begin
   // These manipulate the edit line, so there must be an edit line to manipulate.
@@ -926,6 +1067,9 @@ Begin
   // The Window Size items need to be set accordingly
   N100320x2401.Checked := False;
   N200640x4801.Checked := False;
+  N3001.Checked := False;
+  N4001.Checked := False;
+  N6001920x14401.Checked := False;
   Custom1.Checked := False;
   Custom1.Enabled := False;
   Custom1.Visible := False;
@@ -933,6 +1077,12 @@ Begin
      N100320x2401.Checked := True
   Else If (DisplayWindow.DisplayIMG.Width = 640) and (DisplayWindow.DisplayIMG.Height = 480) Then
      N200640x4801.Checked := True
+  Else If (DisplayWindow.DisplayIMG.Width = 960) and (DisplayWindow.DisplayIMG.Height = 720) Then
+     N3001.Checked := True
+  Else If (DisplayWindow.DisplayIMG.Width = 1280) and (DisplayWindow.DisplayIMG.Height = 960) Then
+     N4001.Checked := True
+  Else If (DisplayWindow.DisplayIMG.Width = 1920) and (DisplayWindow.DisplayIMG.Height = 1440) Then
+     N6001920x14401.Checked := True
   Else Begin
      Custom1.Visible := True;
      Custom1.Enabled := True;
@@ -1161,7 +1311,7 @@ end;
 procedure TDisplayWindow.DisplayHelp1Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/display.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/display.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 
@@ -1171,8 +1321,10 @@ begin
 if FASTMode = False Then Begin
      FASTMode := True;
      ResetSound;
+     DisplayStatusBar1.SimpleText := 'Fast';
      End Else Begin
      FASTMode := False;
+     DisplayStatusBar1.SimpleText := 'Slow';
      BorderUpdate := True;
      End;
 
@@ -1184,12 +1336,71 @@ begin
  DisplayMouseBtn := 0;
 end;
 
-procedure TDisplayWindow.DisplayIMGMouseMove(Sender: TObject;
-  Shift: TShiftState; X, Y: Integer);
+
+procedure TDisplayWindow.DisplayIMGMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+var
+i, padress, attrvalue, curx, cury, plotx, ploty, attrx, attry: integer;
+mode, sbinary: string;
+DPscale: single;
 
 begin
+    attrvalue:= 999;
+    attrx:=999;
+    attry:=999;
+    plotx:=999;
+    ploty:=999;
+    curx:=999;
+    cury:=999;
+    MousePosX:=999;
+    MousePosY:=999;
+    DPscale := DisplayIMG.Width / 320;
+    if ((x-(32*DPscale))>0) Then Begin
+        curx:= Trunc((x-(32*DPscale))/DPscale);
+        plotx:=curx;
+        if (plotx>255) Then plotx:=999;
+        if (plotx<0) Then plotx:=999;
 
+        attrx:=curx div 8;
 
+        DPscale := DisplayIMG.Height / 240;
+        if ((y-(24*DPscale))>0) Then Begin
+                cury:= Trunc((y-(24*DPscale))/DPscale);
+                if ((cury>0) and (cury<176)) Then ploty:=175-cury Else ploty:=999;
+
+                 attry:=cury div 8;
+        End;
+
+    End;
+    mode:='Slow - ';
+    if (FASTMode) Then mode:='Fast - ';
+
+    if ((plotx<>999) And (cury<192)) then begin
+
+        attrvalue:= Memory[16384+6144+attrx+(attry*32)];
+        padress:= 16384 + ((cury div 64)* 2048) + (((cury mod 64) div 8) * 32) + (((cury mod 64) Mod 8)* 256) + (curx div 8);
+        LastAddress:=padress;
+    sbinary:='';
+    for i := 7 downto 0 do
+      begin
+      // Check if the bit is set (1) or not (0)
+      if (Memory[padress] and (1 shl i)) <> 0 then
+        sbinary := sbinary + '1'
+      else
+        sbinary := sbinary + '0';
+    end;
+
+        if ((ploty<>999)) Then Begin
+            MousePosX:=plotx;
+            MousePosY:=ploty;
+            LocateX:=attrx;
+            LocateY:=attry;
+        DisplayStatusBar1.SimpleText := mode+'[AT : '+ inttostr(attry) +','+ inttostr(attrx)+ '] [PLOT: '+ inttostr(plotx) +','+ inttostr(ploty)+ '] [CURSOR X,Y: '+ inttostr(curx) +','+ inttostr(cury)+ '] [Address: '+ inttostr(padress) +' ,'+ inttostr(Memory[padress]) +' B'+ sbinary +'] [ATTR @'+inttostr(16384+6144+attrx+(attry*32))+': '+ inttostr(attrvalue) +' ($'+ inttohex(attrvalue,2) +')]';
+         End Else Begin
+        DisplayStatusBar1.SimpleText := mode+'[AT : '+ inttostr(attry) +','+ inttostr(attrx)+ '] [PLOT: --,-- ] [CURSOR X,Y: '+ inttostr(curx) +','+ inttostr(cury)+ '] [Address: '+ inttostr(padress) +' ,'+ inttostr(Memory[padress]) +' B'+ sbinary +'] [ATTR @'+inttostr(16384+6144+attrx+(attry*32))+': '+ inttostr(attrvalue) +' ($'+ inttohex(attrvalue,2) +')]';
+        End;
+    End Else Begin
+        DisplayStatusBar1.SimpleText := mode+'Border';
+    End;
     if Opt_PCStyleMouse then begin
         x:= (x-(32*displayscale)) div displayscale;
         y:=((192*displayscale)-(y-(24*displayscale)) ) div displayscale;
@@ -1208,6 +1419,81 @@ end;
 
 
 
+
+procedure TDisplayWindow.PopupMenuClick(Sender: TObject);
+Var
+ TempStr: String;
+begin
+  Case (Sender As TComponent).Tag of
+     1:
+        Begin // Print AT
+            TempStr := 'PRINT AT '+IntToStr(LocateY)+','+IntToStr(LocateX)+';';
+            BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+            BASinOutput.RepaintBASIC(True);
+          //AddCodeWindow.Memo1.Lines[0] := TempStr;
+          //AddCodeWindow.PasteLines;
+
+        End;
+     2:
+        Begin  //PLOT
+            if MousePosY<>999 Then Begin
+              TempStr := 'PLOT '+IntToStr(MousePosX)+','+IntToStr(MousePosY)+':';
+              LastPlotX:=MousePosX;
+              LastPlotY:=MousePosY;
+              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+              BASinOutput.UpdateCursorPos(EditorSelStart + DWord(Length(TempStr)), False);
+              BASinOutput.RepaintBASIC(True);
+            End;
+        End;
+     3:
+        Begin  //Draw
+             if MousePosY<>999 Then Begin
+              TempStr := 'DRAW '+IntToStr(MousePosX-LastPlotX)+','+IntToStr(MousePosY-LastPlotY)+':';
+              LastPlotX:=MousePosX;
+              LastPlotY:=MousePosY;
+              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+              BASinOutput.UpdateCursorPos(EditorSelStart + DWord(Length(TempStr)), False);
+              BASinOutput.RepaintBASIC(True);
+            End;
+        End;
+     4:
+        Begin  //Circle
+             if MousePosY<>999 Then Begin
+              TempStr := 'CIRCLE '+IntToStr(MousePosX)+','+IntToStr(MousePosY)+',15'+':';
+              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+              BASinOutput.RepaintBASIC(True);
+            End;
+        End;
+
+     5:
+        Begin  //Rect
+             if MousePosY<>999 Then Begin
+              TempStr := 'DRAW '+IntToStr(MousePosX-LastPlotX)+',0:';
+              TempStr := TempStr+'DRAW 0, '+IntToStr(MousePosY-LastPlotY)+':';
+              TempStr := TempStr+'DRAW -'+IntToStr(MousePosX-LastPlotX)+',0:';
+              TempStr := TempStr+'DRAW 0, -'+IntToStr(MousePosY-LastPlotY)+':';
+
+
+              LastPlotX:=MousePosX;
+              LastPlotY:=MousePosY;
+              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+              BASinOutput.CursOffset:=BASinOutput.CursOffset+Length(TempStr);
+
+              BASinOutput.RepaintBASIC(True);
+            End;
+        End;
+
+    6:
+        Begin  //Peek
+              TempStr := 'PEEK '+IntToStr(LastAddress);
+              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+              BASinOutput.RepaintBASIC(True);
+
+        End;
+
+
+  End; //case
+end;
 
 Initialization
 

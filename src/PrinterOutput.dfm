@@ -1,5 +1,5 @@
 object PrinterForm: TPrinterForm
-  Left = 660
+  Left = 695
   Top = 258
   Width = 293
   Height = 204

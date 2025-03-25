@@ -92,6 +92,7 @@ End;
 
 procedure TGOSUBWindow.FormCreate(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListBox1.Font.Size:=Opt_ToolFontSize;
   Label1.SetBounds(8, 8, Label1.Width, Label1.Height);
   Label2.SetBounds(Label1.Left + Label1.Width + 8, Label1.Top, ClientWidth - 24 - Label1.Width, Label1.Height); 
   Button1.SetBounds(ClientWidth - (Button1.Width + 8), ClientHeight - (Button1.Height + 8), Button1.Width, Button1.Height);
@@ -103,6 +104,7 @@ end;
 
 procedure TGOSUBWindow.FormShow(Sender: TObject);
 begin
+  if Opt_ToolFontSize>0 Then ListBox1.Font.Size:=Opt_ToolFontSize;
   BuildStack;
 end;
 
@@ -125,7 +127,7 @@ end;
 procedure TGOSUBWindow.Button3Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_gosub_stack.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_gosub_stack.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

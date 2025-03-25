@@ -639,9 +639,11 @@ Begin
   Found := False;
 
   If Length(Line) >= 1 Then Begin
-     Result := 1; //R16 fix by Arda --original value was 5. But it misses the def fn if line number is shorter than 4 digits. fix (result=1) causes false detection of def fn caused by number 206 in line number bytes.
+     Result := 5; //R16 fix by Arda --original value was 5. But it misses the def fn if line number is shorter than 4 digits. fix (result=1) causes false detection of def fn caused by number 206 in line number bytes.
      While Not Found and (Result < Length(Line)) Do Begin
-        If Line[Result] = #$CE Then Found := True;
+        If Line[Result] = #$CE Then Begin
+           Found := True;
+        End;
         Inc(Result);
      End;
   End;
@@ -1308,6 +1310,7 @@ Begin
            ColourBase := 23;
            MaxColour := 255;
         End Else If CurChar = 'a' Then Begin
+           // set AT (Chr$ 2+arg) //arda
            ColourBase := 22;
            MaxColour := 254;
         End Else If CurChar = 'v' Then Begin
@@ -1347,7 +1350,7 @@ Begin
                  Exit;
               End Else Inc(LPos);
               TempValue := GetNumber(Line, LPos, TempStr, False);
-              BASICLine := BASICLine + Chr(ColourBase) + Chr(Round(TempValue) and 255);
+              BASICLine := BASICLine + Chr(Round(TempValue) and 255);
               Dec(Lpos);
            End Else If Line[LPos] in ['0'..'9'] Then Begin
               If Ord(Line[LPos]) -48 <= MaxColour Then Begin
@@ -1387,7 +1390,11 @@ Begin
   InColours := False;
   Result := '';
   LinePos := 1;
+
   While (LinePos <= Length(Line)+1) and (Line <> '') Do Begin
+
+//OutputDebugString(PChar(IntToStr(LinePos) + '-len: ' + IntToStr(Length(Line))));
+
      If Not (Line[LinePos] in [#16..#23]) And InColours Then Begin
         If InColours and (TempStr <> '\{') Then Begin
            Result := Result + TempStr + '}';

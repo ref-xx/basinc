@@ -1,9 +1,9 @@
 object ASMEditorWindow: TASMEditorWindow
   Tag = 1
-  Left = 493
-  Top = 214
-  Width = 477
-  Height = 351
+  Left = 497
+  Top = 219
+  Width = 490
+  Height = 352
   BorderIcons = [biSystemMenu]
   Caption = 'BASIC Editor'
   Color = clBtnFace
@@ -15,6 +15,7 @@ object ASMEditorWindow: TASMEditorWindow
   KeyPreview = True
   Menu = MainMenu1
   OldCreateOrder = False
+  OnClose = FormClose
   OnCreate = FormCreate
   OnKeyDown = FormKeyDown
   OnMouseWheelDown = FormMouseWheelDown
@@ -112,6 +113,7 @@ object ASMEditorWindow: TASMEditorWindow
     end
   end
   object Timer1: TTimer
+    Enabled = False
     Interval = 320
     OnTimer = Timer1Timer
     Left = 6

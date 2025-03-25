@@ -276,7 +276,7 @@ end;
 procedure TMemMapWindow.Button2Click(Sender: TObject);
 begin
 
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_memory_map.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_memory_map.html'), HH_DISPLAY_TOPIC, 0);
 
 end;
 

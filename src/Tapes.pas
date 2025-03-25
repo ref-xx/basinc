@@ -375,6 +375,7 @@ begin
   Button2.Enabled := False;
   BitBtn1.Enabled := False;
   BitBtn2.Enabled := False;
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   ListView1.Columns[1].Width := Listview1.ClientWidth - ListView1.Columns[0].Width;
 end;
 
@@ -511,7 +512,7 @@ begin
   End Else
      Filename := '';
 
-  If Filename = '' Then Exit;
+  If Filename = '' Then Exit;   
 
   If (Sender = OpenTapeImage1) or (Sender = BASinOutput) or (Sender = nil) Then Begin
      TapeBlocks.Clear;
@@ -1239,7 +1240,7 @@ end;
 
 procedure TTapeWindow.FormCreate(Sender: TObject);
 begin
-
+  if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   Button3.SetBounds(8, ClientHeight - 8 - Button3.Height, Button3.Width, Button3.Height);
   Button1.SetBounds(Button3.Left + Button3.Width + 8, Button3.Top, Button1.Width, Button1.Height);
   Button2.SetBounds(Button1.Left + Button1.Width + 4, Button1.Top, Button2.Width, Button2.Height);
@@ -1257,7 +1258,7 @@ end;
 
 procedure TTapeWindow.TapeCreatorHelp1Click(Sender: TObject);
 begin
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_tape_creator.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_tape_creator.html'), HH_DISPLAY_TOPIC, 0);
 end;
 
 procedure TTapeWindow.Button5Click(Sender: TObject);

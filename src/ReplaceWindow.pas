@@ -325,7 +325,7 @@ end;
 
 procedure TReplaceForm.Button4Click(Sender: TObject);
 begin
-  HtmlHelp(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_replace.html'), HH_DISPLAY_TOPIC, 0);
+  BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_replace.html'), HH_DISPLAY_TOPIC, 0);
 end;
 
 procedure TReplaceForm.ComboBox1Change(Sender: TObject);
