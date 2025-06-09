@@ -1332,7 +1332,11 @@ Begin
            If Opt_Always128k = a128kNo Then
               Result := False
            Else
-              Result := False;
+                Result := false;
+                case ShowCustomDlg('Your snapshot can be saved as either 48k or 128k.'+#13+'Would you like to save a 128k Snapshot?'+#13+#13+'Tip: You can set a default save mode in Options.', mtWarning, '48k', '128k', '') of
+                        1: Result :=  false;
+                        2: Result :=  true;
+                end;
      End Else
         If UsesUDGsTU Then
            Result := False
@@ -1342,9 +1346,14 @@ Begin
            Else
               If Opt_Always128k = a128kNo Then
                  Result := False
-              Else
-                 Result := MessageDlg('Your snapshot can be saved as either 48k or 128k.'+#13+'Would you like to save a 128k Snapshot?'+#13+#13+'Tip: You can set a default save mode in Options.', mtWarning, [mbYes, mbNo], 0) = mrYes;
+              Else Begin
+                 Result := true;// MessageDlg('Your snapshot can be saved as either 48k or 128k.'+#13+'Would you like to save a 128k Snapshot?'+#13+#13+'Tip: You can set a default save mode in Options.', mtWarning, [mbYes, mbNo], 0) = mrYes;
+                case ShowCustomDlg('Your snapshot can be saved as either 48k or 128k.'+#13+'Would you like to save a 128k Snapshot?'+#13+#13+'Tip: You can set a default save mode in Options.', mtWarning, '48k', '128k', '') of
+                        1: Result :=  false;
+                        2: Result :=  true;
+                end;
 
+              End;
 End;
 
 Procedure SaveZ80;

@@ -74,6 +74,7 @@ type
     Splitter1: TSplitter;
     N5: TMenuItem;
     SyntaxHighlightingOptions1: TMenuItem;
+    UsePasmo1: TMenuItem;
     procedure FormShow(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -131,10 +132,24 @@ type
     Function  OpenAsmFile(var Filename: String): TStringlist;
     Procedure CursorToLine(LineNum, Column: Integer; Filename: String);
     Procedure Open(Filename: String);
+    //Begin 1.81 Arda
+    Function  LoadBinToMemory(const FileName: string; var MemArray: array of Byte; OrgAdr: Word): Boolean;
+    Procedure SaveToTempFile(Index: Integer; out FileName: string);
+    Function  RunPasmo(const SrcFile, OutFile: string; out Output: string): Boolean;
+    Function  FileSizeByName(const FileName: string): Integer;
+    Procedure SimpleComp;
+    Function  GetOrg:Integer;
+    Procedure AssembleWithPasmo;
     Procedure Assemble;
+    Procedure AssembleWithPasmoAsDATA;
+    procedure AssembleBinaryWithPasmo;
     Procedure AssembleAsDATA;
     Procedure AssembleBinary;
+    procedure AssembleTapeWithPasmo;
     Procedure AssembleToTape;
+    procedure FillDATALinesSimple(const Mem: array of Byte; StartAddr, Size: Integer);
+    Procedure ConvertBinToData(const MemPtr: PByte; Size: Integer);
+    //End 1.81 Arda
     Function  GetCharPos(X, Y: Integer): TPoint;
     Procedure UpdateCursorPos(var Offset: TPoint; Shifted: Boolean);
     Function  SelStart: TPoint;
@@ -144,7 +159,7 @@ type
     Function  FindNextForward(Term: String; Pos: TPoint; MatchCase: Boolean): TFindResult;
     Function  FindNextBackward(Term: String; Pos: TPoint; MatchCase: Boolean): TFindResult;
     Function  ClearFiles: Boolean;
-    Procedure UpdateCaption;
+    Procedure UpdateCaption; //fixed 1.81 Arda
     Function  HasContent(Index: Integer): Boolean;
     Procedure AddSourceFiles(var Z80Assembler: TZ80Assembler; Exclude: Integer);
     Procedure BuildAsmRecords(AsmFile: TAsmFile);
@@ -953,6 +968,9 @@ begin
      ScrollBox1.OnVerticalScroll := ScrollBox1VScroll;
      ScrollBox1.OnHorizontalScroll := ScrollBox1HScroll;
   End;
+  UsePasmo1.Enabled:= Opt_AsmPasmoAvailable;
+  UsePasmo1.Checked:= Opt_AsmPasmoAvailable;
+
   ListBox1.Color := TfColorToTColor(TFSpecDark);
   RepaintASM(True);
   FormResize(Self);
@@ -1457,12 +1475,15 @@ begin
   If Visible Then Edit2.SetFocus;
   If Button = mbLeft Then Begin
      cPoint := GetCharPos(X, Y);
-     UpdateCursorPos(cPoint, ssShift in Shift);
-     CurFile^.CursorLine := cPoint.Y;
-     CurFile^.CursorColumn := cPoint.X;
-     RepaintASM(True);
-     MakeCursorVisible;
-     MouseDown := True;
+      if (cPoint.X >= 0) and (cPoint.Y >= 0) and (cPoint.Y < CurFile^.AsmStrs.Count) then
+      Begin
+       UpdateCursorPos(cPoint, ssShift in Shift);
+       CurFile^.CursorLine := cPoint.Y;
+       CurFile^.CursorColumn := cPoint.X;
+       RepaintASM(True);
+       MakeCursorVisible;
+       MouseDown := True;
+     End;
   End;
 End;
 
@@ -1529,19 +1550,24 @@ end;
 
 Procedure TASMEditorWindow.UpdateCursorPos(var Offset: TPoint; Shifted: Boolean);
 Begin
-  If Offset.Y > CurFile^.AsmStrs.Count Then
-     Offset.Y := CurFile^.AsmStrs.Count;
-  If Offset.X > Length(CurFile^.AsmStrs[Offset.Y -1]) +1 Then
-     Offset.X := Length(CurFile^.AsmStrs[Offset.Y -1]) +1;
-  If Shifted Then Begin
-     // extend the selection
-     CurFile^.EditorSelEnd := Point(Offset.X, Offset.Y);
-  End Else Begin
-     // clear the selection
-     CurFile^.EditorSelStart := Point(Offset.X, Offset.Y);
-     CurFile^.EditorSelEnd := Point(Offset.X, Offset.Y);
-  End;
+  if Offset.Y > CurFile^.AsmStrs.Count then
+    Offset.Y := CurFile^.AsmStrs.Count;
+
+  if Offset.Y < 1 then
+    Offset.Y := 1;
+
+  if Offset.X > Length(CurFile^.AsmStrs[Offset.Y - 1]) + 1 then
+    Offset.X := Length(CurFile^.AsmStrs[Offset.Y - 1]) + 1;
+
+  if Shifted then
+    CurFile^.EditorSelEnd := Point(Offset.X, Offset.Y)
+  else
+  begin
+    CurFile^.EditorSelStart := Point(Offset.X, Offset.Y);
+    CurFile^.EditorSelEnd := Point(Offset.X, Offset.Y);
+  end;
 End;
+
 
 Function TASMEditorWindow.SelStart: TPoint;
 Begin
@@ -2047,7 +2073,7 @@ Begin
       2: Open('');
       3: SaveAsm(TabSet1.TabIndex, False);
       4: SaveAs;
-      5: Assemble;
+      5: if (UsePasmo1.Checked) Then AssembleWithPasmo else Assemble; //1.81 Arda
       6: Close;
       7: ClipCut;
       8: ClipCopy;
@@ -2094,14 +2120,247 @@ Begin
            FormResize(nil);
          End;
 
-     19: AssembleAsDATA;
-     20: AssembleBinary;
-     21: AssembleToTape;
+     19: if (UsePasmo1.Checked) Then AssembleWithPasmoAsDATA else AssembleAsDATA;  //1.81 Arda
+     20: if (UsePasmo1.Checked) Then AssembleBinaryWithPasmo else AssembleBinary;  //1.81 Arda
+     21: if (UsePasmo1.Checked) Then AssembleTapeWithPasmo else AssembleToTape;  //TODO
      22: CloseFile;
+     24: Begin
+         //use pasmo
+         UsePasmo1.Checked:= Not UsePasmo1.Checked;
+     End;
 
   End;
 
 End;
+
+procedure TASMEditorWindow.SimpleComp;
+Var
+  SrcFile, OutFile, Linex, ErrorText,  Output: AnsiString;
+  Lines: TStringList;
+  OrgAdr,NumBytes: Integer;
+
+Begin
+  OrgAdr:=32768;
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  //OutFile := ChangeFileExt(SrcFile, '.bin');
+  {if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+      NumBytes := FileSizeByName(OutFile);
+        if (LoadBinToMemory(OutFile,OrgAdr)) Then Begin
+          MessageBox(Handle, PChar('Pasmo Assembly succeeded - built ' +
+          IntToStr(NumBytes) + ' bytes at' + IntToStr(OrgAdr)), 'Assembly Completed', MB_OK or MB_ICONINFORMATION);
+        End Else Begin
+          MessageBox(Handle, PChar('Output is too big: change the Org address'), 'Overflow!', MB_OK or MB_ICONINFORMATION);
+        End;
+  End;}
+End;
+
+Function  TASMEditorWindow.GetOrg:Integer;
+Var
+  Z80Assembler: TZ80Assembler;
+  Line, ErrorType, Idx, Idx2, Idx3, Idx4, OrgAdr,i: Integer;
+  Filename, Text: String;
+  pAsmSymb: pAsmSymbol;
+  OnDisk: Boolean;
+  Flags: DWord;
+  AsmMemory: Array[0..65535] of Byte;
+  SrcFile, OutFile, Output, Linex, ErrorText: string;
+  Lines: TStringList;
+  NumBytes: Integer;
+Begin
+
+  If CurFile^.AsmStrs.Count = 0 Then Exit;
+  Z80Assembler := TZ80Assembler.Create;
+  Z80Assembler.atStartOfPass := AtStartOfPass;
+  Z80Assembler.atEndOfPass := AtEndOfPass;
+  Z80Assembler.AfterLine := AfterLineProc;
+  Z80Assembler.SetMem48(@AsmMemory[16384]);
+  AddSourceFiles(Z80Assembler, TabSet1.TabIndex);
+  Z80Assembler.Assemble(CurFile^.AsmStrs, '', -1, '');
+  If Z80Assembler.OrgAddr < 0 Then Begin
+
+     result:=-1;
+     Exit;
+  End;
+  OrgAdr:= Z80Assembler.OrgAddr;
+  Z80Assembler.Free;
+  result:=OrgAdr;
+End;
+
+Procedure TASMEditorWindow.AssembleWithPasmo;
+Var
+  Line, ErrorType, Idx, Idx2, Idx3, Idx4, OrgAdr,i: Integer;
+  Filename, Text: String;
+  pAsmSymb: pAsmSymbol;
+  OnDisk: Boolean;
+  Flags: DWord;
+  AsmMemory: Array[0..65535] of Byte;
+  SrcFile, OutFile, Output, Linex, ErrorText: string;
+  Lines: TStringList;
+  NumBytes: Integer;
+Begin
+  OrgAdr:=GetOrg;
+  If OrgAdr < 0 Then Begin
+     MessageBox(Handle, pChar('Please specify an ORG <adress> as start address.'), pChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+     Exit;
+  End;
+   //Now ready to send to pasmo   -------------------
+
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  OutFile := ChangeFileExt(SrcFile, '.bin');
+
+  if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+    Lines := TStringList.Create;
+    try
+      Lines.Text := Output;
+      ErrorText := '';
+      for i := 0 to Lines.Count - 1 do
+          if Pos('ERROR', Lines[i]) > 0 then
+             ErrorText := ErrorText + Lines[i] + #13#10;
+
+      if ErrorText <> '' then
+      begin
+        MessageBox(Handle, PChar(ErrorText), 'Compilation Errors...', MB_OK or MB_ICONERROR);
+      end
+      else if Pos('Pass 2 finished', Output) > 0 then
+      begin
+        NumBytes := FileSizeByName(OutFile);
+        if (LoadBinToMemory(OutFile,memory, OrgAdr)) Then Begin
+          MessageBox(Handle, PChar('Pasmo Assembly succeeded - built ' +
+          IntToStr(NumBytes) + ' bytes at' + IntToStr(OrgAdr)), 'Assembly Completed', MB_OK or MB_ICONINFORMATION);
+        End Else Begin
+          MessageBox(Handle, PChar('Output is too big: change the Org address'), 'Overflow!', MB_OK or MB_ICONINFORMATION);
+        End;
+      end;
+
+   finally
+      Lines.Free;
+    end;
+  end
+  else
+    ShowMessage('Pasmo could not run.');
+
+End;
+
+function TASMEditorWindow.LoadBinToMemory(const FileName: string; var MemArray: array of Byte; OrgAdr: Word): Boolean;
+var
+  FS: TFileStream;
+  Buffer: array of Byte;
+  TotalSize: Integer;
+begin
+  Result := False;
+  FS := TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
+  try
+    TotalSize := FS.Size;
+    if OrgAdr + TotalSize > Length(MemArray) then Exit;
+
+    SetLength(Buffer, TotalSize);
+    FS.ReadBuffer(Buffer[0], TotalSize);
+    Move(Buffer[0], MemArray[OrgAdr], TotalSize);
+    Result := True;
+  finally
+    FS.Free;
+  end;
+end;
+
+
+
+
+Procedure TASMEditorWindow.SaveToTempFile(Index: Integer; out FileName: string);
+var
+  TempPath: array[0..MAX_PATH] of Char;
+  TempFile: array[0..MAX_PATH] of Char;
+begin
+  FileName := '';
+  if (Index < 0) or (Index >= Length(AsmFiles)) then Exit;
+  if not Assigned(AsmFiles[Index]) or not Assigned(AsmFiles[Index]^.AsmStrs) then Exit;
+
+  GetTempPath(MAX_PATH, TempPath);
+  GetTempFileName(TempPath, 'ASM', 0, TempFile);
+  FileName := TempFile;
+
+  AsmFiles[Index]^.AsmStrs.SaveToFile(FileName);
+end;
+
+
+function  TASMEditorWindow.RunPasmo(const SrcFile, OutFile: string; out Output: AnsiString): Boolean;
+var
+  SA: TSecurityAttributes;
+  SI: TStartupInfo;
+  PI: TProcessInformation;
+  StdOutRead, StdOutWrite: THandle;
+  Buffer: array[0..255] of AnsiChar;
+  BytesRead: DWORD;
+
+  LineStr: AnsiString;
+
+  Cmd: string;
+const
+  INVALID_HANDLE = THandle(-1);
+begin
+  StdOutWrite := INVALID_HANDLE;
+  StdOutRead  := INVALID_HANDLE;
+
+  Result := False;
+  Output := '';
+
+  // Pipe security
+  SA.nLength := SizeOf(SA);
+  SA.bInheritHandle := True;
+  SA.lpSecurityDescriptor := nil;
+
+  // Pipe create
+  if not CreatePipe(StdOutRead, StdOutWrite, @SA, 0) then Exit;
+  try
+    ZeroMemory(@SI, SizeOf(SI));
+    SI.cb := SizeOf(SI);
+    SI.dwFlags := STARTF_USESTDHANDLES or STARTF_USESHOWWINDOW;
+    SI.wShowWindow := SW_HIDE;
+    SI.hStdOutput := StdOutWrite;
+    SI.hStdError := StdOutWrite;
+
+    Cmd := ExtractFilePath(Application.ExeName) + 'pasmo.exe -v ' +
+           SrcFile + ' ' + OutFile;
+
+    if CreateProcess(nil, PChar(Cmd), nil, nil, True, 0, nil, nil, SI, PI) then
+    begin
+      CloseHandle(StdOutWrite);
+      StdOutWrite := INVALID_HANDLE;
+while ReadFile(StdOutRead, Buffer, SizeOf(Buffer), BytesRead, nil) do
+begin
+  if BytesRead = 0 then Break;
+  SetString(LineStr, PAnsiChar(@Buffer), BytesRead);
+  Output := Output + string(LineStr);
+end;
+
+      WaitForSingleObject(PI.hProcess, INFINITE);
+      CloseHandle(PI.hProcess);
+      CloseHandle(PI.hThread);
+      Result := True;
+    end;
+  finally
+    if StdOutRead  <> INVALID_HANDLE then CloseHandle(StdOutRead);
+    if StdOutWrite <> INVALID_HANDLE then CloseHandle(StdOutWrite);
+  end;
+end;
+
+
+
+function TASMEditorWindow.FileSizeByName(const FileName: string): Integer;
+var
+  FS: TFileStream;
+begin
+  FS := TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
+  try
+    Result := FS.Size;
+  finally
+    FS.Free;
+  end;
+end;
+
+
+
 
 Procedure TASMEditorWindow.Assemble;
 Var
@@ -2111,14 +2370,16 @@ Var
   pAsmSymb: pAsmSymbol;
   OnDisk: Boolean;
   Flags: DWord;
+  AsmMemory: Array[0..65535] of Byte;
 Begin
+  Move(Memory[0], AsmMemory[0], SizeOf(Memory));
 
   If CurFile^.AsmStrs.Count = 0 Then Exit;
   Z80Assembler := TZ80Assembler.Create;
   Z80Assembler.atStartOfPass := AtStartOfPass;
   Z80Assembler.atEndOfPass := AtEndOfPass;
   Z80Assembler.AfterLine := AfterLineProc;
-  Z80Assembler.SetMem48(@Memory[16384]);
+  Z80Assembler.SetMem48(@AsmMemory[16384]);
   AddSourceFiles(Z80Assembler, TabSet1.TabIndex);
   Z80Assembler.Assemble(CurFile^.AsmStrs, '', -1, '');
   If Z80Assembler.NumErrors > 0 Then Begin
@@ -2127,6 +2388,7 @@ Begin
      CursorToLine(Line, 1, Filename);
      Exit;
   End;
+  Move(AsmMemory[0], Memory[0], SizeOf(Memory));
 
   CPUWindow.ClearLabels(16384, 65535);
   AllLabels.Clear;
@@ -2229,6 +2491,66 @@ Begin
 
 End;
 
+procedure TASMEditorWindow.AssembleTapeWithPasmo;
+var
+  SrcFile, OutFile, Output: AnsiString;
+  OrgAdr: Word;
+
+  FileSize: Integer;
+begin
+  OrgAdr := GetOrg;
+  if OrgAdr < 0 then
+  begin
+    MessageBox(Handle, PChar('Please specify an ORG <adress> as start address.'), PChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+    Exit;
+  end;
+
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  OutFile := ChangeFileExt(SrcFile, '.bin');
+
+  if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+    if Pos('ERROR', UpperCase(Output)) > 0 then
+    begin
+      MessageBox(Handle, PChar(Output), 'Pasmo Error', MB_OK or MB_ICONERROR);
+      Exit;
+    end
+    else if Pos('PASS 2 FINISHED', UpperCase(Output)) > 0 then
+    begin
+      if not FileExists(OutFile) then
+      begin
+        MessageBox(Handle, 'Pasmo output file not found.', 'Error', MB_OK or MB_ICONERROR);
+        Exit;
+      end;
+
+      // Dosya boyunu al
+      FileSize := FileSizeByName(OutFile);
+      if FileSize <= 0 then
+      begin
+        MessageBox(Handle, 'Output file is empty.', 'Error', MB_OK or MB_ICONERROR);
+        Exit;
+      end;
+
+      // Belleðe yükle
+      SetLength(FileArray,FileSize);
+      if not LoadBinToMemory(OutFile, FileArray, 0) then
+      begin
+        MessageBox(Handle, 'Could not load binary into memory.', 'Error', MB_OK or MB_ICONERROR);
+        Exit;
+      end;
+
+      // TAPE blok oluþtur
+      TapeBlockAdd(CODEToTape('PasmoOut', OrgAdr));
+      TapeWindow.UpdateTapeList;
+      ShowWindow(TapeWindow, False);
+    end;
+  end
+  else
+    MessageBox(Handle, 'Pasmo execution failed.', 'Error', MB_OK or MB_ICONERROR);
+end;
+
+
+
 Procedure TASMEditorWindow.AssembleToTape;
 Var
   Z80Assembler: TZ80Assembler;
@@ -2297,7 +2619,7 @@ Begin
   End Else Begin
 
   GetValues:
-
+      {
      CentreFormOnForm(AssembleForm, Self);
      ShowWindow(AssembleForm, True);
      If AssembleForm.Cancelled Then exit;
@@ -2355,12 +2677,189 @@ Begin
 
      CentreFormOnForm(AddCodeWindow, Self);
      ShowWindow(AddCodeWindow, True);
+      }
 
+     ConvertBinToData(@AsmMemory[16384], NumBytes);
      Z80Assembler.Free;
 
   End;
 
 End;
+
+procedure TASMEditorWindow.AssembleWithPasmoAsDATA;
+var
+  SrcFile, OutFile, Output: AnsiString;
+  OrgAdr: Word;
+  NumBytes: Integer;
+begin
+
+  OrgAdr:=GetOrg;
+  If OrgAdr < 0 Then Begin
+     MessageBox(Handle, pChar('Please specify an ORG <adress> as start address.'), pChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+     Exit;
+  End;
+
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  OutFile := ChangeFileExt(SrcFile, '.bin');
+
+  if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+    if Pos('ERROR', UpperCase(Output)) > 0 then
+      MessageBox(Handle, PChar(Output), 'Pasmo Error', MB_OK or MB_ICONERROR)
+    else if Pos('PASS 2 FINISHED', UpperCase(Output)) > 0 then
+    begin
+      NumBytes := FileSizeByName(OutFile);
+      if LoadBinToMemory(OutFile, AsmMemory, OrgAdr) then
+      Begin
+        FillDATALinesSimple(AsmMemory, OrgAdr, NumBytes);
+        ConvertBinToData(@AsmMemory[OrgAdr], NumBytes);
+      End else
+        MessageBox(Handle, 'Output too big for memory.', 'Overflow', MB_OK or MB_ICONWARNING);
+    end;
+  end;
+end;
+
+
+procedure TASMEditorWindow.AssembleBinaryWithPasmo;
+var
+  SrcFile, OutFile, Output: AnsiString;
+  OrgAdr: Word;
+  NumBytes: Integer;
+begin
+  OrgAdr := GetOrg;
+  if OrgAdr < 0 then
+  begin
+    MessageBox(Handle, PChar('Please specify an ORG <adress> as start address.'), PChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+    Exit;
+  end;
+
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  OutFile := ChangeFileExt(SrcFile, '.bin');
+
+  if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+    if Pos('ERROR', UpperCase(Output)) > 0 then
+    begin
+      MessageBox(Handle, PChar(Output), 'Pasmo Error', MB_OK or MB_ICONERROR);
+      Exit;
+    end
+    else if Pos('PASS 2 FINISHED', UpperCase(Output)) > 0 then
+    begin
+      NumBytes := FileSizeByName(OutFile);
+      Filename := OpenFile(Handle, 'Save Binary File', [FTAssembly], '', True, False);
+      if Filename = '' then Exit;
+
+      if FileExists(Filename) then DeleteFile(Filename);
+      if FileExists(Filename) then
+      begin
+        MessageBox(Handle, PChar('Could not overwrite your file '#39 + ExtractFilename(Filename) + #39 + '.'), PChar('Save Error'), MB_ICONWARNING or MB_OK);
+        Exit;
+      end;
+
+      // Eksik olan kopyalama iþlemi:
+      if not CopyFile(PChar(OutFile), PChar(Filename), False) then
+        MessageBox(Handle, 'Could not save binary output.', 'Save Error', MB_OK or MB_ICONERROR)
+      else
+        MessageBox(Handle, 'Binary saved successfully.', 'Success', MB_OK or MB_ICONINFORMATION);
+    end;
+  end
+  else
+    MessageBox(Handle, 'Pasmo execution failed.', 'Error', MB_OK or MB_ICONERROR);
+end;
+
+
+
+procedure TASMEditorWindow.FillDATALinesSimple(const Mem: array of Byte; StartAddr, Size: Integer);
+var
+  S: string;
+  i: Integer;
+begin
+  DATALines.Clear;
+  S := IntToStr(StartAddr) + ',';
+  for i := 0 to Size - 1 do
+    S := S + Chr(Mem[StartAddr + i]);
+  DATALines.Add(S);
+end;
+
+
+procedure TASMEditorWindow.ConvertBinToData(const MemPtr: PByte; Size: Integer);
+var
+  CurLineNum, Idx, Idx2, NumBytes: Integer;
+  Text: string;
+  NewCode: TStringList;
+Label
+  GetValues;
+begin
+GetValues:
+  CentreFormOnForm(AssembleForm, Self);
+  ShowWindow(AssembleForm, True);
+  if AssembleForm.Cancelled then Exit;
+
+  if AssembleForm.StartAt + ((Size div AssembleForm.BytesPerLine) * AssembleForm.Step) > 9999 then
+  begin
+    MessageBox(Handle, 'Your Line numbering parameters will result in a line number greater than 9999.'#13#13'Please review your settings.', 'Could not generate BASIC', MB_OK or MB_ICONWARNING);
+    goto GetValues;
+  end;
+
+  CurLineNum := AssembleForm.StartAt;
+  NewCode := TStringList.Create;
+  try
+    if AssembleForm.CheckBox2.Checked then
+    begin
+      if DATALines.Count > 1 then
+        NewCode.Add(IntToStr(CurLineNum) + ' RESTORE ' + IntToStr(CurLineNum + AssembleForm.Step) +
+          ': FOR A=1 TO ' + IntToStr(DATALines.Count) +
+          ': READ B,C: FOR D=B TO B+C-1: READ C: POKE D,C: NEXT D: NEXT A')
+      else
+        NewCode.Add(IntToStr(CurLineNum) + ' RESTORE ' + IntToStr(CurLineNum + AssembleForm.Step) +
+          ': READ A,B: FOR C=A TO A+B-1: READ B: POKE C,B: NEXT C');
+      Inc(CurLineNum, AssembleForm.Step);
+    end;
+
+    for Idx := 0 to DATALines.Count - 1 do
+    begin
+      Text := IntToStr(CurLineNum) + ' DATA ' + Copy(DATALines[Idx], 1, Pos(',', DATALines[Idx]));
+      DATALines[Idx] := Copy(DATALines[Idx], Pos(',', DATALines[Idx]) + 1, MaxInt);
+      Text := Text + IntToStr(Length(DATALines[Idx])) + ',';
+
+      NumBytes := 0;
+      for Idx2 := 1 to Length(DATALines[Idx]) do
+      begin
+        Text := Text + IntToStr(Ord(DATALines[Idx][Idx2])) + ',';
+        Inc(NumBytes);
+        if NumBytes >= AssembleForm.BytesPerLine then
+        begin
+          if Text[Length(Text)] = ',' then
+            Text := Copy(Text, 1, Length(Text) - 1);
+          NewCode.Add(Text);
+          Inc(CurLineNum, AssembleForm.Step);
+          if Idx2 < Length(DATALines[Idx]) then
+            Text := IntToStr(CurLineNum) + ' DATA '
+          else
+            Text := '';
+          NumBytes := 0;
+        end;
+      end;
+
+      if Text <> '' then
+      begin
+        if Text[Length(Text)] = ',' then
+          Text := Copy(Text, 1, Length(Text) - 1);
+        NewCode.Add(Text);
+        Inc(CurLineNum, AssembleForm.Step);
+      end;
+    end;
+
+    AddCodeWindow.ClearCode;
+    AddCodeWindow.AddCode(NewCode);
+    CentreFormOnForm(AddCodeWindow, Self);
+    ShowWindow(AddCodeWindow, True);
+  finally
+    NewCode.Free;
+  end;
+end;
+
+
 
 Procedure TASMEditorWindow.AddSourceFiles(var Z80Assembler: TZ80Assembler; Exclude: Integer);
 Var

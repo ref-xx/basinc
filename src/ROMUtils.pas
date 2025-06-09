@@ -8,7 +8,7 @@
 // * hard disk rather than tape.                *
 // *                                            *
 // * (C) 2002-2007 By Paul Dunn.                *
-// * (C) 2008-2024 By Arda Erdikmen             *
+// * (C) 2008-2025 By Arda Erdikmen             *
 // **********************************************
 
 
@@ -2639,7 +2639,7 @@ Var
 	Index, LastIndex, ReservedIndex, F: Integer;
 	CurWord: AnsiString;
 	CurChar: AnsiChar;
-	InString, GotKeyword, CanGo, IsEditing, DEFFNPresent, MightBeToken: Boolean;
+	InString, GotKeyword, CanGo, IsEditing, DEFFNPresent, IsItReallyDEFFN, MightBeToken: Boolean;
 Label
   VarName, Start;
 Begin
@@ -2743,6 +2743,7 @@ Begin
 			While (F < 102) And (CurWord <> AsciiKeywords[F]) Do Inc(F);
 			If F <> 102 Then Begin
            // Is it one of those odd ones with spaces in the name, or a $?
+           IsItReallyDEFFN := False; //arda181
            Case F of
               94: Begin // GOTO
                     F := 73;
@@ -2752,6 +2753,7 @@ Begin
                   End;
               96: Begin // DEFFN
                     F := 43;
+                    IsItReallyDEFFN := True;
                   End;
               97: Begin // INKEY
                     If CurChar = #36 Then Begin
@@ -2799,7 +2801,8 @@ Begin
 		  If Result[Length(Result)] = ' ' Then
 			Result := Copy(Result, 1, Length(Result) -1);
               If F = 43 Then
-                 DEFFNPresent := True;
+                DEFFNPresent := True;
+
               If F = 71 Then Begin
                  // REM tells us to discard the entire of the rest of the line.
                  Result := Result + #234;

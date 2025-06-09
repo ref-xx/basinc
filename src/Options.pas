@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   ComCtrls, StdCtrls, CheckLst, ExtCtrls, Buttons, FastIMG, FastDIB, FastDraw, FastSize,
-  FolderBrowser, FileCtrl, Menus, Math, Utility, Languages;
+  FolderBrowser, FileCtrl, Menus, Math, Utility, Languages,ThemeBevelUnit;
 
 type
 
@@ -29,7 +29,6 @@ type
     Label6: TLabel;
     Label7: TLabel;
     Bevel1: TThemeBevel;
-    CheckBox1: TCheckBox;
     CheckBox2: TCheckBox;
     Bevel3: TThemeBevel;
     CheckBox3: TCheckBox;
@@ -148,10 +147,6 @@ type
     CheckBox30: TCheckBox;
     TrackBar6: TTrackBar;
     CheckBox31: TCheckBox;
-    Label44: TLabel;
-    ThemeBevel4: TThemeBevel;
-    Edit2: TEdit;
-    SpeedButton2: TSpeedButton;
     ThemeBevel5: TThemeBevel;
     Label45: TLabel;
     CheckBox32: TCheckBox;
@@ -159,6 +154,24 @@ type
     ComboBox12: TComboBox;
     Label52: TLabel;
     chkOpt_OnlineHelp: TCheckBox;
+    CheckBox1: TCheckBox;
+    CheckBox34: TCheckBox;
+    TabSheet8: TTabSheet;
+    Label44: TLabel;
+    Edit2: TEdit;
+    SpeedButton2: TSpeedButton;
+    ThemeBevel4: TThemeBevel;
+    Label46: TLabel;
+    ThemeBevel6: TThemeBevel;
+    Edit3: TEdit;
+    SpeedButton3: TSpeedButton;
+    Label47: TLabel;
+    Label48: TLabel;
+    Edit4: TEdit;
+    SpeedButton4: TSpeedButton;
+    Label49: TLabel;
+    Edit5: TEdit;
+    SpeedButton5: TSpeedButton;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -190,6 +203,9 @@ type
     procedure ButtonResetClick(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure SpeedButton2Click(Sender: TObject);
+    procedure SpeedButton3Click(Sender: TObject);
+    procedure SpeedButton4Click(Sender: TObject);
+    procedure SpeedButton5Click(Sender: TObject);
   private
     { Private declarations }
     ComboBoxL: TListLessComboBox;
@@ -267,7 +283,8 @@ begin
   CheckBox31.Checked  := Opt_AllowMultipleInstances;
   //CheckBox35.Checked  := Opt_CheckUpdates;
   chkOpt_OnlineHelp.Checked:=Opt_OnlineHelp;
-
+  CheckBox34.Checked:= Opt_ShowRemCommands;
+  
   If Not Opt_OverwriteProtect Then
      ComboBox9.ItemIndex := 0
   Else
@@ -469,6 +486,7 @@ begin
     Opt_KMouse := CheckBox28.Checked;     //arda
     Opt_ShowNotes := CheckBox33.Checked; //arda
     //Opt_CheckUpdates := CheckBox35.Checked;   //arda --removed 1.8
+    Opt_ShowRemCommands:= CheckBox34.Checked; //arda 1.81
     
   // CPU Speed options
 
@@ -972,6 +990,30 @@ var Filename: String;
 begin
 // point an emulator
      Filename := OpenFile(Handle, 'Please select an executable file', [FTExec], '', False, False);
+     If Filename = '' Then
+        Exit;
+     Edit2.Text := Filename;
+end;
+
+procedure TOptionsWindow.SpeedButton3Click(Sender: TObject);
+begin
+     Filename := OpenFile(Handle, 'Please select zxbc.exe file', [FTExec], '', False, False);
+     if not SameText(ExtractFileName(Filename), 'zxbc.exe') then
+        Exit;
+     Edit3.Text := ExtractFilePath(Filename);
+end;
+
+procedure TOptionsWindow.SpeedButton4Click(Sender: TObject);
+begin
+     Filename := OpenFile(Handle, 'Please select pasmo.exe file', [FTExec], '', False, False);
+     if not SameText(ExtractFileName(Filename), 'pasmo.exe') then
+        Exit;
+     Edit4.Text := ExtractFilePath(Filename);
+end;
+
+procedure TOptionsWindow.SpeedButton5Click(Sender: TObject);
+begin
+     Filename := OpenFile(Handle, 'Please select an text editor executable file', [FTExec], '', False, False);
      If Filename = '' Then
         Exit;
      Edit2.Text := Filename;

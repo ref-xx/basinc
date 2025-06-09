@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   FastCore, StdCtrls, ExtCtrls, ComCtrls, FastIMG, FastDIB, FastSize, Math, FastFX,
-  Utility;
+  Utility,ThemeBevelUnit;
 
 type
 

@@ -14,6 +14,9 @@ object UDGGrabWindow: TUDGGrabWindow
   Font.Style = []
   OldCreateOrder = False
   OnShow = FormShow
+  DesignSize = (
+    273
+    223)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel

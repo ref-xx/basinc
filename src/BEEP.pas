@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   FastIMG, FastDIB, FastDrawEx, FastDraw, ToolWin, ComCtrls, ImgList, Utility,
-  Buttons, ExtCtrls, Math;
+  Buttons, ExtCtrls, Math,ThemeBevelUnit;
 
 type
   TBEEPWindow = class(TForm)

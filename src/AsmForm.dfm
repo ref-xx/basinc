@@ -13,6 +13,9 @@ object AssembleForm: TAssembleForm
   Font.Style = []
   OldCreateOrder = False
   OnShow = FormShow
+  DesignSize = (
+    278
+    212)
   PixelsPerInch = 96
   TextHeight = 13
   object Label5: TLabel

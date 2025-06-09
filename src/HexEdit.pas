@@ -3,8 +3,8 @@ unit HexEdit;
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  Grids, MPHexEditor, StdCtrls, FastIMG, FastDIB, ExtCtrls;
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, ClipBrd, Forms, Dialogs,
+  Grids, MPHexEditor, StdCtrls, FastIMG, FastDIB, ExtCtrls, Menus;
 
 type
   THexWindow = class(TForm)
@@ -20,6 +20,9 @@ type
     Button6: TButton;
     Timer1: TTimer;
     CheckBox1: TCheckBox;
+    PopupMenu1: TPopupMenu;
+    Copy1: TMenuItem;
+    CopyasHex1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -38,6 +41,8 @@ type
     procedure Button6Click(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure CheckBox1Click(Sender: TObject);
+    procedure Copy1Click(Sender: TObject);
+    procedure CopyasHex1Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -365,6 +370,7 @@ begin
   MPHexEditor1.ReplaceSelection(@Memory[0], 65536);
   MPHexEditor1.ResetSelection(True);
   MPHexEditor1.SetTopLeftPosition(pos,Bool);
+  //MPHexEditor1.
 end;
 
 
@@ -377,6 +383,22 @@ procedure THexWindow.CheckBox1Click(Sender: TObject);
 begin
 timer1.Enabled:=CheckBox1.Checked;
 
+end;
+
+procedure THexWindow.Copy1Click(Sender: TObject);
+var
+TempStr: String;
+begin
+  TempStr:= MPHexEditor1.SelectionAsText;
+  ClipBoard.SetTextBuf(PChar(TempStr));
+end;
+
+procedure THexWindow.CopyasHex1Click(Sender: TObject);
+var
+TempStr: String;
+begin
+    TempStr:= MPHexEditor1.SelectionAsHex;
+    ClipBoard.SetTextBuf(PChar(TempStr));
 end;
 
 end.

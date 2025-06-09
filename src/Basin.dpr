@@ -25,10 +25,14 @@ uses
   notes in 'notes.pas' {NotesWindow},
   BlockUnit in 'BlockUnit.pas',
   CompressorUnit in 'CompressorUnit.pas',
-  VarsWindow in 'VarsWindow.pas' {VariablesWindow};
+  VarsWindow in 'VarsWindow.pas' {VariablesWindow},
+  Options in 'Options.pas' {OptionsWindow},
+  Tapes in 'Tapes.pas' {TapeWindow},
+  ASMEditor in 'ASMEditor.pas' {ASMEditorWindow},
+  HexEdit in 'HexEdit.pas' {HexWindow};
 
 {$R *.RES}
-{$R WindowsXP.RES}
+//{$R WindowsXP.RES}
 {$Z4}
 
 var
@@ -88,6 +92,10 @@ begin
   Application.CreateForm(TScrPreviewForm, ScrPreviewForm);
   Application.CreateForm(TNotesWindow, NotesWindow);
   Application.CreateForm(TVariablesWindow, VariablesWindow);
+  Application.CreateForm(TOptionsWindow, OptionsWindow);
+  Application.CreateForm(TTapeWindow, TapeWindow);
+  Application.CreateForm(TASMEditorWindow, ASMEditorWindow);
+  Application.CreateForm(THexWindow, HexWindow);
   Application.Run;
   if Mutex <> 0 then CloseHandle(Mutex);
 

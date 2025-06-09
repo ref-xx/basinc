@@ -13,6 +13,9 @@ object UlaColoursWindow: TUlaColoursWindow
   Font.Style = []
   OldCreateOrder = False
   OnShow = FormShow
+  DesignSize = (
+    579
+    345)
   PixelsPerInch = 96
   TextHeight = 13
   object Label2: TLabel

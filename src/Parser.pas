@@ -14,7 +14,7 @@ Uses SysUtils, Classes, Graphics, Windows, Math;
 
 Type
 
-  TParseError =  Record Error, Syntax, Line: AnsiString; ErrorCode, Position, PositionEnd, Statement, Linenum: Integer; NowTyping: Set Of 0..255; End;
+  TParseError =  Record Error, Syntax, Line, Command: AnsiString; ErrorCode, Position, PositionEnd, Statement, Linenum: Integer; NowTyping: Set Of 0..255; End;
   TParseItem =   Record ItemType, Position: Integer; End;
   TParseStack =  Class
      Items:      Array Of TParseItem;
@@ -491,7 +491,7 @@ begin
                  End;
                  If TempType+1000 < KeyWordCutOff Then Begin
                     TempType := ParseKeyword(TempType+1000, Start, PS);
-                    SyntaxTemplate := SyntaxTemplate + AnsiChar(16)+AnsiChar(4)+' ['+WhatIs(GlobalReturn)+']';
+                     SyntaxTemplate := SyntaxTemplate + AnsiChar(16)+AnsiChar(4)+' ['+WhatIs(GlobalReturn)+']';
                  End Else Begin
                     Result.Error := 'Keyword '+WhatIs(Temptype+1000)+' Cannot start a line.';
                     Result.Position := PS.GetItem(1).Position;

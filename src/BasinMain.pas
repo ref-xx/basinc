@@ -8,7 +8,7 @@ uses
   FileCtrl, ClipBrd, Math, FastSize, FastFiles, FastDraw, DirectSound,
   ToolWin, Buttons, ImgList, CommCtrl, ROMUtils, Tabs, MMSystem, ShellAPI,
   TransparentPanel, AnimPreview, Parser, ConsoleOutput,Languages,
-  GraphicEx;
+  GraphicEx, ThemeBevelUnit;
 
 type
 
@@ -213,30 +213,33 @@ type
     SaveListingasImage1: TMenuItem;
     Timer4: TTimer;
     CoolBar1: TPanel;
+    Label1: TLabel;
+    Subroutines1: TMenuItem;
+    SubRoutineList1: TMenuItem;
     SpeedButton1: TSpeedButton;
     SpeedButton2: TSpeedButton;
     SpeedButton3: TSpeedButton;
-    Bevel1: TThemeBevel;
     SpeedButton4: TSpeedButton;
     SpeedButton5: TSpeedButton;
     SpeedButton6: TSpeedButton;
-    Bevel2: TThemeBevel;
     SpeedButton11: TSpeedButton;
     SpeedButton12: TSpeedButton;
     SpeedButton10: TSpeedButton;
     SpeedButton8: TSpeedButton;
     SpeedButton7: TSpeedButton;
-    SpeedButton9: TSpeedButton;
-    Bevel3: TThemeBevel;
-    Label1: TLabel;
-    Bevel7: TThemeBevel;
-    Bevel4: TThemeBevel;
     Panel3: TPanel;
-    ComboFuncs: TComboBox;
     Label2: TLabel;
-    Subroutines1: TMenuItem;
-    SubRoutineList1: TMenuItem;
+    ComboFuncs: TComboBox;
+    SpeedButton9: TSpeedButton;
+    Bevel1: TThemeBevel;
+    Bevel2: TThemeBevel;
+    Bevel3: TThemeBevel;
+    Bevel4: TThemeBevel;
     Bevel8: TThemeBevel;
+    BinaryImportExport1: TMenuItem;
+    CheqEditPage1: TMenuItem;
+    N23: TMenuItem;
+    
 
     procedure AppException         (Sender: TObject; E: Exception);
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
@@ -307,6 +310,7 @@ type
     procedure View1Click(Sender: TObject);
     procedure Timer4Timer(Sender: TObject);
     procedure ComboFuncsChange(Sender: TObject);
+    procedure ComboFuncsCloseUp(Sender: TObject);
 
 
 
@@ -500,17 +504,28 @@ Uses FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
      BreakpointProperties, WatchProps, MessageBox, MemBlockAdd, ColoursWind, UDGOptions,
      PrinterOutput, Printing, Profiling, ProfilingForm, ProgInfo, CPUDisplay, AsmEditor,
      BlockProps, AsmForm, GrabParms, GridSetup, BinaryGrab, PaintBox, Binaries,
-     MemManager, UlaColours, basinet, notes;
+     MemManager, UlaColours, basinet, notes, ShFolder;
 
 
-procedure InitializeCommonControls;  // Yeni bir isim verdik
+procedure InitializeCommonControls;  // 1.8 arda -- trying to avoid crashes...
 var
   ICC: TInitCommonControlsEx;
 begin
   ICC.dwSize := SizeOf(TInitCommonControlsEx);
-  ICC.dwICC := ICC_LISTVIEW_CLASSES;  // ListView desteðini aç
-  InitCommonControlsEx(ICC); // Windows API'deki gerçek fonksiyonu çaðýrýyoruz
+  ICC.dwICC := ICC_LISTVIEW_CLASSES;
+  InitCommonControlsEx(ICC);
 end;
+
+function GetAutoBackupDir: string;   //arda -- in search of a more system friendly folders
+var
+  path: array[0..MAX_PATH] of Char;
+begin
+  // Get user's AppData\Roaming\BASin\autoback path
+  SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, path);
+  Result := IncludeTrailingPathDelimiter(path) + 'BASin\autoback';
+  ForceDirectories(Result); // Create folders if not exist
+end;
+
 
 procedure TBASinOutput.AppException(Sender: TObject; E: Exception);
   var
@@ -1240,6 +1255,7 @@ begin
               BinaryWindow.AddBinary('Memory Block ('+IntToStr(BinaryGrabWindow.BlockAddress)+', '+IntToStr(BinaryGrabWindow.BlockSize)+')', TempStr);
               CentreFormOnForm(BinaryWindow, Self);
               ShowWindow(BinaryWindow, True);
+              
            End;
         End;
      49:
@@ -1632,7 +1648,7 @@ begin
            ShellExecute(handle,'open',PChar(Opt_ExternalExec), PChar(Parameters),'',SW_SHOWNORMAL);
          End Else Begin
             //show an error
-            Result := MessageDlg('You haven`t set any external utiliy in the options window or it doesn`t exist.'+#13+#13+'Please set one in Options > Files > External Utility section.', mtWarning, [mbOK], 0) = mrOK;
+            Result := MessageDlg('You haven`t set any external utiliy in the options window or it doesn`t exist.'+#13+#13+'Please set one in Options > External Tools > External Utility section.', mtWarning, [mbOK], 0) = mrOK;
 
          End;
         End;
@@ -1693,6 +1709,12 @@ begin
 
         SetRuler;
         ExtractSubs;
+        End;
+        128:
+        Begin //binary export window
+           //CentreFormOnForm(BinaryWindow, Self);
+           ShowWindow(BinaryWindow, False);
+
         End;
   End;
 
@@ -1808,6 +1830,8 @@ begin
 end;
 
 procedure TBASinOutput.UpdateParseText;
+Var
+ Idx, TempInt: Integer;
 Begin
   If Not Opt_ShowingSyntax then exit;
   ParseResult := '';
@@ -1840,6 +1864,24 @@ Begin
                           CursorType := 'C'
                        Else
                           CursorType := 'L';
+                          if (Opt_AutoCollectSubs) Then Begin                         //well I know this only works when syntax helper is also enabled
+                          ComboFuncs.ItemIndex:=-1;
+                          if (ParseError.Error = 'Ok') Then Begin
+                             TempInt:= Pos('GO SUB',ParseResult);                   //Subroutine Detection Patch - Arda 1.81
+                             if (TempInt<>0) Then Begin
+                                    if (TryStrToInt(Trim(Copy(ParseResult, TempInt+7, MaxInt)),TempInt)) Then Begin
+                                           for idx := 0 to ComboFuncs.Items.Count - 1 do
+                                               if Pos(Format('%4d:', [TempInt]), ComboFuncs.Items[idx]) = 1 then
+                                                  begin
+                                                     ComboFuncs.ItemIndex:=idx;
+                                                  End;
+                                    End;
+
+                             End;
+
+                          End;
+                          End;
+
            StatusBar1.Repaint;
         End Else Begin
            ParseResult := GetCurrentStatement(GetEditLine);
@@ -2032,7 +2074,7 @@ begin
    //Screen.MenuFont.Name := 'Arial Black';
    //MainMenu1.OwnerDraw:=True;
    //Screen.MenuFont.Size:=12;
-    Application.OnException := AppException;
+   // Application.OnException := AppException;
 
    //init SimpleCON register so it can be displayed at editbox
 
@@ -2043,7 +2085,7 @@ begin
    End;
 
    ConsoleAddon[0]:=1; //set simpleCon index to 1, so it's ready.
-
+   CoolBar1.DoubleBuffered := True;
 
  //arda  end
 
@@ -2528,7 +2570,7 @@ Var
   ReturnFlag: Bool;
   Ink, Paper, Bright, pInk, pPaper, pBright, pTemp, Inverse: Byte;
   CurChar: Char;
-  LineText, TempStr, LineStr, CurWord,RegionTempS, RegionCollapseToS: String;
+  LineText, TempStr, TempRemStr, LineStr, CurWord,RegionTempS, RegionCollapseToS: String;
   CurWordOrg, ePPC, eSUBPPC, XPos, YPos, SizeOpt, TempVal, ViewX, LineNum, StatementNum, CurWordPos, Idx, RegionCollapseTo, RegionTempI, RegionTempB: Integer;
   CurPos, NumLines, TempPrevLine, TempPrevLine2,
   CurLine, LineLen, MaxLineLen, Offset, CurFontScale: DWord;
@@ -2537,7 +2579,7 @@ Var
   DIB: TFastDIB;
   tempscale: integer; //used for downsizing zx stripes temporarily.
 Const
-  HexChars: String = '0123456789ABCDEF';
+  HexChars: AnsiString = '0123456789ABCDEF';
 Label
   ColonChar;
 Begin
@@ -2823,10 +2865,20 @@ Begin
            NewWord(DIB, CurWord, CurWordOrg, YPos, Ink, Paper, Bright, LineBreak, REMCommand, InString, DoPaint, CurWordPos);
            CurWord := '';
         End;
-        If XPos +8 < DIB.Width Then
-           If XPos > 0 Then
-              SmallTextOut(DIB, HexChars[(((Ord(CurChar) div 16)*16) div 16)+1]+HexChars[(Ord(CurChar) Mod 16)+1], XPos, (DIB.AbsHeight - YPos)-7, DisplayPalette[Ink]);
-        Inc(XPos, 8);
+        If XPos +16 < DIB.Width Then
+           If XPos > 0 Then  Begin
+              if (CurChar in [#163..#255]) and Opt_ShowRemCommands Then Begin
+                TempRemStr := Copy(AsciiKeywords[Ord(CurChar) - 163], 1, 4);
+
+                Inc(XPos, 4-Length(TempRemStr));
+                SmallTextOut(DIB, TempRemStr , XPos, (DIB.AbsHeight - YPos)-7, DisplayPalette[Ink]);
+              End Else Begin
+                if Opt_ShowRemCommands then Inc(XPos, 4);
+                SmallTextOut(DIB, HexChars[(((Ord(CurChar) div 16)*16) div 16)+1]+HexChars[(Ord(CurChar) Mod 16)+1], XPos, (DIB.AbsHeight - YPos)-7, DisplayPalette[Ink]);
+              End;
+              if Opt_ShowRemCommands then Inc(XPos, 16) else Inc(XPos, 8);
+           End;
+
         CurChar := #0;
      End;
 
@@ -3014,7 +3066,7 @@ Begin
                                            //Finally Found a number
                                            if (RegionTempI>0) And (RegionTempI<10000) Then Begin
                                                //valid line number
-					      RegionCollapseTo:=RegionTempI;
+					                                     RegionCollapseTo:=RegionTempI;
                                            End else begin
                                                //not a valid number
 					      //ignore
@@ -3449,23 +3501,23 @@ begin
 
 
 
-  
+
   i := 1;
   while i <= Length(BASICMem) do
   begin
-    // Bir satýrýn baþlangýcýný belirle
+
     lineStart := i;
-    // Satýr sonuna kadar (CR veya LF) ilerle
+    // parse line
     while (i <= Length(BASICMem)) and not (BASICMem[i] in [#13, #10]) do
       Inc(i);
     lineLen := i - lineStart;
     currentLine := Copy(BASICMem, lineStart, lineLen);
-    
-    // Satýr sonundaki CR/LF karakterlerini atla
+
+    // skip crlf
     while (i <= Length(BASICMem)) and (BASICMem[i] in [#13, #10]) do
       Inc(i);
 
-    // Satýr baþýnda varsa satýr numarasýný oku (örneðin "10 " gibi)
+    // read line number
     lineNum := 0;
     j := 1;
     while (j <= Length(currentLine)) and (currentLine[j] in ['0'..'9']) do
@@ -3473,47 +3525,46 @@ begin
       lineNum := lineNum * 10 + (Ord(currentLine[j]) - Ord('0'));
       Inc(j);
     end;
-    
-    // Satýrýn geri kalanýnda, string literaller dýþýnda REM komutunu arýyoruz.
+
+    // start looking for REMarks.
     remFound := False;
     inString := False;
     while j <= Length(currentLine) do
     begin
       if currentLine[j] = '"' then
         inString := not inString;
-      
+
       if (not inString) and (j <= Length(currentLine) - 3) then
       begin
-        // REM komutunu büyük/küçük harf duyarsýz olarak kontrol et
+        // check for REM
         if UpperCase(Copy(currentLine, j, 4)) = 'REM ' then
         begin
           remFound := True;
-          j := j + 4; // "REM " ifadesinin sonrasýna geç
+          j := j + 4; // skip "REM "
           Break;
         end;
       end;
       Inc(j);
     end;
-    
-    // REM komutu bulunduysa, þimdi subname kontrolü yapýyoruz
+
+    // REM check for subroutine name
     if remFound then
     begin
-      // Boþluklarý atla
+      // skip spaces
       while (j <= Length(currentLine)) and (currentLine[j] = ' ') do
         Inc(j);
-      // Eðer ilk karakter '#' ise, subname var demektir
+      // # is the region identifier
       if (j <= Length(currentLine)) and (currentLine[j] = '#') then
       begin
-        Inc(j); // '#' karakterini atla
-        // Satýrýn kalan kýsmýný alýp trim ederek subname olarak kullan
+        Inc(j); // '#' skip this
+        // get the rest of the line to generate a item name
         subName := Trim(Copy(currentLine, j, Length(currentLine) - j + 1));
         subName := UpperCase(subName);
-        // Örneðin, ComboFuncs listesine "SUBNAME: LINENUMBER" formatýnda ekleyelim
-        //ComboFuncs.Items.Add( IntToStr(lineNum)+ ': ' +subName );
+        // "Line No: Sub Name"
         ComboFuncs.Items.Add(Format('%4d: %s', [lineNum, subName]));
       end;
     end;
-    
+
   end;
 end;
 
@@ -3527,23 +3578,20 @@ var
   idx: Integer;
   alreadyExists: Boolean;
 begin
-
-
-
-  i := 1;
+ i := 1;
   while i <= Length(BASICMem) do
   begin
-    { Bir satýrý CR/LF karakterlerine kadar ayýrýyoruz }
+    { look for end of lines and split }
     lineStart := i;
     while (i <= Length(BASICMem)) and not (BASICMem[i] in [#13, #10]) do
       Inc(i);
     lineLen := i - lineStart;
     currentLine := Copy(BASICMem, lineStart, lineLen);
-    { Satýr sonu karakterlerini atla }
+    { skip crlf }
     while (i <= Length(BASICMem)) and (BASICMem[i] in [#13, #10]) do
       Inc(i);
 
-    { Satýrýn baþýndaki rakamlar satýr numarasýný oluþturur }
+    { get line numbers }
     j := 1;
     lineNum := 0;
     while (j <= Length(currentLine)) and (currentLine[j] in ['0'..'9']) do
@@ -3552,8 +3600,7 @@ begin
       Inc(j);
     end;
 
-    { Ayný satýrda ":" ile ayrýlmýþ birden fazla statement olabilir.
-      Her statement’i ayrý ayrý iþlemek için satýrý parçalýyoruz. }
+    { explode statements seperated by : }
     stmtStart := 1;
 
     currentLine:=Copy(currentLine,pos(' ',currentLine)+1,MaxInt);
@@ -3562,7 +3609,7 @@ begin
     begin
       inString := False;
       stmtEnd := stmtStart;
-      { Statement sonunu, string içinde deðilken ":" veya satýr sonu bulunana kadar arýyoruz }
+      { skip if char is in quotes "" }
       while (stmtEnd <= Length(currentLine)) do
       begin
         if currentLine[stmtEnd] = '"' then
@@ -3573,7 +3620,7 @@ begin
       end;
       stmt := Trim(Copy(currentLine, stmtStart, stmtEnd - stmtStart));
 
-      { Statement "GO SUB" ile baþlýyorsa (case insensitive) }
+      { if Statement is "GO SUB"  (case insensitive) }
       if (Length(stmt) >= 6) and (UpperCase(Copy(stmt, 1, 6)) = 'GO SUB') then
       begin
         j := 7;
@@ -3586,22 +3633,20 @@ begin
           token := token + stmt[tokenPos];
           Inc(tokenPos);
         end;
-        { Eðer token boþ deðilse, GO SUB ifadesinden sonra salt rakam gelmiþ demektir.
-          Ekstra karakter (hesaplanmýþ ifade) varsa token içerisinde rakam dýþý karakter bulunur. }
+        { Only look for absolute line numbers. }
         if token <> '' then
         begin
-          { Kalan kýsmýn sadece boþluklardan oluþup oluþmadýðýný kontrol edelim }
+          { check for spaces... }
           while (tokenPos <= Length(stmt)) and (stmt[tokenPos] = ' ') do
             Inc(tokenPos);
           if tokenPos > Length(stmt) then
           begin
-            { Ýþleme alýnacak: token salt rakam içeriyor }
+            { token is absolute numbers }
             gosubValue := StrToInt(token);
             candidate := gosubValue;// - 50;
             if candidate < 0 then
               candidate := 0;
-            { BASICMem içindeki satýrlarý tekrar tarayarak, candidate deðere eþit veya
-              sonrasýnda gelen ilk satýrý bulalým }
+            { find that number in BASICMem lines }
             targetLine := -1;
             k := 1;
             while k <= Length(BASICMem) do
@@ -3611,7 +3656,7 @@ begin
                 Inc(k);
               lineLen := k - lineStart;
               tempLine := Copy(BASICMem, lineStart, lineLen);
-              { Satýr baþýndaki rakamlarý oku }
+              { read numbers at start of line }
               j2 := 1;
               tempLineNum := 0;
               while (j2 <= Length(tempLine)) and (tempLine[j2] in ['0'..'9']) do
@@ -3634,20 +3679,20 @@ begin
             begin
                 alreadyExists := False;
                 for idx := 0 to ComboFuncs.Items.Count - 1 do
-                //if Pos(IntToStr(targetLine) + ':', ComboFuncs.Items[idx]) = 1 then
                 if Pos(Format('%4d:', [targetLine]), ComboFuncs.Items[idx]) = 1 then
                 begin
                   alreadyExists := True;
+
                   Break;
                 end;
-                if not alreadyExists then  ComboFuncs.Items.Add(Format('%4d: %s', [targetLine, targetLinePreview]));
-                //ComboFuncs.Items.Add(IntToStr(targetLine) + ': ' + targetLinePreview);
-
-            end;
-          end;
-        end;
-      end;
-      stmtStart := stmtEnd + 1;  { Bir sonraki statement'e geç }
+                if not alreadyExists then Begin
+                   ComboFuncs.Items.Add(Format('%4d: %s', [targetLine, targetLinePreview]));
+                End;
+             end;
+           end;
+         end;
+       end;
+      stmtStart := stmtEnd + 1;  { move to next statement }
     end;
   end;
 end;
@@ -6745,7 +6790,8 @@ Begin
 
 End;
 
-Procedure SmallTextOut(Bmp: TFastDIB; Text: String; X, Y: Integer; Clr: TFColorA);
+
+Procedure SmallTextOut(Bmp: TFastDIB; Text: AnsiString; X, Y: Integer; Clr: TFColorA);
 Var
   Xp, Yp: Integer;
   Ch, Tx, F: Integer;
@@ -6763,19 +6809,42 @@ Const
      ('01110', '01010', '01110', '00010', '01110'),  // 9
      ('00000', '00000', '01110', '00000', '00000'),  // -
      ('00000', '00100', '01110', '11111', '11111')); // Arrow
-  SmallLetters: Array[0..5, 0..4] of String =
+  SmallLetters: Array[0..25, 0..4] of String =
     (('00100', '01010', '01110', '01010', '01010'),  // A
      ('01100', '01010', '01100', '01010', '01100'),  // B
      ('00100', '01010', '01000', '01010', '00100'),  // C
      ('01100', '01010', '01010', '01010', '01100'),  // D
      ('01110', '01000', '01100', '01000', '01110'),  // E
-     ('01110', '01000', '01100', '01000', '01000')); // F
+     ('01110', '01000', '01100', '01000', '01000'),  // F
+
+    ('00110', '01000', '01011', '01001', '00111'),  // G - 6
+    ('01010', '01010', '01110', '01010', '01010'),  // H - 7
+    ('01110', '00100', '00100', '00100', '01110'),  // I - 8
+    ('00010', '00010', '00010', '01010', '00100'),  // J - 9
+    ('01010', '01100', '01000', '01100', '01010'),  // K - 10
+    ('01000', '01000', '01000', '01000', '01110'),  // L - 11
+    ('01010', '01110', '01010', '01010', '01010'),  // M - 12
+    ('01010', '01110', '01110', '01010', '01010'),  // N - 13
+    ('00110', '01001', '01001', '01001', '00110'),  // O - 14
+    ('01110', '01010', '01110', '01000', '01000'),  // P - 15
+    ('01110', '01001', '01001', '01011', '01111'),  // Q - 16
+    ('01110', '01010', '01100', '01010', '01010'),  // R - 17
+    ('01110', '01000', '00110', '00010', '01110'),  // S - 18
+    ('01110', '00100', '00100', '00100', '00100'),  // T - 19
+    ('01010', '01010', '01010', '01010', '01110'),  // U - 20
+    ('01010', '01010', '01010', '00100', '00100'),  // V - 21
+    ('01010', '01010', '01110', '01110', '01010'),  // W - 22
+    ('01010', '00100', '00100', '01010', '01010'),  // X - 23
+    ('01010', '01010', '00100', '00100', '00100'),  // Y - 24
+    ('01111', '00010', '00100', '01000', '01111')); // Z - 25
+
+
 Begin
   Xp := X -1;
   If Y +4 > BMP.AbsHeight Then Exit;
   For Tx := 1 To Length(Text) Do Begin
      Yp := Y;
-     If Text[Tx] in ['a'..'f', 'A'..'F'] Then Begin
+     If Text[Tx] in ['a'..'z', 'A'..'Z'] Then Begin
         Ch := Ord(Text[Tx]) - 65;
         If Ch > 31 Then
            Dec(Ch, 32);
@@ -7618,25 +7687,35 @@ begin
 end;
 
 procedure TBASinOutput.Timer3Timer(Sender: TObject);
+var
+  BackupDir, Filename: string;
 begin
-  if (Opt_AutoBackup) and not Registers.EmuRunning Then Begin
+  // Only run when auto-backup is enabled and emulator is not running
+  if Opt_AutoBackup and not Registers.EmuRunning then
+  begin
+    // Skip backup if project name starts with 'autoback'
+    if Trim(Copy(CurProjectName, 1, 8)) <> 'autoback' then
+    begin
+      BackupDir := GetAutoBackupDir;
 
-        if  (trim(Copy(CurProjectName,1,8))<>'autoback') Then  Begin
+      if ProjectSaved then
+      begin
+        // Rotate between autoback0.bas to autoback9.bas
+        Filename := Format('%s\autoback%d.bas', [BackupDir, AutoBack]);
+        SaveCurrentProgram(Filename);
+        Inc(AutoBack);
+        if AutoBack > 9 then AutoBack := 0;
+      end
+      else
+      begin
+        // Save unsaved snapshot separately
+        Filename := BackupDir + '\autoback_lastUnsaved.bas';
+        SaveCurrentProgram(Filename);
+      end;
 
-             if DirectoryExists(BASinDIR+'\autoback') then Begin
-                // the directory exists
-                If ProjectSaved Then  Begin
-                  SaveCurrentProgram(BASinDIR+'\autoback\autoback'+IntToStr(AutoBack)+'.bas');
-                  AutoBack:=AutoBack+1;
-                  If (AutoBack>9) Then AutoBack:=0;
-                End else Begin
-                  SaveCurrentProgram(BASinDIR+'\autoback\autoback_lastUnsaved.bas');
-                End;
-                  label1.Caption:='Autobackup '+inttostr(AutoBack)+' created';
-
-             End;
-        End;
-  End;
+      Label1.Caption := 'Autobackup ' + IntToStr(AutoBack) + ' created';
+    end;
+  end;
 end;
 
 
@@ -7655,11 +7734,9 @@ begin
     // "::" split
     LocalPath := pszFile;
     Delete(LocalPath, 1, Pos('::', LocalPath) + 1);
-    
-    // Online yardým adresini oluþtur
-    HelpURL := 'https://zx.tr/basinc/help' + LocalPath+'?basinc18';
+    HelpURL := 'https://zx.tr/basinc/help' + LocalPath+'?basinc182';
 
-    // Web tarayýcýsýnda aç
+    // open default browser
     ShellExecute(0, 'open', PChar(HelpURL), nil, nil, SW_SHOWNORMAL);
   end
   else
@@ -7692,12 +7769,12 @@ var
   Satirno: Integer;
   ColonPos: Integer;
 begin
-  SelectedText := ComboFuncs.Text; // Combobox'taki seçili öðeyi al
-  ColonPos := Pos(':', SelectedText); // ':' karakterinin konumunu bul
+  SelectedText := ComboFuncs.Text; // get the region name
+  ColonPos := Pos(':', SelectedText); // find ':'
 
   if ColonPos > 0 then
   begin
-    // ':' karakterinden sonraki kýsmý alýp baþtaki boþluklarý temizleyerek sayýya çevir
+    // ':' try parse line number
     Satirno := StrToIntDef(Trim(Copy(SelectedText, 1, ColonPos - 1)), -1);
 
     if Satirno <> -1 then Begin
@@ -7712,21 +7789,40 @@ begin
   ComboFuncs.Enabled := True;
 end;
 
+procedure TBASinOutput.ComboFuncsCloseUp(Sender: TObject);
+begin
+       ComboFuncs.Enabled:=False;
+       Application.ProcessMessages;
+       ComboFuncs.Enabled:=True;
+       
+end;
+
 initialization
   InitializeCommonControls;  // Uygulama baþlarken çaðýr
 
 end.
 
 // history & todo:
+// 1.82
+//
 
-
+// 1.81 -- only released in ZX Spectrum Discord Server  06.06.2025
+// Added - Sysvars now can be sorted by clicking on the column headers
+// Added - Memory Grab/Binary Grab window can now send data direcly to tape as a block
+// Added - Assembler can now use pasmo assembler if pasmo.exe exist in the basinc folder
+// Added - Memory Viewer - Copy to Clipboard right button popup menu
+// Added - Custom Token Entry tab for Token Table Window (if you know what you are doing).
+// Added - Show Keywords in Rem option to preview known keywords in a rem line (use custom token entry or shift+click on tokens on token table to insert keywords)
+// Added - Subroutine list now shows destination when your cursor is on a gosub command
+// Fixed - No longer accidental UI jumps when subroutine list is open
+// Fixed - DEF FN parsing. Loading from a BAS file (ProcessBASLine), process DEF FN was called for every line. This was causing problems. Disabled this behaviour as program listing will get retokenized properly while repaint.
 
 // 1.8 -- Bumped version number because of visual lift.
 // Added: Sub-Routine listing. mark subs manually with REM #<sub name> or enable auto-detect subs to catch GO SUB <line no>'s
 // Added: Online Help Option: Since Windows continuously marks the help file as unsafe, the Help File will be served online as an alternative.
 // Fixed: Windows-XP archaic button panels are partly removed to provide more compatible graphics update.
 // Changed: All internet update functionality is removed. Update Check just opens a browser now.
-// TODO: 8810 DEF FN b(x,y)=(x+y+ABS (x-y))/2\#0139000 PRINT FN b(1,2)   This works with RUN command, but START button breaks something
+// TODO: (edit--fixed in 1.81) 8810 DEF FN b(x,y)=(x+y+ABS (x-y))/2\#0139000 PRINT FN b(1,2)   This works with RUN command, but START button breaks something
 
 // 1.79.5 (skipped)
 // Added - Simple exception handler. Hope it catches nasty ones.  build 94

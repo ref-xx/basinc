@@ -6,7 +6,7 @@ uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   FastIMG, FastDIB, FastCore, ExtCtrls, Math, Utility, FastDrawEx, Menus, FastDraw,
   ToolWin, ComCtrls, Buttons, ImgList, TransparentPanel, StdCtrls, FastSize, FastFX,
-  Tabs, FastFiles, BrushSelector, Clipbrd, Tapes;
+  Tabs, FastFiles, BrushSelector, Clipbrd, Tapes, ThemeBevelUnit;
 
 type
 

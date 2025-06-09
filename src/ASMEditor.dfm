@@ -1,7 +1,7 @@
 object ASMEditorWindow: TASMEditorWindow
   Tag = 1
-  Left = 497
-  Top = 219
+  Left = 244
+  Top = 128
   Width = 490
   Height = 352
   BorderIcons = [biSystemMenu]
@@ -47,7 +47,6 @@ object ASMEditorWindow: TASMEditorWindow
         Text = 'Ln: Col:'
         Width = 50
       end>
-    SimplePanel = False
   end
   object TabSet1: TTabSet
     Left = 0
@@ -72,9 +71,7 @@ object ASMEditorWindow: TASMEditorWindow
     object Splitter1: TSplitter
       Left = 73
       Top = 0
-      Width = 3
       Height = 237
-      Cursor = crHSplit
       OnMoved = Splitter1Moved
     end
     object FastIMG1: TFastIMG
@@ -159,6 +156,11 @@ object ASMEditorWindow: TASMEditorWindow
       end
       object Assemble1: TMenuItem
         Caption = 'Assemble'
+        object UsePasmo1: TMenuItem
+          Tag = 24
+          Caption = 'Use Pasmo to compile'
+          OnClick = MenuItemClick
+        end
         object ToMemory1: TMenuItem
           Tag = 5
           Caption = 'To Memory'

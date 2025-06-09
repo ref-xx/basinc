@@ -17,6 +17,9 @@ object RenumberForm: TRenumberForm
   OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
+  DesignSize = (
+    248
+    214)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel

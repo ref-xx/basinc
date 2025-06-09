@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, FastIMG, CheckLst, ExtCtrls, FastDrawEx, FastDIB, FastDraw, Math,
-  Utility;
+  Utility,ThemeBevelUnit;
 
 type
   TColoursWindow = class(TForm)

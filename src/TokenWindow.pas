@@ -33,6 +33,11 @@ type
     Label8: TStaticText;
     CheckBox1: TCheckBox;
     Button2: TButton;
+    TabSheet4: TTabSheet;
+    EditTokenCode1: TEdit;
+    Label9: TLabel;
+    Button3: TButton;
+    Chktokenize: TCheckBox;
     procedure FormShow(Sender: TObject);
     procedure FastIMG1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FastIMG2MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -70,6 +75,8 @@ type
     procedure Button1KeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure FormShortCut(var Msg: TWMKey; var Handled: Boolean);
+    procedure Button3Click(Sender: TObject);
+    procedure FastIMG8Click(Sender: TObject);
 
   private
     { Private declarations }
@@ -888,6 +895,39 @@ end;
 procedure TTokenForm.FormShortCut(var Msg: TWMKey; var Handled: Boolean);
 begin
  if (GetKeyState(VK_Control) < 0) and (Msg.CharCode = Ord('T')) Then Close;
+end;
+
+procedure TTokenForm.Button3Click(Sender: TObject);
+var
+  num: Integer;
+begin
+  if TryStrToInt(EditTokenCode1.Text, num) then
+  begin
+   if (num<=255) And (num>=0) Then Begin
+     If Not (BASinOutput.Running or Registers.EmuRunning) Then Begin
+        if chkTokenize.Checked Then
+          BASinOutput.PerformTokenIn(TranslateToTokens(num))
+          Else
+          BASinOutput.PerformTokenIn(Chr(num));
+        BASinOutput.RepaintBASIC(True);
+        BASinOutput.SetFocus;
+     End Else
+        BufferToken(num);
+
+   End Else
+        EditTokenCode1.Text:='0';
+  end else begin
+    // illegal
+    ShowMessage('Please enter 0-255 range of numbers.');
+  end;
+
+
+end;
+
+procedure TTokenForm.FastIMG8Click(Sender: TObject);
+begin
+ edittokencode1.Text:= inttostr(FastIMG8.Tag + 163);
+
 end;
 
 end.

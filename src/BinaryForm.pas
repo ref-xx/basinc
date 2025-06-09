@@ -4,7 +4,8 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, Buttons, Math, ExtCtrls, ComCtrls, Menus, Utility;
+  StdCtrls, Buttons, Math, ExtCtrls, ComCtrls, Menus, Utility,
+  ThemeBevelUnit;
 
 type
   TBinaryType = (btDecimal, btHex, btREM, btBASIC, btMemory);
@@ -49,6 +50,12 @@ type
     Edit6: TEdit;
     Button5: TButton;
     SendToManager1: TMenuItem;
+    Panel6: TPanel;
+    Edit7: TEdit;
+    Edit9: TEdit;
+    Label11: TLabel;
+    Label12: TLabel;
+    SendToTape1: TMenuItem;
     procedure Button1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -84,7 +91,7 @@ var
 
 Const
 
-  Descs: Array[0..4] of String = ('DATA Dec', 'DATA Hex', 'REM', 'Basic', 'Memory');
+  Descs: Array[0..6] of String = ('DATA Dec', 'DATA Hex', 'REM', 'Basic', 'Memory', 'Tape Block','Memory Clip');
 
 implementation
 
@@ -103,7 +110,8 @@ Begin
   SetLength(Options, Num +1);
   Options[Num] := TStringlist.Create;
   Options[Num].Add(Chr(0));
-  For Idx := 1 To 4 Do Options[Num].Add('10');
+  For Idx := 1 To 3 Do Options[Num].Add('10');
+  Options[Num].Add('32768');
   Options[Num].Add(Chr(0));
   Options[Num].Add(Chr(0));
 
@@ -178,6 +186,7 @@ begin
   Panel3.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
   Panel4.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
   Panel5.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
+  Panel6.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
   Label6.SetBounds(8, Panel1.Top - Label6.Height - Bevel4.Height - 8, Label6.Width, Label6.Height);
   Bevel4.SetBounds(8, Label6.Top + Label6.Height + 4, ClientWidth - 16, 2);
   Panel2.SetBounds(Panel2.Left, Panel2.Top, ClientWidth - 16, Panel1.Top - Label6.Height - Bevel4.Height - Panel2.Top - 16);
@@ -266,6 +275,7 @@ begin
   Panel3.Top := Bevel4.Top + 4;
   Panel4.Top := Bevel4.Top + 4;
   Panel5.Top := Bevel4.Top + 4;
+  Panel6.Top := Bevel4.Top + 4;
   ListView1.Items.EndUpdate;
 
 end;
@@ -427,6 +437,10 @@ Begin
                  Options[Index].Strings[4] := Edit6.Text;                       // Address
 
               End;
+           5: Begin // to tape
+                 Options[Index].Strings[4] := Edit7.Text;                       // Address
+                 Options[Index].Strings[5] := Edit8.Text;                       // File Name
+              End;
 
         End;
 
@@ -452,6 +466,7 @@ Begin
               Panel3.Visible := False;
               Panel4.Visible := False;
               Panel5.Visible := False;
+              Panel6.Visible := False;
 
            End;
 
@@ -469,6 +484,7 @@ Begin
               Panel3.Visible := True;
               Panel4.Visible := False;
               Panel5.Visible := False;
+              Panel6.Visible := False;
 
            End;
 
@@ -479,6 +495,17 @@ Begin
               Panel3.Visible := False;
               Panel4.Visible := True;
               Panel5.Visible := False;
+              Panel6.Visible := False;
+
+           End;
+        5: Begin // To tape
+
+              Edit7.Text := Options[Index].Strings[4];   // Address
+              Panel1.Visible := False;
+              Panel3.Visible := False;
+              Panel4.Visible := False;
+              Panel5.Visible := False;
+              Panel6.Visible := True;
 
            End;
 
@@ -488,6 +515,7 @@ Begin
               Panel3.Visible := False;
               Panel4.Visible := False;
               Panel5.Visible := True;
+              Panel6.Visible := False;
               Label9.Caption := 'No options available for this import type.';
               Label9.SetBounds((Panel5.Width Div 2) - (Label9.Width Div 2), (Panel5.Height Div 2) - (Label9.Height Div 2), Label9.Width, Label9.Height);
 
@@ -501,6 +529,7 @@ Begin
      Panel3.Visible := False;
      Panel4.Visible := False;
      Panel5.Visible := False;
+     Panel6.Visible := False;
      Label6.Enabled := False;
 
   End;
@@ -558,6 +587,7 @@ Begin
               Panel3.Visible := False;
               Panel4.Visible := False;
               Panel5.Visible := False;
+              Panel6.Visible := False;
               ErrorControl.SetFocus;
            End;
         End;
@@ -585,6 +615,7 @@ Begin
               Panel3.Visible := True;
               Panel4.Visible := False;
               Panel5.Visible := False;
+              Panel6.Visible := False;
               ErrorControl.SetFocus;
            End;
         End;
@@ -597,6 +628,21 @@ Begin
               Panel3.Visible := False;
               Panel4.Visible := True;
               Panel5.Visible := False;
+              Panel6.Visible := False;
+              Edit6.SetFocus;
+           End Else
+           Options[Item].Strings[4] := IntToStr(Value);
+        End;
+
+     5: Begin // Tape Block
+           Value := Round(EvaluateNum(Options[Item].Strings[4], -1));
+           If (Value < 0) or (Value > 65535) Then Begin
+              MessageBox(Handle, pChar('Valid Addresses range from 0 to 65535'), pChar('Invalid Address'), MB_OK or MB_ICONWARNING);
+              Panel1.Visible := False;
+              Panel3.Visible := False;
+              Panel4.Visible := False;
+              Panel5.Visible := False;
+              Panel6.Visible := True;
               Edit6.SetFocus;
            End Else
            Options[Item].Strings[4] := IntToStr(Value);
@@ -695,6 +741,13 @@ begin
 
                  NewCodePresent := False;
                  BinaryToMemory(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
+                                StrToInt(Options[0].Strings[4]));
+
+              End;
+           5: Begin //send to tap arda 1.81
+
+                 NewCodePresent := False;
+                 BinaryToTape(Edit9.Text,Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
                                 StrToInt(Options[0].Strings[4]));
 
               End;

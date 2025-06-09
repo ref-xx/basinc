@@ -6,7 +6,7 @@
 // * Very(?) simple emulation, but very fast.   *
 // *                                            *
 // * (C) 2001-2008 By Paul Dunn.                *
-// *                                            *
+// *  later: slightly modified by Arda Erdikmen *
 // **********************************************
 
 unit FastCore;
@@ -316,7 +316,7 @@ Var
   Palette64:        Array[0..63] of Byte;
   Active64Colours:  Boolean;
   Last64Port:       Byte;
-  
+
 Const
 
   // Memory access flags
@@ -441,7 +441,17 @@ Const
   TFSpecYellowB:  TFColor = (b:0;g:255;r:255);
   TFSpecWhiteB:   TFColor = (b:255;g:255;r:255);
 
-implementation
+
+  TFCol24:     TFColor = (b:8;g:8;r:10);
+  TFCol25:     TFColor = (b:103;g:96;r:143);
+  //TFCol34:     TFColor = (b:124;g:139;r:162);
+  TFCol26:     TFColor = (b:143;g:118;r:108);
+  TFCol27:     TFColor = (b:105;g:100;r:93);
+  TFCol28:     TFColor = (b:78;g:153;r:228);
+  TFCol29:     TFColor = (b:255;g:171;r:87);
+  TFCol30:     TFColor = (b:164;g:90;r:112);
+  TFCol31:     TFColor = (b:106;g:94;r:163);
+  implementation
 
 Uses ConsoleOutput,BASinMain, Utility, Display, LogWind, Sound, Evaluate, PrinterOutput, Profiling, CPUDisplay, MemMap;  //basinmidi
 
@@ -587,7 +597,9 @@ Begin
      If Address Mod 32 = 0 Then ScreenAddresses[YPoint] := Address;
   End;
   BuildPalette([TFSpecBlack, TFSpecBlue,  TFSpecRed,  TFSpecMagenta,  TFSpecGreen,  TFSpecCyan,  TFSpecYellow,  TFSpecWhite,
-                TFSpecBlack, TFSpecBlueB, TFSpecRedB, TFSpecMagentaB, TFSpecGreenB, TFSpecCyanB, TFSpecYellowB, TFSpecWhiteB]);
+                TFSpecBlack, TFSpecBlueB, TFSpecRedB, TFSpecMagentaB, TFSpecGreenB, TFSpecCyanB, TFSpecYellowB, TFSpecWhiteB,
+                TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,TFCol24,
+                TFCol24,TFCol25,TFCol26,TFCol27,TFCol28,TFCol29,TFCol30,TFCol31]);
 End;
 
 Function GetScreenAddr(X, Y: DWord): DWord;
@@ -611,7 +623,7 @@ Procedure BuildPalette(Clrs: Array of TFColor);
 Var
   F: Integer;
 Begin
-  For F := 0 To 15 Do begin
+  For F := 0 To 31 Do begin
      DisplayPalette[F].r := Clrs[F].r;
      DisplayPalette[F].g := Clrs[F].g;
      DisplayPalette[F].b := Clrs[F].b;
@@ -7887,7 +7899,9 @@ Begin // RST 10H
      mov Word [esi+TZ80Registers.PC], 16
      mov Word [esi+TZ80Registers.&SP], ax
      mov edx,11
+     //Call ROMTrap; //arda - uncomment to enable console output for PRINT
   end;
+
 End;
 
 Procedure OpD8;
@@ -16045,8 +16059,13 @@ Begin
            End;
   End;
 
-  If BorderUpdate Then
-     DisplayWindow.Panel1.Color := TFColorAToTColor(DisplayPalette[BorderDWord And 7]);
+  If BorderUpdate Then Begin
+        If Opt_DisplayFillBorder Then Begin
+                DisplayWindow.Panel1.Color := TFColorAToTColor(DisplayPalette[BorderDWord And 7]);
+        End Else Begin
+                DisplayWindow.Panel1.Color := TFColorAToTColor(DisplayPalette[BorderDWord And 0]);
+        End;
+  End;
 
 End;
 

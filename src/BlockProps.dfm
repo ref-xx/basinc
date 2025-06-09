@@ -16,6 +16,9 @@ object BlockProperties: TBlockProperties
   OldCreateOrder = False
   OnClose = FormClose
   OnShow = FormShow
+  DesignSize = (
+    225
+    198)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel

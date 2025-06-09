@@ -88,6 +88,7 @@ type
     CurPage: TZ80MemBlock;
     oldPage: TZ80MemBlock;
     CurPageName: String;
+    OrgAddr: Integer;
     AsmAddr: Integer;
     AsmVPtr: Integer;
     AsmLineAddr: DWord;
@@ -1806,6 +1807,7 @@ begin
   if Assigned(atStartOfPass) then atStartOfPass(self);
   AsmWordsPtr := DWord(@AsmWords);
   NumAsmWords := High(AsmWords);
+  OrgAddr:=-1;
 
   totalBytes := 0;
   NumSymbolErrors := 0;
@@ -2636,6 +2638,7 @@ noORGPage:
           PageValid := True;
           if FirstWord = 65 then begin
           AsmAddr := InstrVal;
+          OrgAddr := InstrVal;
           end;
           AsmVPtr := InstrVal;
           AsmLineAddr := AsmAddr;

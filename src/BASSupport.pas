@@ -575,7 +575,9 @@ Begin
 
   // *Finally* we have a tokenised line. The last job is to test for DEF FN, and
   // insert the dummy bytes after each parameter.
-  ProcessDEFFN(CurBASICLine);
+
+  // ProcessDEFFN(CurBASICLine);  //arda181 workaround -- well, this might be problematic needs more testing, this will get called again eventually in somewhere else and add cache bytes later
+
 
   // Got a line, now add the $13 terminator, and add to the filebody.
   // Also update the length of the text in the 3/4th bytes.
@@ -639,7 +641,7 @@ Begin
   Found := False;
 
   If Length(Line) >= 1 Then Begin
-     Result := 5; //R16 fix by Arda --original value was 5. But it misses the def fn if line number is shorter than 4 digits. fix (result=1) causes false detection of def fn caused by number 206 in line number bytes.
+     Result := 1; //R16 fix by Arda --original value was 5. But it misses the def fn if line number is shorter than 4 digits. fix (result=1) causes false detection of def fn caused by number 206 in line number bytes.
      While Not Found and (Result < Length(Line)) Do Begin
         If Line[Result] = #$CE Then Begin
            Found := True;

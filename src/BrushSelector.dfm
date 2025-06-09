@@ -15,6 +15,9 @@ object BrushSelectorForm: TBrushSelectorForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
+  DesignSize = (
+    301
+    334)
   PixelsPerInch = 96
   TextHeight = 13
   object Panel5: TPanel
@@ -25,6 +28,9 @@ object BrushSelectorForm: TBrushSelectorForm
     Anchors = [akLeft, akTop, akBottom]
     BevelOuter = bvNone
     TabOrder = 3
+    DesignSize = (
+      293
+      281)
     object Label11: TLabel
       Left = 4
       Top = 4
@@ -80,6 +86,9 @@ object BrushSelectorForm: TBrushSelectorForm
       Height = 221
       BevelOuter = bvNone
       TabOrder = 2
+      DesignSize = (
+        287
+        221)
       object Label12: TLabel
         Left = 0
         Top = 140
@@ -140,16 +149,10 @@ object BrushSelectorForm: TBrushSelectorForm
         Height = 25
         Anchors = [akLeft, akTop, akRight]
         Max = 359
-        Orientation = trHorizontal
         PageSize = 1
         Frequency = 10
-        Position = 0
-        SelEnd = 0
-        SelStart = 0
         TabOrder = 1
         ThumbLength = 10
-        TickMarks = tmBottomRight
-        TickStyle = tsAuto
         OnChange = TrackBar5Change
         OnEnter = TrackBar5Enter
       end
@@ -160,16 +163,10 @@ object BrushSelectorForm: TBrushSelectorForm
         Height = 25
         Anchors = [akLeft, akTop, akRight]
         Max = 100
-        Orientation = trHorizontal
         PageSize = 1
         Frequency = 5
-        Position = 0
-        SelEnd = 0
-        SelStart = 0
         TabOrder = 2
         ThumbLength = 10
-        TickMarks = tmBottomRight
-        TickStyle = tsAuto
         OnChange = TrackBar5Change
         OnEnter = TrackBar5Enter
       end
@@ -240,6 +237,9 @@ object BrushSelectorForm: TBrushSelectorForm
     TabOrder = 0
     object TabSheet1: TTabSheet
       Caption = 'Pen style'
+      DesignSize = (
+        279
+        257)
       object Label1: TLabel
         Left = 60
         Top = 12
@@ -340,15 +340,9 @@ object BrushSelectorForm: TBrushSelectorForm
         Height = 25
         Anchors = [akLeft, akBottom]
         Max = 100
-        Orientation = trHorizontal
         Frequency = 2
-        Position = 0
-        SelEnd = 0
-        SelStart = 0
         TabOrder = 4
         ThumbLength = 10
-        TickMarks = tmBottomRight
-        TickStyle = tsAuto
         OnChange = TrackBar4Change
         OnEnter = TrackBar1Enter
       end
@@ -360,6 +354,9 @@ object BrushSelectorForm: TBrushSelectorForm
         Anchors = [akLeft, akTop, akRight, akBottom]
         BevelOuter = bvNone
         TabOrder = 1
+        DesignSize = (
+          260
+          129)
         object Label3: TLabel
           Left = 0
           Top = 28
@@ -434,16 +431,11 @@ object BrushSelectorForm: TBrushSelectorForm
           Height = 25
           Max = 32
           Min = 1
-          Orientation = trHorizontal
           PageSize = 8
           Frequency = 2
           Position = 1
-          SelEnd = 0
-          SelStart = 0
           TabOrder = 0
           ThumbLength = 10
-          TickMarks = tmBottomRight
-          TickStyle = tsAuto
           OnChange = TrackBar1Change
           OnEnter = TrackBar1Enter
         end
@@ -455,16 +447,11 @@ object BrushSelectorForm: TBrushSelectorForm
           Anchors = [akTop, akRight]
           Max = 32
           Min = 1
-          Orientation = trHorizontal
           PageSize = 8
           Frequency = 2
           Position = 1
-          SelEnd = 0
-          SelStart = 0
           TabOrder = 1
           ThumbLength = 10
-          TickMarks = tmBottomRight
-          TickStyle = tsAuto
           OnChange = TrackBar1Change
           OnEnter = TrackBar1Enter
         end
@@ -475,16 +462,10 @@ object BrushSelectorForm: TBrushSelectorForm
           Height = 25
           Anchors = [akLeft, akTop, akRight]
           Max = 359
-          Orientation = trHorizontal
           PageSize = 1
           Frequency = 10
-          Position = 0
-          SelEnd = 0
-          SelStart = 0
           TabOrder = 2
           ThumbLength = 10
-          TickMarks = tmBottomRight
-          TickStyle = tsAuto
           OnChange = TrackBar2Change
           OnEnter = TrackBar1Enter
         end
@@ -493,6 +474,9 @@ object BrushSelectorForm: TBrushSelectorForm
     object TabSheet2: TTabSheet
       Caption = 'Pen Fill Style'
       ImageIndex = 1
+      DesignSize = (
+        279
+        257)
       object Panel3: TPanel
         Left = 8
         Top = 12

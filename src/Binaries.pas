@@ -16,7 +16,7 @@ Type
   Procedure BinaryToAsmText(Binary: String; var List: TStringlist; BytesPerLine: Integer);
   Procedure BinaryToBASIC(Binary: String; var List: TStringlist);
   Procedure BinaryToMemory(Binary: String; Address: Word);
-  Procedure BinaryToTape(Binary: String; Address: Word);
+  Procedure BinaryToTape(BlockName:String; Binary: String; Address: Word);
 
 implementation
 
@@ -268,14 +268,14 @@ Begin
 
 End;
 
-Procedure BinaryToTape(Binary: String; Address: Word);
+Procedure BinaryToTape(BlockName:String; Binary: String; Address: Word);
 Begin
 
   // Sends a binary object to the current tape file, as a CODE block.
 
   SetLength(FileArray, Length(Binary));
   CopyMemory(@FileArray[0], @Binary[1], Length(Binary));
-  TapeBlockAdd(CODEToTape('Binary', Address));
+  TapeBlockAdd(CODEToTape(BlockName, Address));
   TapeWindow.UpdateTapeList;
   ShowWindow(TapeWindow, False);
 

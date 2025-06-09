@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  ExtCtrls, StdCtrls, Utility;
+  ExtCtrls, StdCtrls, Utility,ThemeBevelUnit;
 
 type
   TProgInfoForm = class(TForm)

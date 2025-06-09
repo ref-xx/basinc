@@ -127,7 +127,7 @@ Begin
   // Now, resize up to a maximum of 10 items - this may not work for all
   // XP themes, at least not properly.
   NumItems := ListBox1.Items.Count;
-  If NumItems > 10 Then NumItems := 10;
+  If NumItems > 20 Then NumItems := 20;
   Height := (NumItems*ListBox1.ItemHeight)+96;
   ListBox1.Items.EndUpdate;
   ArrayBackup := GetMemoryString(ArrayVarAddress, ArrayVarSize, Memory);
@@ -264,7 +264,7 @@ Begin
   Edit5.Text := IntToStr(GetWord(@Memory[VarAddress]));
   // Statement
   Edit6.Text := IntToStr(Memory[VarAddress+2]);
-  SetBounds(Left, Top, 250, 248);
+  //SetBounds(Left, Top, groupbox1.left+groupbox1.width+24,edit6.Top+edit6.height+16+32);
   NoteBook1.PageIndex := 2;
 End;
 
@@ -363,9 +363,9 @@ end;
 
 procedure TSpecialVarsWindow.FormCreate(Sender: TObject);
 begin
-  GroupBox1.SetBounds(4, 4, ClientWidth - 8, ClientHeight - (Button1.Height + 12));
-  Button1.SetBounds(Width - 12 - Button1.Width, GroupBox1.Top + GroupBox1.Height + 4, Button1.Width, Button1.Height);
-  Button2.SetBounds(Button1.Left - (Button2.Width+ 4), Button1.Top, Button1.Width, Button1.Height);
+  GroupBox1.SetBounds(8, 8, ClientWidth - 16, ClientHeight - (Button1.Height + 24));
+  Button1.SetBounds(Width - (24 + Button1.Width), GroupBox1.Top + GroupBox1.Height + 8, Button1.Width, Button1.Height);
+  Button2.SetBounds(Button1.Left - (Button1.Width+ 8), Button1.Top, Button1.Width, Button1.Height);
 end;
 
 end.

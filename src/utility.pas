@@ -44,10 +44,7 @@ Type
     property OnHorizontalScroll: THScrollEvent read FOnHScroll write FOnHScroll;
   end;
 
-  TThemeBevel = Class(TBevel)
-  Public
-     Procedure Paint; Override;
-  End;
+
 
   TColourLabel = Class(TLabel)
   public
@@ -77,6 +74,9 @@ Type
   function ColorToHex(Color: TFColor): string;
 
   Procedure GetBASinDIR;
+
+  function ShowCustomDlg(const Msg: string; IconType: TMsgDlgType; const Btn1, Btn2, Btn3: string): Integer;
+
 
   Procedure LoadOptions;
   Procedure SaveOptions;
@@ -114,7 +114,7 @@ Type
   function GetBuildInfoAsString(BuildIncluded: Boolean): string;
   procedure GetBuildInfo(var V1, V2, V3, V4: word);
 
-  Procedure Register;
+
 
 Var
 
@@ -126,6 +126,7 @@ Var
   DisplayScale:           Integer;
 
   ReleaseName:            String = 'BasinC'; //is now set from the Project Options > Version Info.
+  iniReleaseName:         String = '';
   ReleaseBuild:           String = 'Private Build';
   ReleaseDate:            String = 'Mar,24 2025';
   DefaultProjectName:     String = 'My Basic';
@@ -178,7 +179,7 @@ Var
   Opt_AutoFrameSkip:      Boolean = True;
 
   Opt_FullThrottle:       Boolean = False;              // Run at the most amazing speed possible.
-
+  Opt_ShowRemCommands:    Boolean = False;              // 1.81 - shows raw keywords in rem
   Opt_ShowingSyntax:      Boolean = True;               // Show syntax-checker at startup?
   Opt_AutoList:           Boolean = True;               // Use the "." to automatically number your lines?
   Opt_AutoBracket:        TBracketMethod = bmComplete;  // Use the Autobracket system?
@@ -254,7 +255,7 @@ Var
   Opt_AutoStart:          Boolean = False;               // Automatically save programs with Autostart?
   Opt_AutoStartLine:      Word = 1;                     // The line to autostart programs from.
   Opt_z80Version:         DWord = 2;                    // Saves .z80 snapshots as V1.45, V2.01 or V3.5 snaps
-  Opt_Always128k:         Byte = 2;                     // Saves snaps as which hardware?
+  Opt_Always128k:         Integer = 0;                     // Saves snaps as which hardware?   default=always 48
   Opt_SavePretty:         Boolean = False;              // Saves .bas files nicely by splitting up multistatement lines.
   Opt_TapeRewind:         Boolean = True;               // Automatically rewind TZX/TAP tapes when the reach the end.
 
@@ -274,6 +275,8 @@ Var
   Opt_EditorSounds:       Boolean = True;               // 128k Sounds in the editor?
   Opt_KeyClick48k:        Boolean = True;               // Use a 48k Keyclick sound instead of the 128k version?
   Opt_DSoundSynch:        Boolean = True;               // Use DirectSound buffer synchronisation for timing
+
+  Opt_AsmPasmoAvailable:  Boolean = False;              //if pasmo exists
 
   Opt_AsmStatusBar:       Boolean = True;               // Show the Assembler Statusbar?
   Opt_AsmLabelList:       Boolean = True;               // Show the Assembler's label list to the left of the editor?
@@ -401,8 +404,8 @@ Const
   WM_UPDATECURSOR      =  WM_USER + 7;
   WM_RESIZE            =  WM_USER + 8;
 
-  a128kYes             =  0;
-  a128kNo              =  1;
+  a128kYes             =  1;
+  a128kNo              =  0;
   a128kAsk             =  2;
 
   // Graphics characters
@@ -466,6 +469,7 @@ Const
 implementation
 
 Uses BASINMain, Filing, ROMUtils, RLEUnit, Display, VarsWindow, CPUDisplay, TokenWindow, PaintBox;
+
 
 Procedure TWorkerThread.Execute;
 Var
@@ -863,6 +867,8 @@ Var
   Value, NewEntry: String;
 Begin
 
+
+
   INI := TStringlist.Create;
   If FileExists(BASinDIR+'\basinC.ini') Then
      INI.LoadFromFile(BASinDIR+'\basinC.ini');
@@ -896,6 +902,7 @@ Begin
   Opt_OverwriteProtect :=    INIRead('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
   Opt_ProtectNewOnly :=      INIRead('Programming', 'Opt_ProtectNewOnly', Opt_ProtectNewOnly);
   Opt_Language :=            INIRead('Programming', 'Opt_Language', Opt_Language);
+  Opt_ShowRemCommands :=     INIRead('Programming', 'Opt_ShowRemCommands', Opt_ShowRemCommands);
 
   // Syntax Highlight Options
 
@@ -1000,6 +1007,7 @@ Begin
   Opt_CursorToError :=       INIRead('ErrorNotify', 'Opt_CursorToError', Opt_CursorToError);
 
   // Assembler options
+  if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_AsmPasmoAvailable:= True;
 
   Opt_AsmStatusBar :=        INIRead('Assembler', 'Opt_AsmStatusBar', Opt_AsmStatusBar);
   Opt_AsmLabelList :=        INIRead('Assembler', 'Opt_AsmLabelList', Opt_AsmLabelList);
@@ -1065,6 +1073,7 @@ Begin
 
   Opt_z80Version:=           INIRead('Snapshots', 'Opt_z80Version', Opt_z80Version);
   Opt_ExternalExec:=         INIRead('Snapshots', 'Opt_ExternalExec', Opt_ExternalExec);
+  Opt_Always128k:=           INIRead('Snapshots', 'Opt_Always128k', Opt_Always128k);
 
   // .BAS Files
 
@@ -1129,6 +1138,14 @@ Begin
 
   LoadEditorFont(BASinOutput.Handle, Opt_EditorFontFilename, Opt_EditorCustomFont);
 
+  iniReleaseName :=  INIRead('Version', 'BasinCVersion', ReleaseName);
+        if iniReleaseName <> ReleaseName then
+        begin
+                //ShowMessage('Welcome to New Version Of Basinc');
+                //eger yeni version zorlanacak ayarlari varsa burada yazilabilir
+        end;
+
+
   INI.Free;
   ReleaseName := 'BasinC v'+ GetBuildInfoAsString(False);
   ReleaseBuild:= 'BasinC v'+ GetBuildInfoAsString(True);
@@ -1179,6 +1196,8 @@ Begin
   INIWrite('Programming', 'Opt_ProtectNewOnly', Opt_ProtectNewOnly);
   INIWrite('Programming', 'Opt_Language', Opt_Language);
   INIWrite('Programming', 'Opt_AllowMultipleInstances', Opt_AllowMultipleInstances);
+  INIWrite('Programming', 'Opt_ShowRemCommands', Opt_ShowRemCommands); //1.81
+
 
   // Syntax Highlight and Colour Options
 
@@ -1341,7 +1360,7 @@ Begin
 
   INIWrite('Snapshots', 'Opt_z80Version', Opt_z80Version);
   INIWrite('Snapshots', 'Opt_ExternalExec', Opt_ExternalExec);
-
+  INIWrite('Snapshots', 'Opt_Always128k', Opt_Always128k);
 
   // .BAS Files
 
@@ -2084,51 +2103,8 @@ begin
   FOnHScroll := nil;
 end;
 
-Procedure TThemeBevel.Paint;
-Var
-  Rct: TRect;
-  Edge, Flags: Integer;
-Begin
 
-  Rct := Rect(0, 0, Width - 1, Height - 1);
-  Case Style of
-     bsLowered:
-        Edge := EDGE_RAISED;
-     bsRaised:
-        Edge := EDGE_SUNKEN;
-  End;
 
-  Flags := BF_FLAT;
-
-  Case Shape of
-     bsBox:
-        Flags := Flags or BF_BOTTOM or BF_TOP or BF_LEFT or BF_RIGHT;
-     bsFrame:
-        Begin
-           Flags := Flags or BF_BOTTOM or BF_TOP or BF_LEFT or BF_RIGHT;
-           Edge := EDGE_ETCHED;
-        End;
-     bsTopLine:
-        Flags := Flags or BF_TOP;
-     bsBottomLine:
-        Flags := Flags or BF_BOTTOM;
-     bsLeftLine:
-        FLags := Flags or BF_LEFT;
-     bsRightLine:
-        Flags := Flags or BF_RIGHT;
-  End;
-
-  If Shape <> bsSpacer Then
-     Windows.DrawEdge(Canvas.Handle, Rct, Edge, Flags);
-
-End;
-
-Procedure Register;
-Begin
-
-  RegisterComponents('XP', [TThemeBevel]);
-
-End;
 
 Procedure TColourLabel.Paint;
 Var
@@ -2219,6 +2195,57 @@ begin
       finally
         FreeMem(VerInfo, VerInfoSize);
       end;
+  end;
+end;
+
+
+function ShowCustomDlg(const Msg: string; IconType: TMsgDlgType;
+  const Btn1, Btn2, Btn3: string): Integer;
+var
+  Dlg: TForm;
+  B1, B2, B3: TButton;
+  BtnTop, BtnLeft, BtnSpacing: Integer;
+begin
+  Dlg := CreateMessageDialog(Msg, IconType, []);
+  try
+    Dlg.Position := poScreenCenter;
+    BtnTop := Dlg.ClientHeight - 50;
+    BtnLeft := 40;
+    BtnSpacing := 100;
+
+    // Button 1
+    B1 := TButton.Create(Dlg);
+    B1.Parent := Dlg;
+    B1.Caption := Btn1;
+    B1.ModalResult := 1;
+    B1.Left := BtnLeft;
+    B1.Top := BtnTop;
+
+    // Button 2 (optional)
+    if Btn2 <> '' then
+    begin
+      B2 := TButton.Create(Dlg);
+      B2.Parent := Dlg;
+      B2.Caption := Btn2;
+      B2.ModalResult := 2;
+      B2.Left := B1.Left + BtnSpacing;
+      B2.Top := BtnTop;
+    end;
+
+    // Button 3 (optional)
+    if Btn3 <> '' then
+    begin
+      B3 := TButton.Create(Dlg);
+      B3.Parent := Dlg;
+      B3.Caption := Btn3;
+      B3.ModalResult := 3;
+      B3.Left := B1.Left + 2 * BtnSpacing;
+      B3.Top := BtnTop;
+    end;
+
+    Result := Dlg.ShowModal;
+  finally
+    Dlg.Free;
   end;
 end;
 

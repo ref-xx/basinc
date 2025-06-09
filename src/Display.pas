@@ -278,7 +278,7 @@ begin
   Else
      DisplayIMG.SetBounds((Panel1.Width Div 2) - (NW Div 2) -2, (Panel1.Height Div 2) - (NH Div 2) -2, NW, NH);
 
-  SizeDIBS;
+ SizeDIBS;
 
   If WorkerThread.DisplaySuspended Then
      DisplayIMG.Repaint;
@@ -307,6 +307,7 @@ Begin
            ScaleXDIB.Colors := @DisplayPalette;
            ScaleXDIB.UpdateColors;
         End;
+
 
      WantResize := False;
      BorderUpdate := True;

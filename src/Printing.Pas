@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   FastIMG, ExtCtrls, StdCtrls, Printers, FastDIB, FastDraw, FastDrawEx,
-  Mask, ComCtrls, WinSpool, FastFiles, Buttons, FastSize, Math, Utility;
+  Mask, ComCtrls, WinSpool, FastFiles, Buttons, FastSize, Math, Utility, ThemeBevelUnit;
 
 type
   TPrintForm = class(TForm)

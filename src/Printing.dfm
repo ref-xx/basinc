@@ -17,6 +17,9 @@ object PrintForm: TPrintForm
   OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
+  DesignSize = (
+    323
+    488)
   PixelsPerInch = 96
   TextHeight = 13
   object Label27: TLabel
@@ -206,10 +209,7 @@ object PrintForm: TPrintForm
     Width = 12
     Height = 21
     Anchors = [akRight, akBottom]
-    Min = 0
-    Position = 0
     TabOrder = 4
-    Wrap = False
     OnChangingEx = UpDown1ChangingEx
   end
   object MaskEdit1: TMaskEdit
@@ -250,10 +250,7 @@ object PrintForm: TPrintForm
     Width = 12
     Height = 21
     Anchors = [akRight, akBottom]
-    Min = 0
-    Position = 0
     TabOrder = 2
-    Wrap = False
     OnChangingEx = UpDown2ChangingEx
   end
   object CheckBox2: TCheckBox

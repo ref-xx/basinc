@@ -299,9 +299,9 @@ Begin
 
   End Else Begin
 
-     SampleTs := Round(3500000/Hz);
+     SampleTs := Round((Opt_CPUSpeed*50)/Hz);
      AYSampleTs := 16;
-     SubBufferSize := Round(69888/SampleTs);
+     SubBufferSize := Round(Opt_CPUSpeed/SampleTs);
 
      If Opt_SoundStereo <> 0 Then
         SubBufferSize := SubBufferSize *2;
@@ -542,7 +542,7 @@ Begin
 
         End;
 
-     Until 1=0;
+      Until Registers.EmuRunning = False;
 
   End Else Begin
 

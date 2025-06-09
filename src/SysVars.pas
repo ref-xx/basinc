@@ -32,6 +32,7 @@ type
     procedure RefreshtheList1Click(Sender: TObject);
     procedure WatchthisSysVar1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
+    procedure ListView1ColumnClick(Sender: TObject; Column: TListColumn);
   private
     { Private declarations }
   public
@@ -125,6 +126,22 @@ implementation
 {$R *.DFM}
 
 Uses FastCore, QueryForm, Evaluate, HexEdit, Watches, Utility, ROMUtils, BASinMain;
+
+function CustomSortProc(Item1, Item2: TListItem; ParamSort: Integer): Integer; stdcall;
+begin
+  case ParamSort of
+    0:
+      Result := CompareText(Item1.Caption, Item2.Caption);
+    1:
+      Result := CompareText(Item1.SubItems[0], Item2.SubItems[0]);
+    2:
+      Result := CompareText(Item1.SubItems[0], Item2.SubItems[0]);
+  else
+      Result := 0;
+  end;
+end;
+
+
 
 procedure TSysVarsWindow.FormCreate(Sender: TObject);
 begin
@@ -370,5 +387,13 @@ procedure TSysVarsWindow.Button3Click(Sender: TObject);
 begin
   BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_system_variables.html'), HH_DISPLAY_TOPIC, 0);
 end;
+
+procedure TSysVarsWindow.ListView1ColumnClick(Sender: TObject;
+  Column: TListColumn);
+begin
+  ListView1.CustomSort(@CustomSortProc, Column.Index);
+end;
+
+
 
 end.

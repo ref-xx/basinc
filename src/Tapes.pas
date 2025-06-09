@@ -245,6 +245,8 @@ Begin
 
 End;
 
+
+
 Function CODEToTape(Filename: String; StartAddr: Word): String;
 Var
   F: Integer;
@@ -874,6 +876,8 @@ begin
         UpdateTapeList;
      End;
   End;
+ 
+
 end;
 
 procedure TTapeWindow.BitBtn2Click(Sender: TObject);
@@ -1273,6 +1277,7 @@ if ListView1.Items.Count>0 then Begin
               TapeTrapLoad := TempTrap;
         End;
 End;
+ 
 end;
 
 procedure TTapeWindow.ExportTape;  // Quick and dirty workaround for exporting tap from Main Screen. --arda
@@ -1283,7 +1288,12 @@ NewFilename:String;
 begin
 Idx:= TapeBlocks.Count;
 if Idx>0 then Begin
-  Idx := MessageDlg('Image file already stored in Tape Creator will be lost.'+#13+'Please use Tools>Tape Creator for exporting tapes.'+#13+#13+'Continue?', mtWarning, [mbYes, mbCancel], 0);
+  //Idx := MessageDlg('Image file already stored in Tape Creator will be lost.'+#13+'Please use Tools>Tape Creator for exporting tapes.'+#13+#13+'Continue?', mtWarning, [mbYes, mbCancel], 0);
+  case ShowCustomDlg('Image file already stored in Tape Creator will be lost.'+#13+'Please use Tools>Tape Creator for exporting tapes.'+#13+#13+'Continue?', mtWarning, 'Clear Tape Window', 'Cancel', '') of
+     1: Idx :=  10;
+     2: Idx :=  0;
+  end;
+
   if Idx<>10 then Exit;
 End;
 
