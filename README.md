@@ -15,7 +15,7 @@ You will require following 3rd party packages:
 - Johnny Mamenko's Folder Browser
 - G-Soft's FastLib
 - DirectX7 for Delphi
-- Delphi 5
+- Delphi 7
 
 ### Download Binaries for Windows
 
