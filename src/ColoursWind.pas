@@ -63,7 +63,7 @@ Uses BASinMain, FastCore;
 
 function IsValidHexColor( HexColor: string): Boolean;
 var
-  HexDigits: set of Char;
+  HexDigits: set of AnsiChar;
   i: Integer;
 begin
   // Initialize set of valid hexadecimal characters

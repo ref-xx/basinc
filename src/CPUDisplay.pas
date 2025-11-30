@@ -3,7 +3,7 @@ unit CPUDisplay;
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, Filing,
   Math, FastIMG, FastDIB, FastDraw, ExtCtrls, StdCtrls, FastCore, Menus, ROMUtils;
 
 type
@@ -82,6 +82,16 @@ type
     Button8: TButton;
     Label27: TLabel;
     Edit17: TEdit;
+    Edit18: TEdit;
+    Edit19: TEdit;
+    Edit20: TEdit;
+    Edit21: TEdit;
+    Label28: TLabel;
+    Label29: TLabel;
+    Label30: TLabel;
+    Label31: TLabel;
+    Label32: TLabel;
+    Label33: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormResize(Sender: TObject);
@@ -115,6 +125,8 @@ type
     procedure Button7Click(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure Button8Click(Sender: TObject);
+    procedure Edit18KeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
 
   private
     { Private declarations }
@@ -143,6 +155,7 @@ type
     Procedure CreateDisassembly;
     Procedure UpdateRegs;
     Procedure UpdateRegsValues;
+    Procedure UpdateWatchValues;
     Function  GetValue(Var EditBox: TEdit; MaxLimit: Integer; Desc: String): Integer;
     Procedure SetDebugColourEdt(Var Control: TEdit; Debug: Boolean);
     Procedure SetDebugColourCb(Var Control: TLabel; Debug: Boolean);
@@ -151,6 +164,11 @@ type
 var
   CPUWindow: TCPUWindow;
   CPUBreakPoints: Array[0..65535] of Byte;
+  WatchAddress: Word = $0;  // 0 => disabled  //arda 1.83
+  WatchValue:  Word  = $0;   // 16-bit value to watch
+  WatchByteAddress: Word = 0; // 0 = disabled
+  WatchByteValue:   Byte = 0; // 8-bit value to watch
+
   StepOperation: Boolean;
   ExitProcOperation: Boolean;
   CallCounter: DWord;
@@ -943,6 +961,12 @@ begin
   End;
   CreateDisassembly;
   UpdateRegs;
+  Edit18.Text:=IntToStr(WatchAddress);
+  Edit20.Text:=IntToStr(WatchByteAddress);
+  if (WatchAddress=0) Then Edit18.Color:=cl3DLight else Edit18.Color:=clWindow;
+  if (WatchByteAddress=0) Then Edit20.Color:=cl3DLight else Edit20.Color:=clWindow;
+  Filing.DebugLog('CPU');
+
 
 end;
 
@@ -1210,6 +1234,8 @@ Begin
      Edit13.Text := '$'+HexBytes[Registers.Hn]+HexBytes[Registers.Ln];
      Edit9.Text := '$'+HexBytes[Registers.I]+HexBytes[Registers.R];
      Edit15.Text := '$'+IntToStr(Registers.IntMode);
+
+
   End Else Begin
      Edit2.Text := IntToStr(Registers.PC);
      Edit3.Text := IntToStr((Registers.A Shl 8)+Registers.F);
@@ -1225,6 +1251,8 @@ Begin
      Edit13.Text := IntToStr((Registers.Hn Shl 8)+Registers.Ln);
      Edit9.Text := IntToStr((Registers.I Shl 8)+Registers.R);
      Edit15.Text := IntToStr(Registers.IntMode);
+
+
   End;
   Init := True;
   CheckBox1.Checked := Registers.IntsEnabled;
@@ -1237,6 +1265,7 @@ Begin
   CheckBox8.Checked := Registers.F and 2 = 2;
   CheckBox9.Checked := Registers.F and 1 = 1;
   Init := False;
+
 
   Edit17.Text := 'Rom: ' + IntToStr(CurROM) + ' - Bank: ' + IntToStr(PagedBank); //Show page arda add
 End;
@@ -1725,5 +1754,36 @@ begin
 end;
 
 
+
+procedure TCPUWindow.Edit18KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+   If Key = VK_RETURN Then UpdateWatchValues;
+
+end;
+
+Procedure TCPUWindow.UpdateWatchValues;
+Var
+  Value: Integer;
+Begin
+  Value := GetValue(Edit18, 65535, 'Watch Address');
+  If Value = -1 Then Begin Value:=0; End;
+  WatchAddress:=Value; // 0 => disabled  //arda 1.83
+
+  Value := GetValue(Edit19, 65535, '16bit Content');
+  If Value = -1 Then Begin Value:=0; End;
+  WatchValue:= Value;   // 16-bit value to watch
+
+  Value := GetValue(Edit20, 65535, 'Watch Address');
+  If Value = -1 Then Begin Value:=0; End;
+  WatchByteAddress:=Value; // 0 => disabled  //arda 1.83
+
+  Value := GetValue(Edit21, 255, '8bit Content');
+  If Value = -1 Then Begin Value:=0; End;
+  WatchByteValue:= Value;   // 8-bit value to watch
+
+  if (WatchAddress=0) Then Edit18.Color:=cl3DLight else Edit18.Color:=clWindow;
+  if (WatchByteAddress=0) Then Edit20.Color:=cl3DLight else Edit20.Color:=clWindow;
+
+End;
 
 end.

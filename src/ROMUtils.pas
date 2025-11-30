@@ -122,6 +122,9 @@ Var
   BASICCheckSum:       DWord;
   WantBreak:           Boolean;
 
+  TrapPrint:           Boolean = False;
+  //TrapCounter:         Integer=0;
+
   RAMDiskArray:        Array[0..10] of Byte;
 
   // Addresses of the BASIC error reports in the 48k ROM.
@@ -223,8 +226,8 @@ Var
 Const
 
   ROMSymbols: Array[0..1116] of TSymbol =
-    ((sType: 0; Desc:'START'; Address: $0000), (sType: 0; Desc:'ERROR-1'; Address: $0008), (sType: 0; Desc:'PRINT-A'; Address: $0010), (sType: 0; Desc:'GET-AnsiChar'; Address: $0018), (sType: 0; Desc:'TEST-AnsiChar'; Address: $001C),
-     (sType: 0; Desc:'NEXT-AnsiChar'; Address: $0020), (sType: 0; Desc:'FP-CALC'; Address: $0028), (sType: 0; Desc:'BC-SPACES'; Address: $0030), (sType: 0; Desc:'MASK-INT'; Address: $0038), (sType: 0; Desc:'KEY-INT'; Address: $0048),
+    ((sType: 0; Desc:'START'; Address: $0000), (sType: 0; Desc:'ERROR-1'; Address: $0008), (sType: 0; Desc:'PRINT-A'; Address: $0010), (sType: 0; Desc:'GET-CHAR'; Address: $0018), (sType: 0; Desc:'TEST-CHAR'; Address: $001C),
+     (sType: 0; Desc:'NEXT-CHAR'; Address: $0020), (sType: 0; Desc:'FP-CALC'; Address: $0028), (sType: 0; Desc:'BC-SPACES'; Address: $0030), (sType: 0; Desc:'MASK-INT'; Address: $0038), (sType: 0; Desc:'KEY-INT'; Address: $0048),
      (sType: 0; Desc:'ERROR-2'; Address: $0053), (sType: 0; Desc:'ERROR-3'; Address: $0055), (sType: 0; Desc:'RESET'; Address: $0066), (sType: 0; Desc:'NO-RESET'; Address: $0070), (sType: 0; Desc:'CH-ADD+1'; Address: $0074),
      (sType: 0; Desc:'TEMP-PTR1'; Address: $0077), (sType: 0; Desc:'TEMP-PTR2'; Address: $0078), (sType: 0; Desc:'SKIP-OVER'; Address: $007D), (sType: 0; Desc:'SKIPS'; Address: $0090), (sType: 0; Desc:'TKN-TABLE'; Address: $0095),
      (sType: 0; Desc:'MAIN-KEYS'; Address: $0205), (sType: 0; Desc:'E-UNSHIFT'; Address: $022C), (sType: 0; Desc:'EXT-SHIFT'; Address: $0246), (sType: 0; Desc:'CTL-CODES'; Address: $0260), (sType: 0; Desc:'SYM-CODES'; Address: $026A),
@@ -232,7 +235,7 @@ Const
      (sType: 0; Desc:'KEY-DONE'; Address: $02AB), (sType: 0; Desc:'KEYBOARD'; Address: $02BF), (sType: 0; Desc:'K-ST-LOOP'; Address: $02C6), (sType: 0; Desc:'K-CH-SET'; Address: $02D1), (sType: 0; Desc:'K-NEW'; Address: $02F1),
      (sType: 0; Desc:'K-END'; Address: $0308), (sType: 0; Desc:'K-REPEAT'; Address: $0310), (sType: 0; Desc:'K-TEST'; Address: $031E), (sType: 0; Desc:'K-MAIN'; Address: $032C), (sType: 0; Desc:'K-DECODE'; Address: $0333),
      (sType: 0; Desc:'K-E-LET'; Address: $0341), (sType: 0; Desc:'K-LOOK-UP'; Address: $034A), (sType: 0; Desc:'K-KLC-LET'; Address: $034F), (sType: 0; Desc:'K-TOKENS'; Address: $0364), (sType: 0; Desc:'K-DIGIT'; Address: $0367),
-     (sType: 0; Desc:'K-8-&-9'; Address: $0382), (sType: 0; Desc:'K-GRA-DGT'; Address: $0389), (sType: 0; Desc:'K-KLC-DGT'; Address: $039D), (sType: 0; Desc:'K-@-AnsiChar'; Address: $03B2), (sType: 0; Desc:'BEEPER'; Address: $03B5),
+     (sType: 0; Desc:'K-8-&-9'; Address: $0382), (sType: 0; Desc:'K-GRA-DGT'; Address: $0389), (sType: 0; Desc:'K-KLC-DGT'; Address: $039D), (sType: 0; Desc:'K-@-CHAR'; Address: $03B2), (sType: 0; Desc:'BEEPER'; Address: $03B5),
      (sType: 0; Desc:'BE-IX+3'; Address: $03D1), (sType: 0; Desc:'BE-IX+2'; Address: $03D2), (sType: 0; Desc:'BE-IX+1'; Address: $03D3), (sType: 0; Desc:'BE-IX+0'; Address: $03D4), (sType: 0; Desc:'BE-H&L-LP'; Address: $03D6),
      (sType: 0; Desc:'BE-AGAIN'; Address: $03F2), (sType: 0; Desc:'BE-END'; Address: $03F6), (sType: 0; Desc:'beep'; Address: $03F8), (sType: 0; Desc:'BE-I-OK'; Address: $0425), (sType: 0; Desc:'BE-OCTAVE'; Address: $0427),
      (sType: 0; Desc:'REPORT-B'; Address: $046C), (sType: 0; Desc:'semi-tone'; Address: $046E), (sType: 0; Desc:'zx81-name'; Address: $04AA), (sType: 0; Desc:'SA-BYTES'; Address: $04C2), (sType: 0; Desc:'SA-FLAG'; Address: $04D0),
@@ -261,7 +264,7 @@ Const
      (sType: 0; Desc:'PO-TAB'; Address: $0AC2), (sType: 0; Desc:'PO-FILL'; Address: $0AC3), (sType: 0; Desc:'PO-SPACE'; Address: $0AD0), (sType: 0; Desc:'PO-ABLE'; Address: $0AD9), (sType: 0; Desc:'PO-STORE'; Address: $0ADC),
      (sType: 0; Desc:'PO-ST-E'; Address: $0AF0), (sType: 0; Desc:'PO-ST-PR'; Address: $0AFC), (sType: 0; Desc:'PO-FETCH'; Address: $0B03), (sType: 0; Desc:'PO-F-PR'; Address: $0B1D), (sType: 0; Desc:'PO-ANY'; Address: $0B24),
      (sType: 0; Desc:'PO-GR-1'; Address: $0B38), (sType: 0; Desc:'PO-GR-2'; Address: $0B3E), (sType: 0; Desc:'PO-GR-3'; Address: $0B4C), (sType: 0; Desc:'PO-T&UDG'; Address: $0B52), (sType: 0; Desc:'PO-T'; Address: $0B5F),
-     (sType: 0; Desc:'PO-AnsiChar'; Address: $0B65), (sType: 0; Desc:'PO-AnsiChar-2'; Address: $0B6A), (sType: 0; Desc:'PO-AnsiChar-3'; Address: $0B76), (sType: 0; Desc:'PR-ALL'; Address: $0B7F), (sType: 0; Desc:'PR-ALL-1'; Address: $0B93),
+     (sType: 0; Desc:'PO-CHAR'; Address: $0B65), (sType: 0; Desc:'PO-CHAR-2'; Address: $0B6A), (sType: 0; Desc:'PO-CHAR-3'; Address: $0B76), (sType: 0; Desc:'PR-ALL'; Address: $0B7F), (sType: 0; Desc:'PR-ALL-1'; Address: $0B93),
      (sType: 0; Desc:'PR-ALL-2'; Address: $0BA4), (sType: 0; Desc:'PR-ALL-3'; Address: $0BB6), (sType: 0; Desc:'PR-ALL-4'; Address: $0BB7), (sType: 0; Desc:'PR-ALL-5'; Address: $0BC1), (sType: 0; Desc:'PR-ALL-6'; Address: $0BD3),
      (sType: 0; Desc:'PO-ATTR'; Address: $0BDB), (sType: 0; Desc:'PO-ATTR-1'; Address: $0BFA), (sType: 0; Desc:'PO-ATTR-2'; Address: $0C08), (sType: 0; Desc:'PO-MSG'; Address: $0C0A), (sType: 0; Desc:'PO-TOKENS'; Address: $0C10),
      (sType: 0; Desc:'PO-TABLE'; Address: $0C14), (sType: 0; Desc:'PO-EACH'; Address: $0C22), (sType: 0; Desc:'PO-TR-SP'; Address: $0C35), (sType: 0; Desc:'PO-SAVE'; Address: $0C3B), (sType: 0; Desc:'PO-SEARCH'; Address: $0C41),
@@ -276,7 +279,7 @@ Const
      (sType: 0; Desc:'COPY-3'; Address: $0ED3), (sType: 0; Desc:'COPY-END'; Address: $0EDA), (sType: 0; Desc:'CLEAR-PRB'; Address: $0EDF), (sType: 0; Desc:'PRB-BYTES'; Address: $0EE7), (sType: 0; Desc:'COPY-LINE'; Address: $0EF4),
      (sType: 0; Desc:'COPY-L-1'; Address: $0EFD), (sType: 0; Desc:'REPORT-Dc'; Address: $0F0A), (sType: 0; Desc:'COPY-L-2'; Address: $0F0C), (sType: 0; Desc:'COPY-L-3'; Address: $0F14), (sType: 0; Desc:'COPY-L-4'; Address: $0F18),
      (sType: 0; Desc:'COPY-L-5'; Address: $0F1E), (sType: 0; Desc:'EDITOR'; Address: $0F2C), (sType: 0; Desc:'ED-AGAIN'; Address: $0F30), (sType: 0; Desc:'ED-LOOP'; Address: $0F38), (sType: 0; Desc:'ED-CONTR'; Address: $0F6C),
-     (sType: 0; Desc:'ADD-AnsiChar'; Address: $0F81), (sType: 0; Desc:'ADD-CH-1'; Address: $0F8B), (sType: 0; Desc:'ED-KEYS'; Address: $0F92), (sType: 0; Desc:'ed-keys-t'; Address: $0FA0), (sType: 0; Desc:'ED-EDIT'; Address: $0FA9),
+     (sType: 0; Desc:'ADD-CHAR'; Address: $0F81), (sType: 0; Desc:'ADD-CH-1'; Address: $0F8B), (sType: 0; Desc:'ED-KEYS'; Address: $0F92), (sType: 0; Desc:'ed-keys-t'; Address: $0FA0), (sType: 0; Desc:'ED-EDIT'; Address: $0FA9),
      (sType: 0; Desc:'ED-DOWN'; Address: $0FF3), (sType: 0; Desc:'ED-STOP'; Address: $1001), (sType: 0; Desc:'ED-LEFT'; Address: $1007), (sType: 0; Desc:'ED-RIGHT'; Address: $100C), (sType: 0; Desc:'ED-CUR'; Address: $1011),
      (sType: 0; Desc:'ED-DELETE'; Address: $1015), (sType: 0; Desc:'ED-IGNORE'; Address: $101E), (sType: 0; Desc:'ED-ENTER'; Address: $1024), (sType: 0; Desc:'ED-END'; Address: $1026), (sType: 0; Desc:'ED-EDGE'; Address: $1031),
      (sType: 0; Desc:'ED-EDGE-1'; Address: $103E), (sType: 0; Desc:'ED-EDGE-2'; Address: $1051), (sType: 0; Desc:'ED-UP'; Address: $1059), (sType: 0; Desc:'ED-LIST'; Address: $106E), (sType: 0; Desc:'ED-SYMBOL'; Address: $1076),
@@ -306,7 +309,7 @@ Const
      (sType: 0; Desc:'LIST-ALL-2'; Address: $1835), (sType: 0; Desc:'OUT-LINE'; Address: $1855), (sType: 0; Desc:'OUT-LINE1'; Address: $1865), (sType: 0; Desc:'OUT-LINE2'; Address: $187D), (sType: 0; Desc:'OUT-LINE3'; Address: $1881),
      (sType: 0; Desc:'OUT-LINE4'; Address: $1894), (sType: 0; Desc:'OUT-LINE5'; Address: $18A1), (sType: 0; Desc:'OUT-LINE6'; Address: $18B4), (sType: 0; Desc:'NUMBER'; Address: $18B6), (sType: 0; Desc:'OUT-FLASH'; Address: $18C1),
      (sType: 0; Desc:'OUT-CURS'; Address: $18E1), (sType: 0; Desc:'OUT-C-1'; Address: $18F3), (sType: 0; Desc:'OUT-C-2'; Address: $1909), (sType: 0; Desc:'LN-FETCH'; Address: $190F), (sType: 0; Desc:'LN-STORE'; Address: $191C),
-     (sType: 0; Desc:'OUT-SP-2'; Address: $1925), (sType: 0; Desc:'OUT-SP-NO'; Address: $192A), (sType: 0; Desc:'OUT-SP-1'; Address: $192B), (sType: 0; Desc:'OUT-AnsiChar'; Address: $1937), (sType: 0; Desc:'OUT-CH-1'; Address: $195A),
+     (sType: 0; Desc:'OUT-SP-2'; Address: $1925), (sType: 0; Desc:'OUT-SP-NO'; Address: $192A), (sType: 0; Desc:'OUT-SP-1'; Address: $192B), (sType: 0; Desc:'OUT-CHAR'; Address: $1937), (sType: 0; Desc:'OUT-CH-1'; Address: $195A),
      (sType: 0; Desc:'OUT-CH-2'; Address: $1968), (sType: 0; Desc:'OUT-CH-3'; Address: $196C), (sType: 0; Desc:'LINE-ADDR'; Address: $196E), (sType: 0; Desc:'LINE-AD-1'; Address: $1974), (sType: 0; Desc:'CP-LINES'; Address: $1980),
      (sType: 0; Desc:'not-used'; Address: $1988), (sType: 0; Desc:'EACH-STMT'; Address: $198B), (sType: 0; Desc:'EACH-S-1'; Address: $1990), (sType: 0; Desc:'EACH-S-2'; Address: $1998), (sType: 0; Desc:'EACH-S-3'; Address: $199A),
      (sType: 0; Desc:'EACH-S-4'; Address: $19A5), (sType: 0; Desc:'EACH-S-5'; Address: $19AD), (sType: 0; Desc:'EACH-S-6'; Address: $19B1), (sType: 0; Desc:'NEXT-ONE'; Address: $19B8), (sType: 0; Desc:'NEXT-O-1'; Address: $19C7),
@@ -379,7 +382,7 @@ Const
      (sType: 0; Desc:'SF-RPRT-C'; Address: $27E6), (sType: 0; Desc:'SF-FLAG-6'; Address: $27E9), (sType: 0; Desc:'SF-SYN-EN'; Address: $27F4), (sType: 0; Desc:'SF-RUN'; Address: $27F7), (sType: 0; Desc:'SF-ARGMT1'; Address: $2802),
      (sType: 0; Desc:'SF-FND-DF'; Address: $2808), (sType: 0; Desc:'REPORT-P'; Address: $2812), (sType: 0; Desc:'SF-CP-DEF'; Address: $2814), (sType: 0; Desc:'SF-NOT-FD'; Address: $2825), (sType: 0; Desc:'SF-VALUES'; Address: $2831),
      (sType: 0; Desc:'SF-ARG-LP'; Address: $2843), (sType: 0; Desc:'SF-ARG-VL'; Address: $2852), (sType: 0; Desc:'SF-R-BR-2'; Address: $2885), (sType: 0; Desc:'REPORT-Q'; Address: $288B), (sType: 0; Desc:'SF-VALUE'; Address: $288D),
-     (sType: 0; Desc:'FN-SKPOVR'; Address: $28AB), (sType: 0; Desc:'LOOK-VARS'; Address: $28B2), (sType: 0; Desc:'V-AnsiChar'; Address: $28D4), (sType: 0; Desc:'V-STR-VAR'; Address: $28DE), (sType: 0; Desc:'V-TEST-FN'; Address: $28E3),
+     (sType: 0; Desc:'FN-SKPOVR'; Address: $28AB), (sType: 0; Desc:'LOOK-VARS'; Address: $28B2), (sType: 0; Desc:'V-CHAR'; Address: $28D4), (sType: 0; Desc:'V-STR-VAR'; Address: $28DE), (sType: 0; Desc:'V-TEST-FN'; Address: $28E3),
      (sType: 0; Desc:'V-RUN/SYN'; Address: $28EF), (sType: 0; Desc:'V-RUN'; Address: $28FD), (sType: 0; Desc:'V-EACH'; Address: $2900), (sType: 0; Desc:'V-MATCHES'; Address: $2912), (sType: 0; Desc:'V-SPACES'; Address: $2913),
      (sType: 0; Desc:'V-GET-PTR'; Address: $2929), (sType: 0; Desc:'V-NEXT'; Address: $292A), (sType: 0; Desc:'V-80-BYTE'; Address: $2932), (sType: 0; Desc:'V-SYNTAX'; Address: $2934), (sType: 0; Desc:'V-FOUND-1'; Address: $293E),
      (sType: 0; Desc:'V-FOUND-2'; Address: $293F), (sType: 0; Desc:'V-PASS'; Address: $2943), (sType: 0; Desc:'V-END'; Address: $294B), (sType: 0; Desc:'STK-F-ARG'; Address: $2951), (sType: 0; Desc:'SFA-LOOP'; Address: $295A),
@@ -391,7 +394,7 @@ Const
      (sType: 0; Desc:'SL-STORE'; Address: $2AAD), (sType: 0; Desc:'STK-ST-0'; Address: $2AB1), (sType: 0; Desc:'STK-STO-$'; Address: $2AB2), (sType: 0; Desc:'STK-STORE'; Address: $2AB6), (sType: 0; Desc:'INT-EXP1'; Address: $2ACC),
      (sType: 0; Desc:'INT-EXP2'; Address: $2ACD), (sType: 0; Desc:'I-CARRY'; Address: $2AE8), (sType: 0; Desc:'I-RESTORE'; Address: $2AEB), (sType: 0; Desc:'DE,(DE+1)'; Address: $2AEE), (sType: 0; Desc:'GET-HL*DE'; Address: $2AF4),
      (sType: 0; Desc:'LET'; Address: $2AFF), (sType: 0; Desc:'L-EACH-CH'; Address: $2B0B), (sType: 0; Desc:'L-NO-SP'; Address: $2B0C), (sType: 0; Desc:'L-TEST-CH'; Address: $2B1F), (sType: 0; Desc:'L-SPACES'; Address: $2B29),
-     (sType: 0; Desc:'L-AnsiChar'; Address: $2B3E), (sType: 0; Desc:'L-SINGLE'; Address: $2B4F), (sType: 0; Desc:'L-NUMERIC'; Address: $2B59), (sType: 0; Desc:'L-EXISTS'; Address: $2B66), (sType: 0; Desc:'L-DELETE$'; Address: $2B72),
+     (sType: 0; Desc:'L-CHAR'; Address: $2B3E), (sType: 0; Desc:'L-SINGLE'; Address: $2B4F), (sType: 0; Desc:'L-NUMERIC'; Address: $2B59), (sType: 0; Desc:'L-EXISTS'; Address: $2B66), (sType: 0; Desc:'L-DELETE$'; Address: $2B72),
      (sType: 0; Desc:'L-LENGTH'; Address: $2B9B), (sType: 0; Desc:'L-IN-W/S'; Address: $2BA3), (sType: 0; Desc:'L-ENTER'; Address: $2BA6), (sType: 0; Desc:'L-ADD$'; Address: $2BAF), (sType: 0; Desc:'L-NEW$'; Address: $2BC0),
      (sType: 0; Desc:'L-STRING'; Address: $2BC6), (sType: 0; Desc:'L-FIRST'; Address: $2BEA), (sType: 0; Desc:'STK-FETCH'; Address: $2BF1), (sType: 0; Desc:'DIM'; Address: $2C02), (sType: 0; Desc:'D-RPORT-C'; Address: $2C05),
      (sType: 0; Desc:'D-RUN'; Address: $2C15), (sType: 0; Desc:'D-LETTER'; Address: $2C1F), (sType: 0; Desc:'D-SIZE'; Address: $2C2D), (sType: 0; Desc:'D-NO-LOOP'; Address: $2C2E), (sType: 0; Desc:'DIM-CLEAR'; Address: $2C7C),
@@ -445,7 +448,7 @@ Const
      (sType: 0; Desc:'REPORT-Ab'; Address: $371A), (sType: 0; Desc:'VALID'; Address: $371C), (sType: 0; Desc:'GRE.8'; Address: $373D), (sType: 0; Desc:'get-argt'; Address: $3783), (sType: 0; Desc:'ZPLUS'; Address: $37A1),
      (sType: 0; Desc:'YNEG'; Address: $37A8), (sType: 0; Desc:'cos'; Address: $37AA), (sType: 0; Desc:'sin'; Address: $37B5), (sType: 0; Desc:'C-ENT'; Address: $37B7), (sType: 0; Desc:'tan'; Address: $37DA), (sType: 0; Desc:'atn'; Address: $37E2),
      (sType: 0; Desc:'SMALL'; Address: $37F8), (sType: 0; Desc:'CASES'; Address: $37FA), (sType: 0; Desc:'asn'; Address: $3833), (sType: 0; Desc:'acs'; Address: $3843), (sType: 0; Desc:'sqr'; Address: $384A), (sType: 0; Desc:'to-power'; Address: $3851),
-     (sType: 0; Desc:'XIS0'; Address: $385D), (sType: 0; Desc:'ONE'; Address: $386A), (sType: 0; Desc:'LAST'; Address: $386C), (sType: 0; Desc:'spare'; Address: $386E), (sType: 0; Desc:'AnsiChar-set'; Address: $3D00));
+     (sType: 0; Desc:'XIS0'; Address: $385D), (sType: 0; Desc:'ONE'; Address: $386A), (sType: 0; Desc:'LAST'; Address: $386C), (sType: 0; Desc:'spare'; Address: $386E), (sType: 0; Desc:'CHAR-set'; Address: $3D00));
 
 	// BASIC Keywords in ASCII (token) order, for the tokeniser.
 
@@ -587,11 +590,12 @@ implementation
 
 Uses BASinMain, Watches, Breakpoints, RLEUnit, Display, TokenWindow, AddCode, CPUDisplay,
      FastCore, InputUtils, Filing, BASSupport, Utility, ErrorWindow, Parser, Profiling,
-     VarsWindow, SysVars, LogWind, CommandHistory, Evaluate, GOSUB, Sound, Tapes;
+     VarsWindow, SysVars, LogWind, CommandHistory, Evaluate, GOSUB, Sound, Tapes, RomPrintOutputUnit;
 
 Function LoadRom(Var Location: Array of Byte): Boolean;
 Var
 	F: TFileStream;
+  OldProtect: Cardinal;
 Begin
 
   DebugLog('Load 48k ROM from '+Filename);
@@ -605,8 +609,13 @@ Begin
 	F := TFileStream.Create(Filename, fmOpenRead or fmShareDenyNone);
 	F.Read(Location[0], 16384);
 	F.Free;
+
+
+
+
   Filename := '';
   Result := True;
+
 End;
 
 Procedure LoadRom128k(Var Location: Array of Byte);
@@ -710,6 +719,9 @@ Begin
 
 End;
 
+
+
+
 Procedure SetRAMDisk;
 Begin
 
@@ -779,8 +791,8 @@ End;
 
 Procedure ROMTrap;
 Var
-  LoadLen, MemPtr, F, Idx, ModAddr, PokeAddr, TempIX, TempWord, DataLoadLen: Word;
-  MemAtIX, ChkSum, SaveByte: Byte;
+  Col,Row, LoadLen, MemPtr, F, Idx, ModAddr, PokeAddr, TempIX, TempWord, DataLoadLen: Word;
+  TempByte, MemAtIX, ChkSum, SaveByte: Byte;
   NeedProgPosUpdate, n128Command, TapeOp, TempBool1, InString, Done: Boolean;
   TokenStr, TempStr, RegionSet: AnsiString;
   KeyState: TKeyboardState;
@@ -792,23 +804,28 @@ Label
 Begin
   // ROM Traps
   Trapped := True;
+
+  //if Trapcounter>0 Then TrapCounter:=TrapCounter+1;
+  //if (TrapCounter>0) Then DebugLog(IntToStr(TrapCounter)+'. '+ IntToStr(Registers.PC-1)+': ['+ IntToStr(ElapsedFrames) +':'+ IntToStr(Registers.TotalTS)+'] S:' +IntToStr(GetWord(@Memory[$5C1A])) );
+
 	Case Registers.PC Of
 
-  {  //arda begin
-     $0010:
-        Begin
-        // Output printed character to console
-             WriteLn(Chr(Registers.A));
-
-        End;
-   } //arda end
+     {//interrupt handler trap to periodically check for some integrity.
+     $39:
+     Begin
+        //CheckAndHealROM;
+        EmulatePUSH((Registers.A shl 8) + Registers.F);
+        EmulatePUSH((Registers.H shl 8) + Registers.L);
+        Registers.PC := $003A;
+     End;
+     }
 
      $0297:
         Begin
            // Prevent the ROM keyboard routine from getting keys from the ports,
            // as it screws up the INPUT routines in BASin, with the PC key support.
            SendNextToken;
-           If Memory[FLAGS] And 32 = 32 Then Registers.F := Registers.F or 64;
+           If (Memory[FLAGS] And 32) = 32 Then Registers.F := Registers.F or 64;
            EmulateRET;
         End;
      $04C3:
@@ -822,7 +839,7 @@ Begin
               // Exit through the normal route.
               Registers.PC := $053F;
            End Else Begin
-              If TapeTrapSave Then Begin
+              If Opt_TapeTrapSave Then Begin
 
                  // Get the body of the file.
 
@@ -892,7 +909,7 @@ Begin
               // What we expect. What we are expecting is at (IX-17).
               TempIX := Registers.IX -$11;
               MemAtIX := Memory[TempIX];
-              If TapeTrapLOAD and (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
+              If Opt_TapeTrapLOAD and (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
                  // LOADing from a Tape Image
                  // Get the header + Body from the current tape block.
               TapeLoad:
@@ -925,7 +942,7 @@ Begin
                           LoadCode;
                        End;
                  End;
-                 If TapeTrapLOAD and (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
+                 If Opt_TapeTrapLOAD and (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
                     // Did the load end up loading from a tape image? If so, then loop back to catch the block.
                     Goto TapeLoad;
                  End;
@@ -935,8 +952,8 @@ Begin
               If Registers.PC <> $0806 Then Begin
                  // Now we have a header (and a body for later use), we dump it to
                  // the memory pointed to by IX.
-                    For MemPtr := Registers.IX to Registers.IX+LoadLen-1 Do       // arda
-                       Memory[MemPtr] := Ord(FileHeader[(MemPtr-Registers.IX)+1]);// arda commented out
+                    For MemPtr := Registers.IX to Registers.IX+LoadLen-1 Do
+                       Memory[MemPtr] := Ord(FileHeader[(MemPtr-Registers.IX)+1]);
                  FileHeaderLoc := Registers.IX;
                  // Emulate a RET To complete the load.
                  EmulateRET;
@@ -966,7 +983,7 @@ Begin
            End Else Begin
               // If A is $FF then we are expecting the BODY of the file.
               If FileHeader = '' Then Exit;
-              If TapeTrapLOAD Then
+              If Opt_TapeTrapLOAD Then
                  If (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
                     If FileBody = 'HEADERLESS' Then Begin
                        If TapeBlocks[TapePosition][3] = #$FF Then Begin // This is a headerless block
@@ -1053,10 +1070,10 @@ Begin
               Filename := GetMemoryString(GetWord(@Registers.E), GetWord(@Registers.C), Memory);
            End;
            // We will use this later on.
-           // Skip past 10 AnsiChar filenames limitation - but maintain SAVE tests.
+           // Skip past 10 CHAR filenames limitation - but maintain SAVE tests.
            Registers.zByte1 := Memory[T_ADDR];
            If Registers.zByte1 <> 0 Then Begin
-              If Not TapeTrapLOAD Then
+              If Not Opt_TapeTrapLOAD Then
                  // We're LOADing, so anything goes.
                  Registers.PC := $064B  //ardafix--previously $0644 (reported by ignacobo) v1795
               Else
@@ -1066,7 +1083,7 @@ Begin
                     Registers.PC := $63C;
            End Else Begin
               // SAVE detected, but null filenames are legal now (Save As)
-              If TapeTrapSAVE Then Begin
+              If Opt_TapeTrapSAVE Then Begin
                  If Registers.F and 1 = 0 Then
                     Registers.PC := $64B
                  Else
@@ -1093,6 +1110,96 @@ Begin
               Dec(Registers.A, $A5);
            End;
         End;
+     $0BC6:
+        Begin
+           //arda begin
+
+        // Output printed character to console
+
+
+
+             if TrapPrint then Begin
+                tempWord:=((Registers.H shl 8)+Registers.L) -1;
+                tempWord:=((tempWord-getword(@Memory[CHARS])) div 8 )and $FF;
+
+                //RomPrintOutputWindow.Memo1.Text:= RomPrintOutputWindow.Memo1.Text+ chr(tempByte)+ '* ';
+             End;
+
+             //EX DE,HL
+             tempByte:=Registers.D;
+             Registers.D:=Registers.H;
+             Registers.H:=tempByte;
+             tempByte:=Registers.E;
+             Registers.E:=Registers.L;
+             Registers.L:=tempByte;
+
+
+             //DEC H
+
+             tempByte := (Registers.H- 1) and $FF;
+
+            Registers.F := Registers.F and $01;
+
+            if tempByte = 0 then Registers.F := Registers.F or $40;      // Z
+            if (tempByte and $80) <> 0 then Registers.F := Registers.F or $80; // S    
+            if (Registers.H and $0F) = 0 then Registers.F := Registers.F or $10; // H
+            if (tempByte = $7F) then Registers.F := Registers.F or $04; // P/V (overflow)
+            Registers.F := Registers.F or $02; // N
+            Registers.H:= tempByte;
+
+
+             if TrapPrint then Begin
+
+              tempbyte:=tempWord;
+              tempWord := (((Registers.H shr 3) and $03) or $58) shl 8 or Registers.L;
+
+              // Attribute adresinden satir/sütun hesapla
+              col := (tempWord -22528 ) mod 32;
+              row := (tempWord -22528 ) div 32;
+              //RomPrintOutputWindow.Memo1.Text:= RomPrintOutputWindow.Memo1.Text+ Chr(tempByte)+ ':'+ inttoStr(tempWord)+' | ';
+
+              if (row >= 0) and (row < 24) and (col >= 0) and (col < 32) then
+              begin
+              // Modify Memo1
+              TempStr := RomPrintOutputWindow.Memo1.Lines[row];
+              TempStr[col+1] := Chr(tempByte);
+              RomPrintOutputWindow.Memo1.Lines[row] := TempStr;
+              End;
+
+              end;
+
+
+
+             Registers.PC := $0BC7;
+
+          //arda end
+        End;
+
+
+    $0DB0:
+      Begin
+        //CLS Trap for Screen Text Capture
+        //Emulate LD HL,0
+        Registers.H:=0;
+        Registers.L:=0;
+        Registers.PC:=$0DB2;
+
+        if TrapPrint Then RomPrintOutputWindow.InitSpectrumScreen;
+
+
+      End;
+
+    $0E3C:
+      Begin
+        //SCROLL TRAP
+        Registers.H:=$FF;
+        Registers.L:=$E0;
+        Registers.PC:=$0E3E;
+        if TrapPrint Then RomPrintOutputWindow.ScrollOneUp;
+
+      End;
+
+
      $0C11:
         Begin
            // Switch to the real token table at $95 or the new one at $386E depending on 128k mode
@@ -1125,6 +1232,7 @@ Begin
                  Registers.F := Registers.F or 1;
            End;
         End;
+
 		$0F2D:
 			Begin
 				// Editor De-Tokeniser trap.
@@ -1154,6 +1262,7 @@ Begin
               End;
            End;
            NeedParseUpdate := True;
+
         End;
      $0F80:
         Begin
@@ -1175,7 +1284,7 @@ Begin
         End;
      $0F94:
         Begin
-           // A AnsiChar 14d has been Sent? If so, there may be a special op to perform
+           // A CHAR 14d has been Sent? If so, there may be a special op to perform
            Registers.D := 0;
            Inc(Registers.PC);
            If NeedAutoList Then Begin
@@ -1335,6 +1444,7 @@ Begin
                  End;
               End;
               Filename := BASinDir+'\48.Rom';
+              //LoadROM(Memory);
 	            ModifyROM;
               DisplayWindow.BringToFront;
               ProgStateFlag := PS_Reset;
@@ -1477,12 +1587,26 @@ Begin
      $132E:
         Begin
            // Program Stop (error report) trap.
-           LastError := Memory[ERR_NR]+1;
+           {LastError := Memory[ERR_NR]+1;
            LastErrorLine := GetWord(@Memory[PPC]);
            LastErrorStatement := Memory[SUBPPC];
            If LastError > 28 Then Dec(LastError);
            NeedParseUpdate := True;
+           ProgStateFlag := PS_Stopped; }
+
+           LastError := Memory[ERR_NR]; // ardafix 109
+           If LastError = 255 Then
+             LastError := 0  // 255 ('OK') ise indeksi 0 yap
+           Else
+             Inc(LastError);  // 0-42 ('1'-'?') ise indeksi 1-43 yap
+           // --- DÜZELTME SONU ---
+
+           LastErrorLine := GetWord(@Memory[PPC]);
+           LastErrorStatement := Memory[SUBPPC];
+           // If LastError > 28 Then Dec(LastError); // end ardafix 109
+           NeedParseUpdate := True;
            ProgStateFlag := PS_Stopped;
+
            // As the program or direct command has just finished,
            // If there are any visible watches, they need updating.
            UpdateWatches;
@@ -1626,6 +1750,8 @@ Begin
            Inc(Registers.PC, 3);
            FullSpeed := True;
         End;
+
+
      $189D:
         Begin
            // When an error occurs, suppress the "?" and use a red cursor instead.
@@ -1642,11 +1768,11 @@ Begin
         End;
      $18B0:
         Begin
-           // OUT-AnsiChar call, trapped to invert colours if address is inside the selection.
+           // OUT-CHAR call, trapped to invert colours if address is inside the selection.
            Dec(Registers.PC);
            EmulateCALL($1937);
            MemPtr := GetWord(@Memory[K_CUR]);
-           // ModAddr is the address of the AnsiChar to be printed.
+           // ModAddr is the address of the CHAR to be printed.
            ModAddr := GetWord(@Registers.E)-1;
            If Memory[FLAGX] And 32 = 32 Then
               TempWord := GetWord(@Memory[WORKSP])
@@ -1742,7 +1868,7 @@ Begin
         End;
      $190B:
         Begin
-           // Modify the cursor to "overprint" the current AnsiChar.
+           // Modify the cursor to "overprint" the current CHAR.
            // Get the correct character.
            Dec(Registers.PC);
            EmulateCall($18C1);
@@ -2011,7 +2137,7 @@ Begin
                  EmulateRET;
               End;
            End Else Begin
-              Dec(Registers.B);
+              Registers.B := (Registers.B - 1) and $FF; //avoiding range check error ardafix 109 dec(B)
               If Registers.B = 0 Then
                  Registers.F := Registers.F or 64
               Else
@@ -2199,6 +2325,10 @@ Begin
   // Memory[$11CD] := $05; // Cyan Border
   // Memory[$1266] := $0D; // Cyan on Blue
 
+
+  //trap ROM Interrupt to check rom integrity (uncomment to enable. see CheckAndHealROM )
+  //PutWord(@Memory[$38], $00ED);
+
 	// Never use K or E mode cursor
 	// G, L, C modes work fine.
 
@@ -2241,7 +2371,7 @@ Begin
 	// Fix the scroll-into-ROM bug, as the ROM is currently
 	// unprotected.
 
-	Memory[$0D2C] := $17;
+	Memory[$0D2C] := $17;  //patch lower part of the screen scroll 17 times instead of 18
 
 	// $ED Unused Opcode Trap for Keyboard (INKEY$)
 
@@ -2255,7 +2385,7 @@ Begin
 
 	// $ED Unused Opcode Trap for BREAK detection
 
-	PutWord(@Memory[$1F54], $00ED);
+ 	PutWord(@Memory[$1F54], $00ED);
 
   // $ED Unused Opcode Trap for the Error Reconstruction
   // (See Procedure DoError() for Details)
@@ -2377,7 +2507,7 @@ Begin
   PutWord(@Memory[$18B2], $00ED); // Restore Colours
 
   PutWord(@Memory[$0F7F], $00ED); // Clear Selection - Adding a colour item
-  PutWord(@Memory[$0F85], $00ED); // Clear Selection - Adding a normal AnsiChar
+  PutWord(@Memory[$0F85], $00ED); // Clear Selection - Adding a normal CHAR
   PutWord(@Memory[$1015], $00ED); // Trap DELETE to clear selection.
 
   PutWord(@Memory[$1141], $00ED); // Fix the "line too long" bug
@@ -2430,9 +2560,10 @@ Begin
   Rom128k[$2351] := 0;             // That takes three bytes to NOP out a CALL
 
   For Idx := 0 To 16383 Do
-     Rom48k[Idx] := Memory[Idx];
+     Rom48k[Idx] := Memory[Idx];  // backup copy patched rom
 
 End;
+
 
 
 Procedure CheckFor128kCommands;
@@ -2460,8 +2591,8 @@ Begin
         InString := False;
         Inc(Addr, 5);
      End Else
-        If Memory[Addr] = 37 Then
-                       Spectranet := True; //A Spectranet program -by arda-!
+        //If Memory[Addr] = 37 Then
+        //               Spectranet := True; //A Spectranet program -by arda-!
 
         If Memory[Addr] = 14 Then Begin
            If Not (REMCommand or InString) Then
@@ -2558,7 +2689,7 @@ Procedure PutEditLine(Tokens: AnsiString; Var Mem: Array of Byte);
 Var
 	G: DWord;
 	InputMode: Boolean;
-	LengthMod: Integer;
+	LengthMod, TempAddr32: Integer;
 	VarAddr, Count, StartAddr, EndAddr, TempWord: Word;
 Begin
 
@@ -2603,6 +2734,34 @@ Begin
 		Dec(Count);
 	End;
 
+  {
+  VarAddr := VARS;
+	Count := 15;
+	While Count > 0 Do Begin
+		TempWord := GetWord(@Mem[VarAddr]); // 16-bit adresi oku
+		If TempWord > StartAddr Then Begin
+            
+            // --- DÜZELTME BASLANGICI ---
+            TempAddr32 := TempWord; // 32-bit tamsayiya güvenle ata
+
+            // Matematiksel islemi 32-bit üzerinde yap
+            TempAddr32 := TempAddr32 - LengthMod;
+
+            // Sonucu 0-65535 araligina kelepçele (clamp)
+            If TempAddr32 > 65535 Then
+                TempWord := 65535
+            Else If TempAddr32 < 0 Then
+                TempWord := 0
+            Else
+                TempWord := TempAddr32; // Artik 16-bit'e geri atamak güvenli
+            // --- DÜZELTME SONU ---
+            
+			PutWord(@Mem[VarAddr], TempWord);
+		End;
+		Inc(VarAddr, 2);
+		Dec(Count);
+	End;
+        }
 	// Now fill the buffer.
 
 	For G := 1 To Length(Tokens) Do
@@ -2666,7 +2825,10 @@ Begin
 			   While (CurChar in ['A'..'Z', 'a'..'z']) and (Index < Length(Line)+1) Do Begin
 				   CurWord := CurWord + UpperCase(CurChar);
 				   Inc(Index);
-				   CurChar := Line[Index];
+				   If Index < Length(Line)+1 Then    //ardafix 109
+             CurChar := Line[Index]
+           Else
+             CurChar := #0;  //end ardafix 109
 			   End;
         End Else Begin
            // For some insane reason, you cannot have a variable "TO2" in 128k BASIC. This code will
@@ -2697,6 +2859,10 @@ Begin
 				   CurWord := CurWord + UpperCase(CurChar);
 				   Inc(Index);
 				   CurChar := Line[Index];
+           If Index < Length(Line)+1 Then   //ardafix 109 begin
+             CurChar := Line[Index]
+           Else
+             CurChar := #0; //end ardafix
 			   End;
                Result := Result;
            // So, for now - I'll add in the original behaviour here, so the fix above can be reversed. The fix is
@@ -2794,18 +2960,20 @@ Begin
                   End;
            End;
 
-	   // Now test - Does the token have a leading space?
+	         // Now test - Does the token have a leading space?
            If F > 31 Then Begin
               // Leading Space, Remove the space.
               If Result <> '' Then
-		  If Result[Length(Result)] = ' ' Then
-			Result := Copy(Result, 1, Length(Result) -1);
+		            If Result[Length(Result)] = ' ' Then
+			            Result := Copy(Result, 1, Length(Result) -1);
+
               If F = 43 Then
                 DEFFNPresent := True;
 
               If F = 71 Then Begin
                  // REM tells us to discard the entire of the rest of the line.
                  Result := Result + #234;
+
 				      If Line[Index] = ' ' Then Inc(Index);
                  While Index < Length(Line)+1 Do Begin
                     Result := Result + Line[Index];
@@ -2815,11 +2983,12 @@ Begin
                  Exit;
               End;
 				End;
+
 				Result := Result + AnsiChar(F+163);
            GotKeyword := True;
 				// All Alphabetic keywords have a trailing space,
 				// so remove it now.
-				If Line[Index] = ' ' Then Inc(Index);
+				If (Index <= Length(Line)) and (Line[Index] = ' ') Then Inc(Index);
 			End Else Begin
 				// Else copy the word verbatim to the result.
            VarName:
@@ -4008,6 +4177,11 @@ Begin
      Result := Tokens;
 End;
 
+procedure DebugMsg(const S: string);
+begin
+  OutputDebugString(PChar(S));
+end;
+
 Function InsertLine(Line: AnsiString; Overwrite: Boolean): AnsiString;
 Var
   Tokenised: AnsiString;
@@ -4031,6 +4205,7 @@ Begin
   // if it already exists, and inserts/replaces properly.
 
   Tokenised := ProcessBASLine(Line);
+
   If Tokenised = '' Then Begin
      // An error occured converting the BASIC text to tokens.
      MessageBox(BASinOutput.Handle, pChar(LogWindow.Memo1.Lines[LogWindow.Memo1.Lines.Count -1]), pChar('Error in BASIC'), MB_OK or MB_ICONWARNING);

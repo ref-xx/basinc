@@ -26,7 +26,7 @@ Uses Windows, Math, SysUtils, Classes;
   Function  Strip5Bytes(Text: String): String;
   Function  Insert5Bytes(Text: String): String;
   Function  StripWhiteSpace(Text: String): String;
-  Function  GetDelimitedString(Text: String; Var Index: Integer; Delimiter: Char): String;
+  Function  GetDelimitedString(Text: String; Var Index: Integer; Delimiter: AnsiChar): String;
 
   Procedure SaveBAS(SaveEdit, DoSave: Boolean);
 
@@ -383,6 +383,7 @@ Begin
                  // Process the line, as it must (hopefully) be BASIC text.
                  // Note that lines are inserted in line order.
                  CurBASICLine := ProcessBASLine(Copy(CurLine, 1, Length(CurLine)-1));
+
                  If CurBASICLine = '' Then Goto AbortLine;
                  // Find the line number
                  LineNum := (Ord(CurBASICLine[1]) Shl 8) + Ord(CurBASICLine[2]);
@@ -455,7 +456,7 @@ End;
 
 Function ProcessBASLine(CurLine: String): String;
 Var
-  CurChar, LastChar: Char;
+  CurChar, LastChar: AnsiChar;
   TempValue: Extended;
   TempWord: Word;
   InString, REMCommand: Boolean;
@@ -815,7 +816,7 @@ Var
   ExpSign: Boolean;
   Divider: Extended;
   Exponent: Integer;
-  CurChar: Char;
+  CurChar: AnsiChar;
   TempDWord: DWord;
   IsNegative: Boolean;
   TempStr: String;
@@ -1217,7 +1218,7 @@ End;
 
 Procedure ProcessEscapeChars(Var Line: String; var LPos: Integer; var BASICLine: String);
 Var
-  CurChar: Char;
+  CurChar: AnsiChar;
   TempStr: String;
   LineLen: Integer;
   TempValue: Extended;
@@ -1396,6 +1397,8 @@ Begin
   While (LinePos <= Length(Line)+1) and (Line <> '') Do Begin
 
 //OutputDebugString(PChar(IntToStr(LinePos) + '-len: ' + IntToStr(Length(Line))));
+    If LinePos <= Length(Line) Then 
+     Begin
 
      If Not (Line[LinePos] in [#16..#23]) And InColours Then Begin
         If InColours and (TempStr <> '\{') Then Begin
@@ -1485,6 +1488,18 @@ Begin
            Inc(LinePos);
         End;
      End;
+
+    End // <-- If LinePos <= Length(Line) ardafix 109
+     Else
+     Begin
+        // LinePos > Length(Line)
+        If InColours and (TempStr <> '\{') Then Begin
+           Result := Result + TempStr + '}';
+           InColours := False;
+        End;
+        Inc(LinePos); // break the loop
+     End;
+
   End;
 End;
 
@@ -1856,7 +1871,7 @@ Function Insert5Bytes(Text: String): String;
 Var
   LinePos, LineLen: Integer;
   REMCommand, InString: Boolean;
-  CurChar: Char;
+  CurChar: AnsiChar;
   TempValue: Extended;
   TempStr: String;
 Begin
@@ -1912,7 +1927,7 @@ Function Strip5Bytes(Text: String): String;
 Var
   InString: Boolean;
   LineLen, LinePos: Word;
-  CurChar: Char;
+  CurChar: AnsiChar;
 Begin
   Result := '';
   InString := False;

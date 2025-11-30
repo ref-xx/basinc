@@ -4,7 +4,7 @@ interface
 
 Uses
 
-  Windows, Classes, SysUtils, BASSupport, FastCore, ROMUtils, Tapes, Filing, Utility;
+  Windows, Classes, SysUtils, BASSupport, FastCore, ROMUtils, Tapes, Filing, Utility, zx0packer;
 
 Type
 
@@ -15,10 +15,110 @@ Type
   Procedure BinaryToREM(Binary: String; var List: TStringlist; CopyStub, ForceJump: Boolean; Address, LineNumber: Word);
   Procedure BinaryToAsmText(Binary: String; var List: TStringlist; BytesPerLine: Integer);
   Procedure BinaryToBASIC(Binary: String; var List: TStringlist);
-  Procedure BinaryToMemory(Binary: String; Address: Word);
-  Procedure BinaryToTape(BlockName:String; Binary: String; Address: Word);
+  Procedure BinaryToMemory(Binary: String; Address: Word; Target: Word = 1; Pack: Boolean = False);
+  Procedure BinaryToTape(BlockName: String; Binary: String; Address: Word; Target: Word = 1; Pack: Boolean = False);
+
+const
+
+ ZX0_DEPACKER_HEADER: array[0..80] of Byte = (
+    $11, $DE, $DE, // LD DE, DEDE (Target Address)
+    $21, $BA, $BA, // LD HL, BABA (Source Address)
+    $F3,           // DI
+    $CD, $0C, $80, // CALL $800C (Common Exit Routine)
+    $FB,           // EI
+    $C9,           // RET
+    $01, $FF, $FF, // LD BC, $FFFF
+    $C5,           // PUSH BC
+    $03,           // INC BC
+    $3E, $80,      // LD A, $80
+    $CD, $41, $80, // CALL $8041
+    $ED, $B0,      // LDIR
+    $87,           // ADD A, A
+    $38, $0D,      // JR C, ...
+    $CD, $41, $80, // CALL $8041
+    $E3,           // EX (SP), HL
+    $E5,           // PUSH HL
+    $19,           // ADD HL, DE
+    $ED, $B0,      // LDIR
+    $E1,           // POP HL
+    $E3,           // EX (SP), HL
+    $87,           // ADD A, A
+    $30, $EB,      // JR NC, ...
+    $C1,           // POP BC
+    $0E, $FE,      // LD C, $FE
+    $CD, $42, $80, // CALL $8042
+    $0C,           // INC C
+    $C8,           // RET Z
+    $41,           // LD B, C
+    $4E,           // LD C, (HL)
+    $23,           // INC HL
+    $CB, $18,      // RR B
+    $CB, $19,      // RR C
+    $C5,           // PUSH BC
+    $01, $01, $00, // LD BC, 1
+    $D4, $49, $80, // CALL NC, $8049
+    $03,           // INC BC
+    $18, $DD,      // JR ...
+    $0C,           // INC C
+    $87,           // ADD A, A
+    $20, $03,      // JR NZ, ...
+    $7E,           // LD A, (HL)
+    $23,           // INC HL
+    $17,           // LD A, RLA
+    $D8,           // RET C
+    $87,           // ADD A, A
+    $CB, $11,      // RL C
+    $CB, $10,      // RL B
+    $18, $F2,      // JR ...
+    $C9            // RET
+  );
+
 
 implementation
+
+function RelocateDepacker(NewBaseAddress: Word): TByteArray;
+const
+  ORIGINAL_BASE_ADDRESS = $8000; // kind of what I am doing now moment...
+var
+  Offset: Integer;
+  CallTarget: Word;
+begin
+
+  SetLength(Result, SizeOf(ZX0_DEPACKER_HEADER));
+  Move(ZX0_DEPACKER_HEADER, Result[0], SizeOf(ZX0_DEPACKER_HEADER));
+
+  if NewBaseAddress = ORIGINAL_BASE_ADDRESS then
+    Exit;
+
+  Offset := Integer(NewBaseAddress) - ORIGINAL_BASE_ADDRESS;
+
+  // update call targets :/
+
+  // 1. CALL $800C (Header'daki index 8, 9)
+  CallTarget := $800C + Offset;
+  Result[8] := CallTarget and $FF;
+  Result[9] := (CallTarget shr 8) and $FF;
+
+  // 2. CALL $8041 (Header'daki index 20, 21)
+  CallTarget := $8041 + Offset;
+  Result[20] := CallTarget and $FF;
+  Result[21] := (CallTarget shr 8) and $FF;
+
+  // 3. CALL $8041 (Header'daki index 28, 29)
+  Result[28] := CallTarget and $FF;
+  Result[29] := (CallTarget shr 8) and $FF;
+
+  // 4. CALL $8042 (Header'daki index 44, 45)
+  CallTarget := $8042 + Offset;
+  Result[44] := CallTarget and $FF;
+  Result[45] := (CallTarget shr 8) and $FF;
+
+  // 5. CALL NC, $8049 (Header'daki index 60, 61)
+  CallTarget := $8049 + Offset;
+  Result[60] := CallTarget and $FF;
+  Result[61] := (CallTarget shr 8) and $FF;
+end;
+
 
 Procedure BinaryToDATADec(Binary: String; var List: TStringlist; IncludePOKEs: Boolean; Address, StartLine, LineStep, BytesPerLine: Word);
 Var
@@ -250,6 +350,7 @@ Begin
 
 End;
 
+{
 Procedure BinaryToMemory(Binary: String; Address: Word);
 Var
   Idx: Integer;
@@ -267,7 +368,63 @@ Begin
   End;
 
 End;
+}
 
+Procedure BinaryToMemory(Binary: String; Address: Word; Target: Word = 1; Pack: Boolean = False);
+Var
+  Idx: Integer;
+  PackedData: TByteArray;
+  FinalData: String;
+  Depacker: TByteArray; // Artik dinamik bir dizi (TByteArray)
+begin
+  // ... (sikistirma ve veri dönüstürme mantigi ayni kalir) ...
+  if not Pack then
+  begin
+    FinalData := Binary;
+  end
+  else
+  begin
+    // ... (sikistirma kismi burada) ...
+    SetLength(PackedData, Length(Binary));
+    if Length(Binary) > 0 then Move(Binary[1], PackedData[0], Length(Binary));
+    PackedData := PackZX0(PackedData);
+    SetLength(FinalData, Length(PackedData));
+    if Length(PackedData) > 0 then Move(PackedData[0], FinalData[1], Length(PackedData));
+
+    if (Target <> 1) and (Length(FinalData) > 0) then
+    begin
+      // Depacker'i yeni adrese göre ayarla
+      Depacker := RelocateDepacker(Address);
+
+      // Hedef ve Kaynak adreslerini güncelle
+      // DEDE -> Hedef Adres
+      Depacker[1] := Target and $FF;
+      Depacker[2] := (Target shr 8) and $FF;
+
+      // BABA -> Sikistirilmis verinin baslangiç adresi
+      Depacker[4] := (Address + Length(Depacker)) and $FF;
+      Depacker[5] := ((Address + Length(Depacker)) shr 8) and $FF;
+
+      // Güncellenmis depacker'i sikistirilmis verinin basina ekle
+      SetLength(FinalData, Length(PackedData) + Length(Depacker));
+      Move(Depacker[0], FinalData[1], Length(Depacker));
+      if Length(PackedData) > 0 then
+        Move(PackedData[0], FinalData[1 + Length(Depacker)], Length(PackedData));
+    end;
+  end;
+
+  // ... (bellege yazma döngüsü ayni kalir) ...
+  Idx := 1;
+  While Idx <= Length(FinalData) Do
+  begin
+    if Address + Idx - 1 >= 16384 then
+      Memory[Address + Idx - 1] := Ord(FinalData[Idx]);
+    Inc(Idx);
+  end;
+End;
+
+
+{
 Procedure BinaryToTape(BlockName:String; Binary: String; Address: Word);
 Begin
 
@@ -280,6 +437,58 @@ Begin
   ShowWindow(TapeWindow, False);
 
 End;
+ }
+
+
+Procedure BinaryToTape(BlockName: String; Binary: String; Address: Word;  Target: Word = 1; Pack: Boolean = False);
+var
+  PackedData: TByteArray;
+  FinalData: String;
+  Depacker: TByteArray; 
+Begin
+  if not Pack then
+  begin
+    FinalData := Binary;
+  end
+  else
+  begin
+    // compress
+    SetLength(PackedData, Length(Binary));
+    if Length(Binary) > 0 then Move(Binary[1], PackedData[0], Length(Binary));
+    PackedData := PackZX0(PackedData);
+    SetLength(FinalData, Length(PackedData));
+    if Length(PackedData) > 0 then Move(PackedData[0], FinalData[1], Length(PackedData));
+
+    if (Target <> 1) and (Length(FinalData) > 0) then
+    begin
+      // need to add depacker, first Relocate Depacker
+      Depacker := RelocateDepacker(Address);
+
+      // Update -from- and destination addresses
+      Depacker[1] := Target and $FF;
+      Depacker[2] := (Target shr 8) and $FF;
+      Depacker[4] := (Address + Length(Depacker)) and $FF;
+      Depacker[5] := ((Address + Length(Depacker)) shr 8) and $FF;
+
+      // merge header
+      SetLength(FinalData, Length(PackedData) + Length(Depacker));
+      Move(Depacker[0], FinalData[1], Length(Depacker));
+      if Length(PackedData) > 0 then
+        Move(PackedData[0], FinalData[1 + Length(Depacker)], Length(PackedData));
+    end;
+  end;
+
+  // write block
+  SetLength(FileArray, Length(FinalData));
+  if Length(FinalData) > 0 then
+    CopyMemory(@FileArray[0], @FinalData[1], Length(FinalData));
+  TapeBlockAdd(CODEToTape(BlockName, Address));
+  TapeWindow.UpdateTapeList;
+  ShowWindow(TapeWindow, False);
+End;
+
+
+
 
 end.
 

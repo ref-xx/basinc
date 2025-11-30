@@ -239,9 +239,10 @@ type
     BinaryImportExport1: TMenuItem;
     CheqEditPage1: TMenuItem;
     N23: TMenuItem;
-    
+    Notes1: TMenuItem;
+    PrintOutput1: TMenuItem;
 
-    procedure AppException         (Sender: TObject; E: Exception);
+
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
     procedure IdleProc             (Sender: TObject; var Done: Boolean);
     procedure FormCreate           (Sender: TObject);
@@ -290,6 +291,8 @@ type
     Function  AddLine              (Line: String): Boolean;
     function  GetShortName         (sLongName: string): string;
 
+
+
     Function  TokeniseEditText     (SyntaxCheck: Boolean): Boolean;
     Procedure TokeniseString;
     Procedure DeTokeniseString;
@@ -314,10 +317,13 @@ type
 
 
 
+  
   private
     { Private declarations }
     procedure WMCopyData(var Msg : TWMCopyData); message WM_COPYDATA; //arda
     procedure WMMove(var Msg: TWMMove); message WM_MOVE;
+
+
 
   public
     { Public declarations }
@@ -372,7 +378,7 @@ type
     CursListLine,
     CursLineNum,
     CursStatementNum:              Word;
-    CursorChar:                    Char;
+    CursorChar:                    AnsiChar;
 
     EditorGFXMode,
     AbortStatement,
@@ -391,7 +397,7 @@ type
     RunLine:                       DWord;
 
 
-    UndoItem:                      String;
+    UndoItem:                      AnsiString;
     UndoList,
     RedoList,
     BASICList:                     TStringlist;
@@ -400,6 +406,7 @@ type
 
 
     SourceMarkers:                 Array[0..10] of TSourceMarker;
+    FSysVarsBackup:                Array[0..182 - 1] of Byte;
 
     Procedure GetBASIC;
     Procedure RepaintBASIC         (DoPaint: Boolean);
@@ -474,6 +481,7 @@ var
 
 const
 
+
   HH_DISPLAY_TOPIC        = $0000;
   HH_DISPLAY_TOC          = $0001;
   HH_CLOSE_ALL            = $0012;
@@ -504,7 +512,9 @@ Uses FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
      BreakpointProperties, WatchProps, MessageBox, MemBlockAdd, ColoursWind, UDGOptions,
      PrinterOutput, Printing, Profiling, ProfilingForm, ProgInfo, CPUDisplay, AsmEditor,
      BlockProps, AsmForm, GrabParms, GridSetup, BinaryGrab, PaintBox, Binaries,
-     MemManager, UlaColours, basinet, notes, ShFolder;
+     MemManager, UlaColours, basinet, notes, ShFolder, RomPrintOutputUnit;
+
+
 
 
 procedure InitializeCommonControls;  // 1.8 arda -- trying to avoid crashes...
@@ -527,15 +537,6 @@ begin
 end;
 
 
-procedure TBASinOutput.AppException(Sender: TObject; E: Exception);
-  var
-  DetailedMessage: string;
-  begin
-  // Application.ShowException(E);
-  DetailedMessage := Format('BasinC catches another wild error!' + #13#10 + #13#10 + 'Error Message:' + #13#10 +'%s' + #13#10 +#13#10 +'Details:' + #13#10 +'Time: %s' + #13#10 + 'Class: %s' + #13#10 +'Procedure: %s',  [E.Message, DateTimeToStr(Now), E.ClassName, 'Unhandled']  );
-  Windows.MessageBox(BasinOutput.Handle,PChar(DetailedMessage), 'Ooops...', MB_ICONERROR or MB_OK);
-  Application.Terminate;
-end;
 
 
 Procedure ControlEmulation(Start: Boolean);
@@ -648,6 +649,8 @@ Begin
            SysTime := GetTickCount;
         End;
      End;
+
+
      If StepOperation Then Begin
         CPUWindow.CPURunning := Registers.EmuRunning;
         Registers.EmuRunning := False;
@@ -776,6 +779,7 @@ begin
 
   Application.OnIdle := IdleProc;
   Application.OnHint := OnHint;
+
   Application.OnShowHint := OnShowHint;
 
   INITParser;
@@ -924,6 +928,7 @@ Var
   Token: Byte;
   Idx: Integer;
   TempKey: Word;
+  TempBool: Bool;
   Expr: TExpression;
   HelpKeyword, LastText, TempStr, BASIC: String;
   Result, RunningEmu, Done, InString: Boolean;
@@ -979,15 +984,21 @@ begin
      2:
         Begin // LOAD "" (Open...)
            If Not Registers.EmuRunning Then Begin
-              TapeTrapLoad := False;
+              TempBool:=Opt_TapeTrapLoad;
+              Opt_TapeTrapLoad := False;
               LOADQuoteQuote('');
-
+              //Opt_TapeTrapLoad := TempBool;
 
            End;
         End;
      3..10:
         Begin // MRU Items. LOAD "" them.
-           LOADQuoteQuote(MRUList[(Sender As TComponent).Tag-3]);
+          If Not Registers.EmuRunning Then Begin
+             TempBool:=Opt_TapeTrapLoad;
+             Opt_TapeTrapLoad := False;
+              LOADQuoteQuote(MRUList[(Sender As TComponent).Tag-3]);
+              // Opt_TapeTrapLoad := TempBool;
+          End;
         End;
      11:
         Begin // Assembler
@@ -1246,6 +1257,7 @@ begin
      48:
         Begin // Memory grabber
            CentreFormOnForm(BinaryGrabWindow, Self);
+           BinaryWindow.Caption := 'Import Grabbed Memory to ...';
            ShowWindow(BinaryGrabWindow, True);
            If Not BinaryGrabWindow.Cancelled Then Begin
               BinaryWindow.ClearBinaries;
@@ -1255,7 +1267,7 @@ begin
               BinaryWindow.AddBinary('Memory Block ('+IntToStr(BinaryGrabWindow.BlockAddress)+', '+IntToStr(BinaryGrabWindow.BlockSize)+')', TempStr);
               CentreFormOnForm(BinaryWindow, Self);
               ShowWindow(BinaryWindow, True);
-              
+
            End;
         End;
      49:
@@ -1716,9 +1728,29 @@ begin
            ShowWindow(BinaryWindow, False);
 
         End;
+        129:
+        Begin
+            //View Notes...
+             ShowWindow(NotesWindow, False);
+        End;
+
+        130:
+        Begin
+            //View print output window...
+            ShowWindow(RomPrintOutputWindow, False);
+        End;
+
+        131:
+        Begin
+            //used for testing
+            //TestROMCompare;
+            //RestoreSysvars;
+        End;
   End;
 
 end;
+
+
 
 procedure TBASinOutput.SaveListingAsImage;
 Var
@@ -2447,7 +2479,7 @@ End;
 
 Procedure TBASinOutput.SetCaption;
 Begin
-  Caption := ReleaseName;
+  Caption := ReleaseName + ' WIP - DO NOT USE - ';
   Application.Title := CurProjectName + ' - BasinC';
 
 
@@ -2569,7 +2601,7 @@ Procedure TBASinOutput.RepaintBASIC(DoPaint: Boolean);
 Var
   ReturnFlag: Bool;
   Ink, Paper, Bright, pInk, pPaper, pBright, pTemp, Inverse: Byte;
-  CurChar: Char;
+  CurChar: AnsiChar;
   LineText, TempStr, TempRemStr, LineStr, CurWord,RegionTempS, RegionCollapseToS: String;
   CurWordOrg, ePPC, eSUBPPC, XPos, YPos, SizeOpt, TempVal, ViewX, LineNum, StatementNum, CurWordPos, Idx, RegionCollapseTo, RegionTempI, RegionTempB: Integer;
   CurPos, NumLines, TempPrevLine, TempPrevLine2,
@@ -3747,7 +3779,8 @@ Begin
                  Italic := Opt_SymbolsItalic;
               End;
            End Else Begin
-              If CompareStrToSubStr('FN', LastWord, Length(LastWord) -1, 2) Then Begin // A Function
+              //If CompareStrToSubStr('FN', LastWord, Length(LastWord) -1, 2) Then Begin // A Function
+              If (Length(LastWord) >= 2) and CompareStrToSubStr('FN', LastWord, Length(LastWord) -1, 2) Then Begin // ardafix 109
                  If Opt_HighlightFunctions Then Begin
                     Ink := Opt_FunctionsColour;
                     Bold := Opt_FunctionsBold;
@@ -3970,11 +4003,13 @@ Begin
      If ProgramIs128k Then Begin
         Case CursorChar of
            #32..#143:
-              DrawChar(FastIMG1.Bmp, @EditorChars[(Byte(CursorChar)-32)*8], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
+              DrawChar(FastIMG1.Bmp, PByte(Cardinal(@EditorChars[1]) + (Byte(CursorChar)-32)*8 - 1), CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
+              //DrawChar(FastIMG1.Bmp, @EditorChars[(Byte(CursorChar)-32)*8], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
            #144..#162:
               DrawChar(FastIMG1.Bmp, @Memory[((Byte(CursorChar)-144)*8)+GetWord(@Memory[UDG])-1], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
         Else
            Begin
+
               DrawChar(FastIMG1.Bmp, @EditorChars[1], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
               SmallTextOut(FastIMG1.Bmp, HexChars[(((Ord(CursorChar) div 16)*16) div 16)+1]+HexChars[(Ord(CursorChar) Mod 16)+1], CursorPoint.X, (FastIMG1.Bmp.AbsHeight - CursorPoint.Y) -7, DisplayPalette[Ink]);
            End;
@@ -3982,7 +4017,8 @@ Begin
      End Else Begin
         Case CursorChar of
            #32..#143:
-              DrawChar(FastIMG1.Bmp, @EditorChars[(Byte(CursorChar)-32)*8], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
+              DrawChar(FastIMG1.Bmp, PByte(Cardinal(@EditorChars[1]) + (Byte(CursorChar)-32)*8 - 1), CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
+              //DrawChar(FastIMG1.Bmp, @EditorChars[(Byte(CursorChar)-32)*8], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
            #144..#164:
               DrawChar(FastIMG1.Bmp, @Memory[((Byte(CursorChar)-144)*8)+GetWord(@Memory[UDG])-1], CursorPoint.X, CursorPoint.Y, Ink, Paper, Bright);
         Else
@@ -4223,6 +4259,11 @@ begin
      VK_TAB:
         Begin
            If Opt_EditorSounds Then MakeSound(1);
+           If ShowingPrediction and (CursOffset < EditorSelEnd) Then Begin
+              AddUndo;
+              AcceptPrediction;
+              Exit;
+           End;
            If Not (ssShift in Shift) Then Begin
               AddUndo;
               If EditorSelStart <> EditorSelEnd Then Begin
@@ -5193,7 +5234,7 @@ Begin
      LineStart := Idx;
      If BASICMem[Idx] = #13 Then Inc(Idx);
      LineNum := 0;
-     While BASICMem[Idx] in ['0'..'9'] Do Begin
+     While (Idx <= Length(BASICMem)) and (BASICMem[Idx] in ['0'..'9']) Do Begin //ardafix 109
         LineNum := (LineNum * 10)+Ord(BASICMem[Idx])-48;
         Inc(Idx);
      End;
@@ -5201,8 +5242,9 @@ Begin
      REMCommand := False;
      Repeat
         Inc(Idx);
+        If Idx > Length(BASICMem) Then Break;
         If Not InString Then
-           If BASICMem[Idx] in ['R', 'r'] Then
+           If  (BASICMem[Idx] in ['R', 'r']) Then
               If (UpperCase(Copy(BASICMem, Idx, 4)) = 'REM ') Then Begin
                  Break;
               End;
@@ -5954,7 +5996,7 @@ Begin
   Result := '';
   Done := False;
   Idx := GetSourcePos(LineNum, Statement) -1;
-  If Idx <> 0 Then Begin
+  If (Idx <> 0) And (BASICMem <> '') Then Begin
      InString := False;
      REMCommand := False;
      While Not Done Do Begin
@@ -6078,6 +6120,7 @@ Begin
   // First, if the emulation has been paused, it's a safe bet that we're already
   // in runtime. Otherwise, start the program, by calling the RUN ROM routine.
   If Not Registers.EmuRunning Then Begin
+
      If Running Then Begin
         ControlEmulation(True);
         UpdateRunTimeButtons;
@@ -6127,6 +6170,7 @@ begin
 
   If Not Registers.EmuRunning or Not Running Then Begin
      SaveEmulationState(BREAKState); //Workaround for Force Break -- Arda
+
      RunProgram(65535);
   End Else Begin
      // To stop, simply simulate a single step operation.
@@ -6137,6 +6181,8 @@ begin
      End;
      SingleStep := True;
   End;
+    If CPUWindow.Showing Then
+     CPUWindow.FormShow(nil);
 end;
 
 procedure TBASinOutput.StepOver(Sender: TObject);
@@ -6676,12 +6722,13 @@ Begin
      Idx := CursOffset -1;
      While (Idx >1) and (BASICMem[Idx] <> #13) Do
         Dec(Idx);
-     If BASICMem[Idx] = #13 Then
-        LineStart := Idx +1
+     If (Idx > 0) and (BASICMem[Idx] = #13) Then
+      LineStart := Idx + 1
      Else
-        LineStart := Idx;
+      LineStart := Idx + 1; 
 
 
+      Idx := LineStart; //ardafix build109
 
      NonAsciiMod := 0;
      CursStringStart := 0;
@@ -7662,7 +7709,7 @@ procedure TBASinOutput.WMCopyData(var Msg: TWMCopyData);
 var
   s : string;
 begin
-  s := PChar(Msg.copyDataStruct.lpData);
+  s := PAnsiChar(Msg.copyDataStruct.lpData);
   if (s<>'') then loadquotequote(s);
 end;
 
@@ -7696,7 +7743,7 @@ begin
     // Skip backup if project name starts with 'autoback'
     if Trim(Copy(CurProjectName, 1, 8)) <> 'autoback' then
     begin
-      BackupDir := GetAutoBackupDir;
+      BackupDir := GetAutoBackupDir; //get backup folder and create a new one if not exists
 
       if ProjectSaved then
       begin
@@ -7803,10 +7850,31 @@ initialization
 end.
 
 // history & todo:
-// 1.82
-//
+// todo: boriel's zxbasic compiler integration
+// todo: Charset window RST10 capture
+// todo: Snippets to support asm functions
+// todo: sprite handler snippet
+// todo: basincnet web site - somewhere to store snippets, share on social media and run on web emulator or run on basinc locally.
+// bug: print #0;,,,"s" crashes emulation, 10 PRINT PI^EXP PI run twice to corrupt something
 
-// 1.81 -- only released in ZX Spectrum Discord Server  06.06.2025
+
+
+//1.83
+// Added - Tape Trap Streaning Options now saved with the session
+// Added - Tape block grab implementation
+// Added - Tape block right button menu
+// Tuned - Block properties window position is now item sensitive
+// Fixed - Nasty bug on NEG opcode emulation caused all sort of problems in new delphi compiler. Sorted! (Uwe Geiken)
+
+
+// 1.82
+// Added - ZX0 compression natively supported in basinC (you may find options on export menus or memory grabber etc.)
+// Fixed - SysVars window would update incorrectly if it's sorted by name.
+// Fixed - Snapshot saving in 48K was incorrectly pushing PC to the stack, now corrected
+// Added - System Variables Window can now compare and show if a value changed and highlights in red color.
+// Added - Tab key to accept code prediction (right arrow still works too)
+
+// 1.81 -- first released in ZX Spectrum Discord Server  06.06.2025 -- Compiled with Delphi7
 // Added - Sysvars now can be sorted by clicking on the column headers
 // Added - Memory Grab/Binary Grab window can now send data direcly to tape as a block
 // Added - Assembler can now use pasmo assembler if pasmo.exe exist in the basinc folder

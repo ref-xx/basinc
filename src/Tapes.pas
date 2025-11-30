@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  Menus, StdCtrls, Buttons, ComCtrls, ImgList;
+  Menus, StdCtrls, Buttons, ComCtrls, ImgList, BinaryForm;
 
 type
   TTapeWindow = class(TForm)
@@ -56,6 +56,16 @@ type
     Help1: TMenuItem;
     TapeCreatorHelp1: TMenuItem;
     Button5: TButton;
+    Import1: TMenuItem;
+    PopupMenu2: TPopupMenu;
+    DeleteBlock2: TMenuItem;
+    Grab1: TMenuItem;
+    Cut1: TMenuItem;
+    Paste1: TMenuItem;
+    N6: TMenuItem;
+    Copy1: TMenuItem;
+    N7: TMenuItem;
+    Properties2: TMenuItem;
     procedure Button1Click(Sender: TObject);
     procedure Program1Click(Sender: TObject);
     procedure Screen1Click(Sender: TObject);
@@ -74,9 +84,7 @@ type
     procedure Button4Click(Sender: TObject);
     procedure ListView1SelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
     procedure SaveAs1Click(Sender: TObject);
-    procedure CutBlock1Click(Sender: TObject);
-    procedure CopyBlock1Click(Sender: TObject);
-    procedure PasteBlock1Click(Sender: TObject);
+    procedure TapeMenuItemClick(Sender: TObject);
     procedure RedirectLOADcommands1Click(Sender: TObject);
     procedure RedirectSAVEcommands1Click(Sender: TObject);
     procedure ListView1DblClick(Sender: TObject);
@@ -84,6 +92,11 @@ type
     procedure TapeCreatorHelp1Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure Import1Click(Sender: TObject);
+    procedure ListView1Click(Sender: TObject);
+    procedure ListView1ContextPopup(Sender: TObject; MousePos: TPoint;
+      var Handled: Boolean);
+
   private
     { Private declarations }
     procedure OnEnterMenuLoop(var Message: TMessage); message WM_ENTERMENULOOP;
@@ -95,7 +108,7 @@ type
     Procedure TapeToBSC(Block: String);
     Procedure TapeToBSD(Block: String);
     procedure ExportTape;
-
+      Procedure TapeBlockToBinary;
     Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles; //arda
   end;
 
@@ -105,14 +118,16 @@ type
   Procedure RecalcChecksum(Index: Integer);
   Procedure TapeBlockAdd(Block: String);
 
+
 var
   TapeClip:      String;
   TapeWindow:    TTapeWindow;
   TapeBlocks:    TStringlist;
   TapePosition:  Integer;
   TapeFilename:  String;
-  TapeTrapLOAD:  Boolean;
-  TapeTrapSAVE:  Boolean;
+  //TapeTrapLOAD:  Boolean;
+  //TapeTrapSAVE:  Boolean;
+
 
 implementation
 
@@ -120,6 +135,48 @@ implementation
 
 Uses BlockProps, FastCore, Filing, BASSupport, MemBlockAdd, Utility, QueryForm, ROMUtils,
   BasinMain, ShellAPI;
+
+
+
+procedure TTapeWindow.TapeBlockToBinary;
+var
+  Block      : string;
+  Name       : string;
+  Addr       : Word;
+  BinaryType : TBinaryType;
+  Idx        : Integer;
+begin
+  // No selection, nothing to do
+  if ListView1.Selected = nil then
+    Exit;
+
+  Idx   := ListView1.Selected.Index;
+  Block := TapeBlocks[Idx];
+
+  // Default type and address
+  BinaryType := btMemory;
+  Addr       := 32768;
+
+  // If this is a BYTES (CODE) block, read start address from header
+  // Block[4] is the type: #3 = BYTES
+  if Block[4] = #3 then
+    Addr := GetWord(@Block[17]);
+
+  // Try to use the tape filename as description
+  Name := TrimRight(Copy(Block, 5, 10));
+  if Name = '' then
+    Name := 'Tape Block ' + IntToStr(Idx + 1);
+
+  // Prepare BinaryWindow just like memory grabber does
+  BinaryWindow.Caption := 'Import Tape Block to ...';
+  BinaryWindow.ClearBinaries;
+  BinaryWindow.AddBinaryEx(Name, Block, BinaryType, Addr);
+
+  CentreFormOnForm(BinaryWindow, Self);
+  ShowWindow(BinaryWindow, True);
+end;
+
+
 
 Procedure TTapeWindow.FileIsDropped(Var Msg: TMessage);
 Var
@@ -497,7 +554,7 @@ begin
         Filename := OpenFile(Handle, 'Insert From Tape File', [FTTape], '', False, False)
      Else
         If Sender = BASinOutput Then Begin
-           TapeTrapLOAD := True;
+           Opt_TapeTrapLOAD := True;
            Filename := OpenFile(Handle, 'Open Tape File', [FTTape], '', False, False);
         End Else
            If Sender = OpenTapeImage1 Then
@@ -1087,17 +1144,29 @@ begin
 end;
 
 procedure TTapeWindow.Button4Click(Sender: TObject);
+var
+  R: TRect;
+  ScreenTL: TPoint;
+  NewLeft, NewTop: Integer;
 begin
+  if ListView1.Selected = nil then
+    Exit;
 
-  // Open the Tape Block properties dialog
+  R := ListView1.Selected.DisplayRect(drBounds);
+  NewLeft:=(R.Right-R.Left)Div 2+R.Left;
+  ScreenTL := ListView1.ClientToScreen(Point(NewLeft, R.Top));
 
-  If ListView1.Selected <> nil Then Begin
-     CentreForm(BlockProperties, Left + Width, Top + Height);
-     ShowWindow(BlockProperties, true);
-     UpdateTapeList;
-  End;
+  NewLeft := ScreenTL.X + 8;  // 8 px margin
+  NewTop  := ScreenTL.Y;
+  if NewLeft + BlockProperties.Width > Screen.Width then
+  NewLeft := Screen.Width - BlockProperties.Width - 10;
 
+  BlockProperties.Left := NewLeft;
+  BlockProperties.Top  := NewTop;
+
+  ShowWindow(BlockProperties, True);
 end;
+
 
 procedure TTapeWindow.ListView1SelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
 begin
@@ -1184,50 +1253,70 @@ Begin
 
   PasteBlock1.Enabled := TapeClip <> '';
 
-  RedirectLOADCommands1.Checked := TapeTrapLOAD;
-  RedirectSAVECommands1.Checked := TapeTrapSAVE;
+  RedirectLOADCommands1.Checked := Opt_TapeTrapLOAD;
+  RedirectSAVECommands1.Checked := Opt_TapeTrapSAVE;
 
 End;
 
-procedure TTapeWindow.CutBlock1Click(Sender: TObject);
+procedure TTapeWindow.TapeMenuItemClick(Sender: TObject);
+var
+  NewIndex: Integer;
 begin
-
+  Case (Sender As TComponent).Tag Of
+     60:         //CUT
+     Begin
   TapeClip := TapeBlocks[ListView1.Selected.Index];
   TapeBlocks.Delete(ListView1.Selected.Index);
 
   UpdateTapeList;
+      End;
+     61:         //COPY
+     Begin
+       TapeClip := TapeBlocks[ListView1.Selected.Index];
+     End;
+     62: // PASTE
+Begin
+  if TapeClip = '' then Exit; // optional: nothing to paste
 
-end;
-
-procedure TTapeWindow.CopyBlock1Click(Sender: TObject);
-begin
-
-  TapeClip := TapeBlocks[ListView1.Selected.Index];
-
-end;
-
-procedure TTapeWindow.PasteBlock1Click(Sender: TObject);
-begin
-
-  If ListView1.Selected <> nil Then
-     TapeBlocks.Insert(ListView1.Selected.Index, TapeClip)
-  Else
-     TapeBlocks.Add(TapeClip);
+  if ListView1.Selected <> nil then
+  begin
+    NewIndex := ListView1.Selected.Index + 1;
+    TapeBlocks.Insert(NewIndex, TapeClip);
+  end
+  else
+  begin
+    TapeBlocks.Add(TapeClip);
+    NewIndex := TapeBlocks.Count - 1;
+  end;
 
   UpdateTapeList;
+
+  if (NewIndex >= 0) and (NewIndex < ListView1.Items.Count) then
+  begin
+    ListView1.Items[NewIndex].Selected := True;
+    ListView1.ItemIndex := NewIndex; // istersen
+  end;
+End;
+
+      70:       //GRAB
+      Begin
+        TapeBlockToBinary;
+      End;
+
+  End;
 
 end;
 
 procedure TTapeWindow.RedirectLOADcommands1Click(Sender: TObject);
 begin
-  TapeTrapLOAD := Not TapeTrapLOAD;
-  RedirectLOADCommands1.Checked := TapeTrapLOAD;
+  Opt_TapeTrapLOAD := Not Opt_TapeTrapLOAD;
+  RedirectLOADCommands1.Checked := Opt_TapeTrapLOAD;
 end;
 
 procedure TTapeWindow.RedirectSAVEcommands1Click(Sender: TObject);
 begin
-  TapeTrapSAVE := Not TapeTrapSAVE;
-  RedirectSAVECommands1.Checked := TapeTrapSAVE;
+  Opt_TapeTrapSAVE := Not Opt_TapeTrapSAVE;
+  RedirectSAVECommands1.Checked := Opt_TapeTrapSAVE;
 end;
 
 procedure TTapeWindow.ListView1DblClick(Sender: TObject);
@@ -1269,12 +1358,12 @@ procedure TTapeWindow.Button5Click(Sender: TObject);
 var TempTrap: boolean;
 begin
 if ListView1.Items.Count>0 then Begin
-        TapeTrapLOAD:=true;
+        Opt_TapeTrapLOAD:=true;
         If Not Registers.EmuRunning Then Begin
-              TempTrap := TapeTrapLoad;
-              TapeTrapLoad := False;
+              TempTrap := Opt_TapeTrapLoad;
+              Opt_TapeTrapLoad := False;
               LOADQuoteQuote('');
-              TapeTrapLoad := TempTrap;
+              Opt_TapeTrapLoad := TempTrap;
         End;
 End;
  
@@ -1319,17 +1408,45 @@ UpdateTapeList;
 
 end;
 
+
 procedure TTapeWindow.FormDestroy(Sender: TObject);
 begin
     DragAcceptFiles(Handle, False);
+end;
+
+procedure TTapeWindow.Import1Click(Sender: TObject);
+begin
+TapeBlockToBinary;
+end;
+
+
+
+procedure TTapeWindow.ListView1Click(Sender: TObject);
+Var
+  TP: TPoint;
+begin
+  TP := ClientToScreen(Point(Button1.Left+(Button1.Width Div 2), Button1.Top+(Button1.Height Div 2)));
+  PopupMenu2.Popup(TP.X, TP.Y);
+end;
+
+procedure TTapeWindow.ListView1ContextPopup(Sender: TObject;MousePos: TPoint; var Handled: Boolean);
+var
+  ScreenPt: TPoint;
+begin
+  // Convert client coords ? screen coords
+  ScreenPt := ListView1.ClientToScreen(MousePos);
+
+  PopupMenu2.Popup(ScreenPt.X, ScreenPt.Y);
+
+  Handled := True; // default behavior devre disi
 end;
 
 Initialization
 
 TapeClip := '';
 TapeBlocks := TStringlist.Create;
-TapeTrapLOAD := False;
-TapeTrapSAVE := False;
+//TapeTrapLOAD := Opt_TapeTrapLOAD;
+//TapeTrapSAVE := Opt_TapeTrapSAVE;
 TapePosition := 0;
 TapeFilename := '';
 

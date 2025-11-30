@@ -68,6 +68,11 @@ Begin
      While (Line <> '') and (Line[1] <= ' ') Do
         Line := Copy(Line, 2, 999999);
 
+     If Line = '' Then Begin
+        Inc(Idx);
+        Continue; // 1.82fix for empty line pase
+     End;
+
      If Line[1] in ['0'..'9'] Then Begin
         // a new line.
         If CurLine <> '' Then

@@ -39,6 +39,7 @@ Type
             BorderDWord: DWord;
      End;
 
+
   // Emulation setup Procs
 
   Function  INITEMulation: Boolean;
@@ -248,12 +249,15 @@ Type
   Procedure SetPalette64Entry(Index: Integer; Value: Byte);
 
 Var
+  //OldValue: Byte;
 
   InInterrupt:      Boolean;
 
   BreakState,
   TempState,
   UndoState:        TEmulationState;
+
+  //ROMShadow: array[0..$3FFF] of Byte;
 
   FullSpeed:        Boolean;
 
@@ -316,6 +320,10 @@ Var
   Palette64:        Array[0..63] of Byte;
   Active64Colours:  Boolean;
   Last64Port:       Byte;
+
+     WatchDEValue : Word  = $5C1B; // takibe aldigin DE
+  WatchDEHit   : Boolean = False;
+  WatchDE_PC   : Word = 0;
 
 Const
 
@@ -525,6 +533,7 @@ Begin
   AYRegisters.RandomSeed1 := 0;
   AYRegisters.RandomSeed2 := 1;
 End;
+
 
 Procedure TrashScreenMem;
 Var
@@ -7899,7 +7908,6 @@ Begin // RST 10H
      mov Word [esi+TZ80Registers.PC], 16
      mov Word [esi+TZ80Registers.&SP], ax
      mov edx,11
-     //Call ROMTrap; //arda - uncomment to enable console output for PRINT
   end;
 
 End;
@@ -13746,9 +13754,9 @@ End;
 
 Procedure OpED44;
 Begin // NEG
-  Asm
+  asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A]   // fixed them all! arda 1.83
      lahf
      seto  dh
      shl   dh,2
@@ -13761,8 +13769,9 @@ Begin // NEG
      mov   Byte [esi+TZ80Registers.F],dl
      inc   Word [esi+TZ80Registers.PC]
      mov   edx,8
-  End;
+  end;
 End;
+
 
 Procedure OpED45;
 Begin // RETN
@@ -13870,7 +13879,7 @@ Procedure OpED4C;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -13997,7 +14006,7 @@ Procedure OpED54;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -14132,7 +14141,7 @@ Procedure OpED5C;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -14271,7 +14280,7 @@ Procedure OpED64;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -14425,7 +14434,7 @@ Procedure OpED6C;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -14582,7 +14591,7 @@ Procedure OpED74;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -14695,7 +14704,7 @@ Procedure OpED7C;
 Begin // NEG
   Asm
      mov   dl,2  // set N
-     neg   [esi+TZ80Registers.A]
+     neg   byte ptr [esi+TZ80Registers.A] 
      lahf
      seto  dh
      shl   dh,2
@@ -16069,15 +16078,38 @@ Begin
 
 End;
 
+
+
+
+procedure LogRegisterState;
+var
+  LogStr: String;
+begin
+  LogStr := Format('%d. PC:%.4X SP:%.4X AF:%.2X%.2X BC:%.2X%.2X DE:%.2X%.2X HL:%.2X%.2X IX:%.4X IY:%.4X I:%.2X R:%.2X TS:%d',
+            [Registers.Time, Registers.PC, Registers.SP,
+             Registers.A, Registers.F,
+             Registers.B, Registers.C,
+             Registers.D, Registers.E,
+             Registers.H, Registers.L,
+             Registers.IX, Registers.IY,
+             Registers.I, Registers.R,
+             Registers.TotalTS]);
+
+  Filing.DebugLog(LogStr);
+  Registers.Time := Registers.Time +1;
+end;
+
 // This version of the emulation loop will run at normal speed
 // and uses the sound buffer to synchronise the emulation.
 
 Procedure ExecuteEmulationLoop_SpectrumSpeed;
+
 Begin
+
 
   If MemMapWindow.Visible Then
      ZeroMemory(@MemAccess[0], 65536);
-  
+
   asm
 
      pushad
@@ -16099,7 +16131,52 @@ Begin
      mov  edx, DWord [edi+ebx+1]           // Pre-fill EDX with any params this opcode may take, and if this is a prefix,
                                            // The prefixed opcode itself.
      xor  eax, eax
-     call DWord [Ops+ecx*4]                // Now use ECX as a vector into the Opcodes table declared at the start of this file.
+      {    //<<--- comment start here to disable  part1
+    // WRITE WATCH: part 1 - record old value
+    push eax
+
+    mov al, [edi+23653]       // direct memory read at constant offset
+    mov [OldValue], al
+
+@SkipWatchGet:
+    pop eax
+          }   //<<--- comment end here to disable    part1
+
+    // --- Execute opcode ---
+    call dword [Ops+ecx*4]     //<--- To restore, leave this here
+
+    {add dword ptr [esi + TZ80Registers.TotalTS], edx  //calculate TotalTS   1.83
+
+    //Debug logging...   1.83
+    cmp byte ptr [esi + TZ80Registers.LastTotalTS], 0
+    je  @SkipDebugLog
+
+    pushad
+    call LogRegisterState
+    popad
+
+    @SkipDebugLog:
+    }//end of debug logging
+
+           { //<<--- comment start here to disable part2
+
+    // Write Watch
+    push eax
+    mov al, [edi+23653]       // read new value
+
+    cmp al, [OldValue]        // compare with previously captured value
+    je  @SkipWatchCheck
+
+    // CHANGED -> stop emulation
+    //lea eax, StepOperation
+    //mov byte ptr [eax], True
+    mov  StepOperation, True
+    pop eax
+    jmp @Stop
+
+@SkipWatchCheck:
+    pop eax
+            }   //<<--- comment end here to disable part2 wwatch
 
      add  PrinterTs, edx                   // Done enough Ts for the Printer to have updated?
      mov  eax, PrinterUpdateTs
@@ -16154,7 +16231,41 @@ Begin
      mov  StepOperation, True
      jp   @Stop
 
-  @NoBreak:
+    @NoBreak:
+
+    // *** 1-byte content watch arda 1.83 ***
+    movzx eax, Word ptr [WatchByteAddress]
+    test  eax, eax         // 0 => disabled
+    jz    @SkipByteWatch
+
+    mov   bl, [edi+eax]             // read one byte from Memory[WatchByteAddress]
+    cmp   bl, Byte ptr [WatchByteValue]
+    jne   @SkipByteWatch
+
+    mov   StepOperation, True
+    jmp   @Stop
+
+    @SkipByteWatch:
+
+     // *** Content watch: check 16-bit value at WatchAddress  arda 1.83***
+     movzx eax, Word ptr [WatchAddress]
+     test eax, eax               // 0 => disabled
+     jz   @SkipContentWatch
+
+     lea  ebx, [edi+eax]         // ebx = @Memory[WatchAddress]
+     movzx ecx, byte ptr [ebx]   // low byte
+     movzx eax, byte ptr [ebx+1] // high byte
+     shl  eax, 8
+     or   eax, ecx               // eax (ax) = Memory[addr] + 256*Memory[addr+1]
+
+     cmp  ax, Word ptr [WatchValue]
+     jne  @SkipContentWatch
+
+     mov  StepOperation, True
+     jmp  @Stop
+
+  @SkipContentWatch:
+
 
      cmp  Registers.EmuRunning, True
      jne  @Stop
@@ -16284,6 +16395,7 @@ Begin
   If Registers.EmuRunning Then Begin
 
      Inc(ElapsedFrames);
+     //Registers.TotalTS:=0;
 
      If ElapsedFrames = 16 Then Begin
         Registers.FlashState := 1 - Registers.FlashState;
@@ -16293,6 +16405,7 @@ Begin
 
      If Registers.IntsEnabled then
         InvokeInterrupt
+
      Else
         If ResetCounter > 0 Then
            Registers.HaltEmu := False;

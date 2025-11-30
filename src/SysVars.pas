@@ -22,6 +22,7 @@ type
     RefreshtheList1: TMenuItem;
     WatchthisSysVar1: TMenuItem;
     Button3: TButton;
+    ChkHex: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -33,8 +34,15 @@ type
     procedure WatchthisSysVar1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure ListView1ColumnClick(Sender: TObject; Column: TListColumn);
+
+    procedure ListView1AdvancedCustomDrawItem(Sender: TCustomListView;
+      Item: TListItem; State: TCustomDrawState; Stage: TCustomDrawStage;
+      var DefaultDraw: Boolean);
+    procedure ChkHexClick(Sender: TObject);
+
   private
     { Private declarations }
+     FChangedFlags: array[0..70] of Boolean;
   public
     { Public declarations }
     CanUpdate: Boolean;
@@ -125,7 +133,8 @@ implementation
 
 {$R *.DFM}
 
-Uses FastCore, QueryForm, Evaluate, HexEdit, Watches, Utility, ROMUtils, BASinMain;
+Uses FastCore, QueryForm, Evaluate, HexEdit, Watches, Utility, ROMUtils, BASinMain, UxTheme;
+
 
 function CustomSortProc(Item1, Item2: TListItem; ParamSort: Integer): Integer; stdcall;
 begin
@@ -135,7 +144,7 @@ begin
     1:
       Result := CompareText(Item1.SubItems[0], Item2.SubItems[0]);
     2:
-      Result := CompareText(Item1.SubItems[0], Item2.SubItems[0]);
+      Result := CompareText(Item1.SubItems[1], Item2.SubItems[1]);
   else
       Result := 0;
   end;
@@ -143,7 +152,10 @@ end;
 
 
 
+
 procedure TSysVarsWindow.FormCreate(Sender: TObject);
+var
+  NewCol: TListColumn;
 begin
   Panel1.SetBounds(8, 8, ClientWidth - 16, ClientHeight - 26 - Button1.Height);
   ListView1.SetBounds(0, 0, Panel1.Width, Panel1.Height);
@@ -156,90 +168,172 @@ begin
   CanUpdate := True;
   ListView1.DoubleBuffered := True;
   if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
+
+  FillChar(FChangedFlags, SizeOf(FChangedFlags), False);
+
+
 end;
 
 Procedure TSysVarsWindow.Populate;
 Var
   F: Integer;
   LI: TListItem;
+  AddressStr: String;
 Begin
   ListView1.Items.BeginUpdate;
+  ListView1.Items.Clear; //182
   F := 0;
   While F < 71 Do Begin
      LI := ListView1.Items.Add;
      LI.Caption := SystemVariables[F].Name;
-     LI.SubItems.Add(IntToStr(SystemVariables[F].Address)+' ['+IntToStr(SystemVariables[F].Bytes)+']');
-     LI.SubItems.Add('');
+
+     if ChkHex.Checked then
+     begin
+       // Eger ChkHex seçili ise, adresi Hex formatinda göster
+       AddressStr := '$' + IntToHex(SystemVariables[F].Address, 4) + ' [' + IntToStr(SystemVariables[F].Bytes) + ']';
+     end
+     else
+     begin
+       // Degilse, orijinal Decimal formatinda göster
+       AddressStr := IntToStr(SystemVariables[F].Address) + ' [' + IntToStr(SystemVariables[F].Bytes) + ']';
+     end;
+     
+     LI.SubItems.Add(AddressStr);
+
+     //LI.SubItems.Add(IntToStr(SystemVariables[F].Address)+' ['+IntToStr(SystemVariables[F].Bytes)+']');
+     LI.SubItems.Add(GetSysVar(F));
+     LI.Data := Pointer(F); //182
      Inc(F);
   End;
   ListView1.Items.EndUpdate;
 End;
 
+
 Procedure TSysVarsWindow.UpdateSysVars(UpdateAddr: Word);
 Var
-  F: Integer;
+  F, OriginalIndex: Integer;
+  LI: TListItem;
+  NewValue, OldValue: String;
 Begin
-  If ListView1.Items.Count = 0 Then Populate;
   If UpdateAddr = 0 Then Begin
-     F := 0;
      ListView1.Items.BeginUpdate;
-     While F < 71 Do Begin
-        ListView1.Items[F].SubItems[1] := GetSysVar(F);
-        Inc(F);
-     End;
+     For F := 0 to ListView1.Items.Count - 1 do
+     begin
+       LI := ListView1.Items[F];
+       if LI.Data <> nil then
+       begin
+         OriginalIndex := Integer(LI.Data);
+         NewValue := GetSysVar(OriginalIndex);
+         OldValue := LI.SubItems[1];
+
+         if NewValue <> OldValue then
+         begin
+           LI.SubItems[1] := NewValue;
+           FChangedFlags[OriginalIndex] := True; // Mark as changed
+         end
+         else
+         begin
+           FChangedFlags[OriginalIndex] := False; // Mark as unchanged
+         end;
+       end;
+     end;
      ListView1.Items.EndUpdate;
+     ListView1.Invalidate; // Force a repaint to show the new colors
   End Else Begin
      // Update an individual Sysvar.
   End;
 End;
 
-Function  TSysVarsWindow.GetSysVar(Index: Integer): String;
+
+Function TSysVarsWindow.GetSysVar(Index: Integer): String;
 Var
   G, H: Integer;
+  Value: DWord;
 Begin
-  Case SystemVariables[Index].Bytes of
-     1: Begin // Single Byte
-           Result := IntToStr(Memory[SystemVariables[Index].Address]);
-        End;
-     2: Begin // Word value (probably an address)
-           Result := IntToStr(GetWord(@Memory[SystemVariables[Index].Address]))+' ('+IntToStr(Memory[SystemVariables[Index].Address])+','+IntToStr(Memory[SystemVariables[Index].Address+1])+')';
-        End;
-     3: Begin // FRAMES
-           Result := IntToStr(GetDWord(@Memory[SystemVariables[Index].Address]) And $FFFFFF);
-        End;
-    38: Begin // STREAMS - Special as it's words.
-           Result := '';
-           H := SystemVariables[Index].Address;
-           For G := 1 To SystemVariables[Index].Bytes Div 2 Do Begin
-              If G < SystemVariables[Index].Bytes Div 2 Then
-                 Result := Result + IntToStr(GetWord(@Memory[H])) + ', '
-              Else
-                 Result := Result + IntToStr(GetWord(@Memory[H]));
-              Inc(H, 2);
-           End;
-        End;
-     Else
-        // All the rest :-)
-        Begin
-           Result := '';
-           For G := 1 to SystemVariables[Index].Bytes Do
-              If G < SystemVariables[Index].Bytes Then
-                 Result := Result + IntToStr(Memory[SystemVariables[Index].Address + G -1]) + ', '
-              Else
-                 Result := Result + IntToStr(Memory[SystemVariables[Index].Address + G -1]);
-        End;
-  End;
+
+  if ChkHex.Checked then
+  begin
+
+    // HEXADECIMAL 1.82
+
+    Case SystemVariables[Index].Bytes of
+       1: // Single Byte
+          Result := '$' + IntToHex(Memory[SystemVariables[Index].Address], 2);
+       2: // Word value (probably an address)
+          Result := '$' + IntToHex(GetWord(@Memory[SystemVariables[Index].Address]), 4);
+       3: // FRAMES (3-byte)
+          Result := '$' + IntToHex(GetDWord(@Memory[SystemVariables[Index].Address]) And $FFFFFF, 6);
+      38: // STREAMS - Special as it's words.
+          begin
+             Result := '';
+             H := SystemVariables[Index].Address;
+             For G := 1 To SystemVariables[Index].Bytes Div 2 Do Begin
+                If G < SystemVariables[Index].Bytes Div 2 Then
+                   Result := Result + '$' + IntToHex(GetWord(@Memory[H]), 4) + ', '
+                Else
+                   Result := Result + '$' + IntToHex(GetWord(@Memory[H]), 4);
+                Inc(H, 2);
+             End;
+          end;
+       Else // All the rest (byte array)
+          begin
+             Result := '';
+             For G := 1 to SystemVariables[Index].Bytes Do
+                If G < SystemVariables[Index].Bytes Then
+                   Result := Result + '$' + IntToHex(Memory[SystemVariables[Index].Address + G -1], 2) + ', '
+                Else
+                   Result := Result + '$' + IntToHex(Memory[SystemVariables[Index].Address + G -1], 2);
+          end;
+    End;
+  end
+  else
+  begin
+    // DECIMAL
+
+    Case SystemVariables[Index].Bytes of
+       1: // Single Byte
+          Result := IntToStr(Memory[SystemVariables[Index].Address]);
+       2: // Word value (probably an address)
+          Result := IntToStr(GetWord(@Memory[SystemVariables[Index].Address]))+' ('+IntToStr(Memory[SystemVariables[Index].Address])+','+IntToStr(Memory[SystemVariables[Index].Address+1])+')';
+       3: // FRAMES
+          Result := IntToStr(GetDWord(@Memory[SystemVariables[Index].Address]) And $FFFFFF);
+      38: // STREAMS - Special as it's words.
+          begin
+             Result := '';
+             H := SystemVariables[Index].Address;
+             For G := 1 To SystemVariables[Index].Bytes Div 2 Do Begin
+                If G < SystemVariables[Index].Bytes Div 2 Then
+                   Result := Result + IntToStr(GetWord(@Memory[H])) + ', '
+                Else
+                   Result := Result + IntToStr(GetWord(@Memory[H]));
+                Inc(H, 2);
+             End;
+          end;
+       Else // All the rest :-)
+          begin
+             Result := '';
+             For G := 1 to SystemVariables[Index].Bytes Do
+                If G < SystemVariables[Index].Bytes Then
+                   Result := Result + IntToStr(Memory[SystemVariables[Index].Address + G -1]) + ', '
+                Else
+                   Result := Result + IntToStr(Memory[SystemVariables[Index].Address + G -1]);
+          end;
+    End;
+  end;
 End;
 
 procedure TSysVarsWindow.FormShow(Sender: TObject);
 begin
   if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
-  UpdateSysVars(0);
+   SetWindowTheme(ListView1.Handle, nil, nil);
+  //UpdateSysVars(0);
+  Populate;
 end;
 
 procedure TSysVarsWindow.Timer1Timer(Sender: TObject);
 begin
   UpdateSysVars(0);
+  
 end;
 
 procedure TSysVarsWindow.ComboBox1Change(Sender: TObject);
@@ -255,27 +349,27 @@ begin
         End;
      2: Begin
            Timer1.Enabled := True;
-           Timer1.Interval := 1000;
+           Timer1.Interval := 300;
            CanUpdate := True;
         End;
      3: Begin
            Timer1.Enabled := True;
-           Timer1.Interval := 5000;
+           Timer1.Interval := 1000;
            CanUpdate := True;
         End;
      4: Begin
            Timer1.Enabled := True;
-           Timer1.Interval := 10000;
+           Timer1.Interval := 5000;
            CanUpdate := True;
         End;
      5: Begin
            Timer1.Enabled := True;
-           Timer1.Interval := 30000;
+           Timer1.Interval := 10000;
            CanUpdate := True;
         End;
      6: Begin
            Timer1.Enabled := True;
-           Timer1.Interval := 60000;
+           Timer1.Interval := 30000;
            CanUpdate := True;
         End;
   End;
@@ -283,7 +377,10 @@ end;
 
 procedure TSysVarsWindow.ListView1InfoTip(Sender: TObject; Item: TListItem; var InfoTip: String);
 begin
-  InfoTip := Item.Caption + ': '+SystemVariables[Item.Index].Desc;
+  if Item.Data <> nil then
+  begin
+    InfoTip := Item.Caption + ': '+SystemVariables[Integer(Item.Data)].Desc;
+  end;
 end;
 
 procedure TSysVarsWindow.Button1Click(Sender: TObject);
@@ -302,7 +399,8 @@ Label
   GetInputNum;
 begin
   If ListView1.Selected <> nil Then Begin
-     F := ListView1.Selected.Index;
+
+     F := Integer(ListView1.Selected.Data); //182
      If SystemVariables[F].Bytes in [1, 2, 3] Then Begin
         Case SystemVariables[F].Bytes of
            1: Begin // Single Byte
@@ -372,15 +470,18 @@ end;
 
 procedure TSysVarsWindow.RefreshtheList1Click(Sender: TObject);
 begin
-  UpdateSysVars(0);
+  //UpdateSysVars(0);
+  Populate;
 end;
 
 procedure TSysVarsWindow.WatchthisSysVar1Click(Sender: TObject);
 begin
-  If ListView1.Selected.Index <> -1 Then Begin
-     WatchWindow.CreateWatch(True, 2, 0, ListView1.Selected.Index, 0, '', '', False);
+
+     If ListView1.Selected <> nil Then Begin // 182
+     WatchWindow.CreateWatch(True, 2, 0, Integer(ListView1.Selected.Data), 0, '', '', False);
      WatchWindow.BuildWatchList;
   End;
+
 end;
 
 procedure TSysVarsWindow.Button3Click(Sender: TObject);
@@ -395,5 +496,38 @@ begin
 end;
 
 
+procedure TSysVarsWindow.ListView1AdvancedCustomDrawItem(
+  Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;
+  Stage: TCustomDrawStage; var DefaultDraw: Boolean);
+var
+  OriginalIndex: Integer;
+begin
+
+    if (cdsSelected in State) then
+    begin
+      DefaultDraw := True; // Varsayilan çizime devam et
+      Exit;
+    end;
+
+    // Degisen satirin arka planini boya.
+    if Item.Data <> nil then
+    begin
+      OriginalIndex := Integer(Item.Data);
+      if FChangedFlags[OriginalIndex] then
+      begin
+
+        // Degismis, o zaman arka plani sariya boya.
+        ListView1.Canvas.Font.Color := RGB(255, 0, 0);
+      end;
+    end;
+    DefaultDraw := True;
+
+end;
+
+procedure TSysVarsWindow.ChkHexClick(Sender: TObject);
+begin
+  populate;
+
+end;
 
 end.

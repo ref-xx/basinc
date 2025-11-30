@@ -64,7 +64,7 @@ End;
 Procedure BuildKeyPorts(Key: Word; KeyBit: Byte);
 Var
   PortByte: Byte;
-  KeyName: Char;
+  KeyName: AnsiChar;
   Port: ^Byte;
   Shifted: Boolean;
   SymbShifted: Byte;

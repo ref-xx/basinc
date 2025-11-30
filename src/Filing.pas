@@ -185,7 +185,7 @@ End;
 Function OpenFile(hWnd: Integer; Caption: PChar; Types: TBASICFiles; CurFile: AnsiString; Save, MultiFile: Boolean): AnsiString;
 var
   ofn: TOpenFileName;
-  szFile: array[0..65534] of Char;
+  szFile: array[0..65534] of AnsiChar;
   Directory, FileN: AnsiString;
   Dir, Title, Filter: PChar;
   TempFilter, AllFilter, ExpFilters: AnsiString;
@@ -406,10 +406,15 @@ Begin
            For Idx := 1 To (ofn.nFilterIndex * 2) -1 Do
               TempFilter := Copy(TempFilter, Pos(#0, TempFilter) +1, Length(TempFilter));
            TempFilter := Copy(TempFilter, Pos('.', TempFilter), Length(TempFilter));
-           If Pos(';', TempFilter) < Pos(#0, TempFilter) Then
+           
+           If (Pos(';', TempFilter) < Pos(#0, TempFilter)) Then
               Result := Result + Copy(TempFilter, 1, Pos(';', TempFilter) -1)
            Else
-              Result := Result + Copy(TempFilter, 1, Pos(#0, TempFilter) -1);
+              if (Pos('''', TempFilter) < Pos(#0, TempFilter)) Then
+                Result := Result + Copy(TempFilter, 1, Pos('''', TempFilter) -1)
+              Else
+                Result := Result + Copy(TempFilter, 1, Pos(#0, TempFilter) -1);
+
         End;
         If FileExists(Result) Then Begin
            MsgVal := MessageBox(hWnd,
@@ -462,7 +467,7 @@ Begin
   If (Lowercase(ExtractFileExt(Filename)) = '.tzx') or (Lowercase(ExtractFileExt(Filename)) = '.tap') then Begin
 
      TapeWindow.FromFile1Click(Nil);
-     TapeTrapLOAD := True;
+     Opt_TapeTrapLOAD := True;
 
   End Else Begin
 
@@ -506,7 +511,7 @@ Begin
   If (Lowercase(ExtractFileExt(Filename)) = '.tzx') or (Lowercase(ExtractFileExt(Filename)) = '.tap') then Begin
 
      TapeWindow.FromFile1Click(Nil);
-     TapeTrapLOAD := True;
+     Opt_TapeTrapLOAD := True;
 
   End Else Begin
 
@@ -567,7 +572,7 @@ Begin
   If (Lowercase(ExtractFileExt(Filename)) = '.tzx') or (Lowercase(ExtractFileExt(Filename)) = '.tap') then Begin
 
      TapeWindow.FromFile1Click(Nil);
-     TapeTrapLOAD := True;
+     Opt_TapeTrapLOAD := True;
 
   End Else Begin
 
@@ -691,7 +696,7 @@ Begin
   If (Lowercase(ExtractFileExt(Filename)) = '.tzx') or (Lowercase(ExtractFileExt(Filename)) = '.tap') then Begin
 
      TapeWindow.FromFile1Click(Nil);
-     TapeTrapLOAD := True;
+     Opt_TapeTrapLOAD := True;
 
   End Else Begin
 
@@ -958,12 +963,13 @@ Begin
 
      FileSize := 49179;
 
-     For G := 0 to 49151 Do
-        Snap[G+27] := Memory[16384+G];
-
      Memory[Registers.SP-1] := Registers.PC Shr 8;
      Memory[Registers.SP-2] := Registers.PC And 255;
      Dec(Registers.SP, 2);
+
+     For G := 0 to 49151 Do
+        Snap[G+27] := Memory[16384+G];
+
      Snap[23] := Registers.SP and 255;
      Snap[24] := Registers.SP Shr 8;
 

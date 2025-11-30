@@ -277,6 +277,7 @@ Var
   Opt_DSoundSynch:        Boolean = True;               // Use DirectSound buffer synchronisation for timing
 
   Opt_AsmPasmoAvailable:  Boolean = False;              //if pasmo exists
+  Opt_ZX0Available:       Boolean = False;              //if zx0.exe exists
 
   Opt_AsmStatusBar:       Boolean = True;               // Show the Assembler Statusbar?
   Opt_AsmLabelList:       Boolean = True;               // Show the Assembler's label list to the left of the editor?
@@ -374,6 +375,9 @@ Var
   Opt_CursorColor2:      Integer = 7;
   Opt_CursorBlinking:    Boolean = True;
 
+  Opt_TapeTrapSAVE:      Boolean = True;
+  Opt_TapeTrapLOAD:      Boolean = True;
+
 
   Opt_MouseImage:         TMouseMode = miCrosshair;
 
@@ -468,7 +472,7 @@ Const
 
 implementation
 
-Uses BASINMain, Filing, ROMUtils, RLEUnit, Display, VarsWindow, CPUDisplay, TokenWindow, PaintBox;
+Uses BasinMain, Filing, ROMUtils, RLEUnit, Display, VarsWindow, CPUDisplay, TokenWindow, PaintBox;
 
 
 Procedure TWorkerThread.Execute;
@@ -697,13 +701,13 @@ Begin
   MoveForm(FormToShow, FormToShow.Left, FormToShow.Top);
   DisplayWindow.WantsFront := False;
   If Not Modal Then Begin
-try
-  FormToShow.Show;
-  Application.ProcessMessages;
-except
-  on E: Exception do
+   try
+    FormToShow.Show;
+    Application.ProcessMessages;
+   except
+    on E: Exception do
     ShowMessage('Hata yakalandý: ' + E.Message);
-end;
+   end;
   End Else Begin
      RunningEmu := Registers.EmuRunning;
      ControlEmulation(False);
@@ -1008,6 +1012,7 @@ Begin
 
   // Assembler options
   if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_AsmPasmoAvailable:= True;
+  if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_ZX0Available:= True;
 
   Opt_AsmStatusBar :=        INIRead('Assembler', 'Opt_AsmStatusBar', Opt_AsmStatusBar);
   Opt_AsmLabelList :=        INIRead('Assembler', 'Opt_AsmLabelList', Opt_AsmLabelList);
@@ -1080,12 +1085,14 @@ Begin
   Opt_LoadAutoStart :=       INIRead('BASFiles', 'Opt_LoadAutoStart', Opt_LoadAutoStart);
   Opt_Autostart :=           INIRead('BASFiles', 'Opt_Autostart', Opt_Autostart);
   Opt_SavePretty :=          INIRead('BASFiles', 'Opt_SavePretty', Opt_SavePretty);
-  Opt_AutoBackup :=         INIRead('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
-  Opt_ShowNotes :=          INIRead('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
+  Opt_AutoBackup :=          INIRead('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
+  Opt_ShowNotes :=           INIRead('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
 
   // Tape Images
 
   Opt_TapeRewind :=          INIRead('TAPFiles', 'Opt_TapeRewind', Opt_TapeRewind);
+  Opt_TapeTrapSAVE:=         INIRead('TAPFiles', 'Opt_TapeTrapSAVE', Opt_TapeTrapSAVE);    //1.83
+  Opt_TapeTrapLOAD:=         INIRead('TAPFiles', 'Opt_TapeTrapLOAD', Opt_TapeTrapLOAD);    //1.83
 
   //Paintbox
 
@@ -1374,6 +1381,9 @@ Begin
   // Tape Images
 
   INIWrite('TAPFiles', 'Opt_TapeRewind', Opt_TapeRewind);
+  INIWrite('TAPFiles', 'Opt_TapeTrapSAVE', Opt_TapeTrapSAVE);    //1.83
+  INIWrite('TAPFiles', 'Opt_TapeTrapLOAD', Opt_TapeTrapLOAD);    //1.83
+
 
   //PaintBox
 

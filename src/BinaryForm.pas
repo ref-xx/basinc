@@ -56,6 +56,16 @@ type
     Label11: TLabel;
     Label12: TLabel;
     SendToTape1: TMenuItem;
+    ChkTapeCompressZX0: TCheckBox;
+    ChkTapeEmbedZX0: TCheckBox;
+    ChkMemoryCompressZX0: TCheckBox;
+    ChkMemoryEmbedZX0: TCheckBox;
+    RemoveThisEntry1: TMenuItem;
+    N1: TMenuItem;
+    EditTapeEmbedAdr: TEdit;
+    Label13: TLabel;
+    Label14: TLabel;
+    EditMemEmbedAdr: TEdit;
     procedure Button1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -70,6 +80,11 @@ type
     procedure CheckBox2Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
+    procedure RemoveThisEntry1Click(Sender: TObject);
+    procedure ChkMemoryCompressZX0Click(Sender: TObject);
+    procedure ChkMemoryEmbedZX0Click(Sender: TObject);
+    procedure ChkTapeCompressZX0Click(Sender: TObject);
+    procedure ChkTapeEmbedZX0Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -91,7 +106,7 @@ var
 
 Const
 
-  Descs: Array[0..6] of String = ('DATA Dec', 'DATA Hex', 'REM', 'Basic', 'Memory', 'Tape Block','Memory Clip');
+  Descs: Array[0..6] of String = ('Listing as DATA Dec', 'Listing as DATA Hex', 'Listing as REM', 'Basic Program', 'Memory', 'Tape Block','Memory Clip');
 
 implementation
 
@@ -112,8 +127,8 @@ Begin
   Options[Num].Add(Chr(0));
   For Idx := 1 To 3 Do Options[Num].Add('10');
   Options[Num].Add('32768');
-  Options[Num].Add(Chr(0));
-  Options[Num].Add(Chr(0));
+  Options[Num].Add(Chr(10));
+  Options[Num].Add(Chr(10));
 
 End;
 
@@ -129,8 +144,8 @@ Begin
   Options[Num].Add(Chr(Integer(BinaryType)));
   For Idx := 1 To 3 Do Options[Num].Add('0');
   Options[Num].Add(IntToStr(Address));
-  Options[Num].Add(Chr(0));
-  Options[Num].Add(Chr(0));
+  Options[Num].Add(Chr(10));
+  Options[Num].Add(Chr(10));
 
 End;
 
@@ -247,7 +262,7 @@ Var
   ItemSize: Integer;
 begin
 
-  ListView1.Columns[1].Width := Canvas.TextWidth(ListView1.Columns[1].Caption)+32;
+  ListView1.Columns[1].Width := Canvas.TextWidth(ListView1.Columns[1].Caption)*3;
   ListView1.Columns[0].Width := ListView1.ClientWidth - ListView1.Columns[1].Width;
 
   ListView1.Items.BeginUpdate;
@@ -391,7 +406,7 @@ begin
         ItemRect.TopLeft := ScreenToClient(ListView1.ClientToScreen(ItemRect.TopLeft));
         ItemRect.BottomRight := ScreenToClient(ListView1.ClientToScreen(ItemRect.BottomRight));
         ItemSize := ItemRect.Bottom - ItemRect.Top;
-        Button4.SetBounds(ItemRect.Right - ItemSize -1 - Panel2.Left, ItemRect.Top - Panel2.Top, ItemSize, ItemSize);
+        Button4.SetBounds(ItemRect.Right - (ItemSize*2) -1 - Panel2.Left, ItemRect.Top - Panel2.Top, ItemSize*2, ItemSize);
 
      End;
 
@@ -683,6 +698,7 @@ Var
   Idx: Integer;
   NewCode: TStringlist;
   NewCodePresent: Boolean;
+  Target: Integer;
 begin
 
   NewCode := TStringlist.Create;
@@ -737,18 +753,23 @@ begin
 
               End;
 
-           4: Begin
+           4: Begin    //send to mem with compress arda 1.82
 
                  NewCodePresent := False;
+                 Target:=1;
+                 if (ChkMemoryEmbedZX0.Checked) Then Target:= StrToIntDef(EditMemEmbedAdr.Text,1);
                  BinaryToMemory(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
-                                StrToInt(Options[0].Strings[4]));
+                                StrToInt(Options[0].Strings[4]), Target, ChkMemoryCompressZX0.Checked);
 
               End;
            5: Begin //send to tap arda 1.81
 
                  NewCodePresent := False;
+                 Target:=1;
+                 if (ChkTapeEmbedZX0.Checked) Then Target:= StrToIntDef(EditTapeEmbedAdr.Text,1);
+
                  BinaryToTape(Edit9.Text,Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
-                                StrToInt(Options[0].Strings[4]));
+                                StrToInt(Options[0].Strings[4]),  Target, ChkTapeCompressZX0.Checked);
 
               End;
 
@@ -778,6 +799,42 @@ begin
   ClearBinaries;
   Close;
 
+end;
+
+procedure TBinaryWindow.RemoveThisEntry1Click(Sender: TObject);
+begin
+  If ListView1.Selected <> nil Then Begin
+
+     RemoveBinary(ListView1.Selected.Index);
+     PopulateListBox;
+
+  End;
+end;
+
+procedure TBinaryWindow.ChkMemoryCompressZX0Click(Sender: TObject);
+begin
+
+  ChkMemoryEmbedZX0.Enabled := ChkMemoryCompressZX0.Checked;
+
+
+end;
+
+procedure TBinaryWindow.ChkMemoryEmbedZX0Click(Sender: TObject);
+begin
+  Label14.Enabled := ChkMemoryEmbedZX0.Checked;
+  EditMemEmbedAdr.Enabled := ChkMemoryEmbedZX0.Checked;
+end;
+
+procedure TBinaryWindow.ChkTapeCompressZX0Click(Sender: TObject);
+begin
+  ChkTapeEmbedZX0.Enabled := ChkTapeCompressZX0.Checked;
+
+end;
+
+procedure TBinaryWindow.ChkTapeEmbedZX0Click(Sender: TObject);
+begin
+  Label13.Enabled := ChkTapeEmbedZX0.Checked;
+  EditTapeEmbedAdr.Enabled := ChkTapeEmbedZX0.Checked;
 end;
 
 end.

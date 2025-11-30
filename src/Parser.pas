@@ -2665,7 +2665,7 @@ Var
 Begin
   GotParam := False;
   InBrace := False;
-  If INPUT Then Begin Key := 'INPUT '; Item := 'Input '; End else Begin Key := 'PRINT '; Item := 'Print '; End;
+   If INPUT Then Begin Key := 'INPUT '; Item := 'Input '; End else Begin Key := 'PRINT '; Item := 'Print '; End;
   Expect := SIAnyExpr;
   Repeat
      If Expect = SIAnyExpr Then Begin

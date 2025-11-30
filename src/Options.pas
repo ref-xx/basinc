@@ -352,8 +352,8 @@ begin
 
   // Tape Images
 
-  CheckBox17.Checked := TapeTrapLOAD;
-  CheckBox18.Checked := TapeTrapSAVE;
+  CheckBox17.Checked := Opt_TapeTrapLOAD;
+  CheckBox18.Checked := Opt_TapeTrapSAVE;
   CheckBox19.Checked := Opt_TapeRewind;
 
   //AutoBackup
@@ -551,8 +551,8 @@ begin
 
   // Tape Images
 
-  TapeTrapLOAD := CheckBox17.Checked;
-  TapeTrapSAVE := CheckBox18.Checked;
+  Opt_TapeTrapLOAD := CheckBox17.Checked;
+  Opt_TapeTrapSAVE := CheckBox18.Checked;
   Opt_TapeRewind := CheckBox19.Checked;
   Opt_AutoBackup := CheckBox32.Checked;
   // Sound Settings

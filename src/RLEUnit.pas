@@ -50,7 +50,10 @@ Var
 Begin
   UnCompressedSize := Length(TempArray);
   MinTagCount := $FFFFFFFF;
-  For F := 0 To UnCompressedSize -1 Do Inc(PossibleTags[TempArray[F]]);
+  FillChar(PossibleTags, SizeOf(PossibleTags), 0);
+  If UnCompressedSize > 0 Then
+     For F := 0 To UnCompressedSize -1 Do
+        Inc(PossibleTags[TempArray[F]]);
   For F := 0 To 255 Do If PossibleTags[F] < MinTagCount Then MinTagCount := PossibleTags[F];
   F := 0; While PossibleTags[F] <> MinTagCount Do Inc(F); TagByte := F;
   SetLength(RLEArray, (MinTagCount*6)+UnCompressedSize+1);

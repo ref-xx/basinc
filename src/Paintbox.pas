@@ -209,6 +209,7 @@ type
     PacktoMemory1: TMenuItem;
     N18: TMenuItem;
     PacktoTape1: TMenuItem;
+    N2: TMenuItem;
     procedure FormResize(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -302,7 +303,9 @@ type
     Untitled: Integer;
     CanEnter: Boolean;
     LastMWheelTime: Integer;
-
+    CurObj:   Integer;
+    Address:  Word;
+    
     Procedure NewScreen;
     Procedure CopyScreen(var Src, Dst: TScrImage);
     Procedure RemoveScreen(Index: Integer);
@@ -375,6 +378,7 @@ type
     Procedure PasteFromClipboard;
     Function  ScreenToSCR(ImageIndex: Integer): String;
     Procedure CreateScreen(var Dst: TScrImage);
+    Procedure ExportImage;
   end;
 
 Const
@@ -399,7 +403,7 @@ Const
 
 implementation
 
-uses BASinMain, Filing, TextPaint, GridSetup, ImageImport, ScrPreview, Display;
+uses BASinMain, Filing, TextPaint, GridSetup, ImageImport, ScrPreview, Display, BinaryForm;
 
 {$R *.DFM}
 
@@ -627,6 +631,24 @@ Begin
 
 End;
 
+Procedure TScrPaintForm.ExportImage;
+Var
+  Binary: AnsiString;
+  F: Integer;
+begin
+
+  // Send the current data as a binary to the Binary Files import tool
+
+  Binary := ScreenToSCR(CurScreenIndex);
+  BinaryWindow.Caption := 'Export Full Screen Image...';
+  BinaryWindow.AddBinaryEx('Screen'+IntToStr(CurObj), Binary, btMemory, Address);
+  CentreFormOnForm(BinaryWindow, Self);
+  BinaryWindow.ShowModal;
+  Inc(CurObj);
+  //MouseDown := False;
+
+End;
+
 Function TScrPaintForm.QuerySave(Index: Integer): Boolean;
 Var
   MsgVal: Integer;
@@ -661,7 +683,7 @@ Var
 Begin
 
   Result := False;
-  FTypes := [FTBsc, FTBin, FTBmp, FTGif, FTAll];
+  FTypes := [FTBsc, FTBin, FTBmp, FTGif, FTScr, FTAll];
   If Filename = '' Then Filename := OpenFile(Handle, 'Save Screen Image as...', FTypes, '', True, False);
   If Filename = '' Then Exit;
 
@@ -1211,6 +1233,8 @@ end;
 procedure TScrPaintForm.FormCreate(Sender: TObject);
 begin
 
+  CurObj := 1;
+  Address:= 16384;
   Startup := True;
   Untitled := 0;
   Closing := False;
@@ -5362,7 +5386,7 @@ begin
         End;
 
 
-     62: // Pack
+     62: // Pack to tape
         Begin
 
            TempStr := ScreenToSCR(CurScreenIndex);
@@ -5373,11 +5397,21 @@ begin
 
 
            //Push compressed data to memory
-           CopyMemory(@Memory[16384], @TempStr[1], 6912);
+           //CopyMemory(@Memory[16384], @TempStr[1], 6912);
 
         End;
 
+      63:   //Export...
+        Begin
 
+          ExportImage;
+          If DisplayWindow.Showing Then Begin
+              UpdateDisplay;
+              UpdateBASinDisplay;
+           End;
+           NeedDisplayUpdate := False;
+
+        End;
 
      101..110: // Recent Files
         Begin
@@ -5388,6 +5422,8 @@ begin
   End;
 
 end;
+
+
 
 Procedure TScrPaintForm.MakeRecentList;
 Var

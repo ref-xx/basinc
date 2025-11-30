@@ -898,7 +898,7 @@ begin
               BorderUpdate:= True;
               DisplayWindow.Panel1.Color := 0;
           End;
-          SetPortByte(766,getPortByte(766));
+          SetPortByte(766,getPortByte(766));  //force update border
         End;
 
      14:
@@ -943,17 +943,6 @@ Var
    Result: TFastDIB;
    Filename: String;
 
-  {Attr, Ink, Paper, Bright: Byte;
-  TempPixels: Array[0..255, 0..191] of Byte;
-  TempAttrs: Array[0..31, 0..23] of Byte;
-  Ext, NewFilename: String;
-  StartAddr, DataLen: Word;
-  ScreenArray: Array of Byte;
-  Idx, X, Y, Cx, Cy, Offset: Integer;
-  BitVal, ByteVal: Byte;
-  Result, Bmpa: TFastDIB;
-  Flashing: Boolean;
-  Bit: Byte; }
 Begin
 
 
@@ -968,66 +957,6 @@ Begin
 
     Result.SaveToFile(Filename);
     Result.Free;
-
-  {
-
-  For Idx := 1 To 6144 Do Begin
-
-     X := ((Idx -1) and 31) * 8;
-     Y := ScreenOffsets[Idx -1];
-
-     ByteVal := Ord(Memory[16383+Idx]);
-     BitVal := 128;
-
-     For Bit := 0 To 7 Do Begin
-        If ByteVal And BitVal <> 0 Then
-           TempPixels[X, Y] := 1
-        Else
-           TempPixels[X, Y] := 0;
-        BitVal := BitVal Shr 1;
-        Inc(X);
-     End;
-
-  End;
-
-  // And the ATTRs.
-
-  For Idx := 6145 To 6912 Do Begin
-     X := Idx - 6145;
-     Y := X Div 32;
-     X := X And 31;
-     TempAttrs[X, Y] := Ord(Memory[16383+Idx]);
-  End;
-
-
-
-   Bmpa := TFastDIB.Create;
-     Bmpa.SetSize(256, 192, 8);
-     For Idx := 0 to 15 do Bmpa.Colors[Idx] := DisplayPalette[Idx];
-     Bmpa.UpdateColors;
-
-
-
-
-    For Y := 0 To 191 Do Begin
-        For X := 0 To 255 Do Begin
-           If X Mod 8 = 0 Then Begin
-              Attr := TempAttrs[X Div 8, Y Div 8];
-              Bright := (Attr And 64) Shr 3;
-              Ink := (Attr And 7) + Bright;
-              Paper := ((Attr Shr 3) And 7) + Bright;
-              If Attr and 128 <> 0 Then Flashing := True;
-           End;
-
-              If TempPixels[X, Y] = 1 Then
-                 Bmpa.Pixels8[191 - Y, X] := Ink
-              Else
-                 Bmpa.Pixels8[191 - Y, X] := Paper;
-        End;
-     End;
-            Bmpa.SaveToFile('c:\test.bmp');
-        Bmpa.Free;
-}
 
 End;
 
@@ -1414,11 +1343,6 @@ begin
         end;
      end;
 end;
-
-
-
-
-
 
 
 procedure TDisplayWindow.PopupMenuClick(Sender: TObject);
