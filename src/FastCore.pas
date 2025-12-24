@@ -15975,7 +15975,7 @@ Begin
                  ConsoleOutForm.memo1.Lines.add (ConsoleOutForm.Edit1.Text);
                 end;
              end;
-
+             Exit;
          end;
 
          If (Port = $05EB) then begin
@@ -15992,6 +15992,7 @@ Begin
                 ConsoleOutForm.Edit1.Text:=ConsText;
 
               End;
+              Exit;
          End;
      End;
 

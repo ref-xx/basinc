@@ -66,6 +66,7 @@ type
     Copy1: TMenuItem;
     N7: TMenuItem;
     Properties2: TMenuItem;
+    GrabAll1: TMenuItem;
     procedure Button1Click(Sender: TObject);
     procedure Program1Click(Sender: TObject);
     procedure Screen1Click(Sender: TObject);
@@ -109,6 +110,7 @@ type
     Procedure TapeToBSD(Block: String);
     procedure ExportTape;
       Procedure TapeBlockToBinary;
+      procedure TapeAllBlocksToBinary;
     Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles; //arda
   end;
 
@@ -137,7 +139,57 @@ Uses BlockProps, FastCore, Filing, BASSupport, MemBlockAdd, Utility, QueryForm, 
   BasinMain, ShellAPI;
 
 
+procedure TTapeWindow.TapeAllBlocksToBinary;
+var
+  i          : Integer;
+  Block      : string;
+  Name       : string;
+  Addr       : Word;
+  BinaryType : TBinaryType;
+begin
+  // 1. Binary Window hazirligi (Sadece bir kere yapilir)
+  //BinaryWindow.Caption := 'Import All Tape Blocks...';
+  BinaryWindow.ClearBinaries;
 
+  // 2. Tüm bloklar için döngü
+  // ListView1.Items.Count kullaniyoruz ki ekrandaki sayi kadar dönsün
+  for i := 0 to ListView1.Items.Count - 1 do
+  begin
+     // Güvenlik kontrolü: TapeBlocks listesi ListView ile senkronize mi?
+     if i < TapeBlocks.Count then
+     begin
+        Block := TapeBlocks[i];
+
+        // --- Mevcut Mantigin Aynisi ---
+        BinaryType := btManager;
+        Addr       := 32768; // Varsayilan adres
+
+        // Header kontrolü ve adres okuma (Byte 4 = Type)
+        // Not: Sadece Header bloklarinda bu bilgi anlamlidir.
+        if Length(Block) > 17 then
+        begin
+           if Block[4] = #3 then
+              Addr := GetWord(@Block[17]);
+        end;
+
+        // Isim ayiklama
+        Name := '';
+        if Length(Block) >= 14 then
+           Name := TrimRight(Copy(Block, 5, 10));
+           
+        // Eger isim çikmazsa (veya bu bir data bloguysa) generic isim ver
+        if Name = '' then
+           Name := 'Block ' + IntToStr(i + 1);
+
+        // Binary Window'a ekle (Ex fonksiyonu append eder, silmez)
+        BinaryWindow.AddBinaryEx(Name, Block, BinaryType, Addr);
+     end;
+  end;
+
+  // 3. Pencereyi göster
+  CentreFormOnForm(BinaryWindow, Self);
+  ShowWindow(BinaryWindow, True);
+end;
 procedure TTapeWindow.TapeBlockToBinary;
 var
   Block      : string;
@@ -168,13 +220,15 @@ begin
     Name := 'Tape Block ' + IntToStr(Idx + 1);
 
   // Prepare BinaryWindow just like memory grabber does
-  BinaryWindow.Caption := 'Import Tape Block to ...';
+  //BinaryWindow.Caption := 'Import Tape Block to ...';
   BinaryWindow.ClearBinaries;
   BinaryWindow.AddBinaryEx(Name, Block, BinaryType, Addr);
-
   CentreFormOnForm(BinaryWindow, Self);
   ShowWindow(BinaryWindow, True);
 end;
+
+
+
 
 
 
@@ -1301,6 +1355,10 @@ End;
       70:       //GRAB
       Begin
         TapeBlockToBinary;
+      End;
+      71:       //GRAB ALL
+      Begin
+        TapeAllBlocksToBinary;
       End;
 
   End;

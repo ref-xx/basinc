@@ -8,7 +8,7 @@ uses
   ThemeBevelUnit;
 
 type
-  TBinaryType = (btDecimal, btHex, btREM, btBASIC, btMemory);
+  TBinaryType = (btDecimal, btHex, btREM, btBASIC, btMemory, btTape, btManager, btUDG);
 
   TBinaryWindow = class(TForm)
     Button1: TButton;
@@ -66,6 +66,14 @@ type
     Label13: TLabel;
     Label14: TLabel;
     EditMemEmbedAdr: TEdit;
+    Panel7: TPanel;
+    Edit10: TEdit;
+    Label15: TLabel;
+    Panel8: TPanel;
+    Label16: TLabel;
+    Edit11: TEdit;
+    Edit12: TEdit;
+    SendToUDGEditor1: TMenuItem;
     procedure Button1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -106,14 +114,14 @@ var
 
 Const
 
-  Descs: Array[0..6] of String = ('Listing as DATA Dec', 'Listing as DATA Hex', 'Listing as REM', 'Basic Program', 'Memory', 'Tape Block','Memory Clip');
+  Descs: Array[0..7] of String = ('Listing as DATA Dec', 'Listing as DATA Hex', 'Listing as REM', 'Basic Program', 'Memory', 'Tape Block','Memory Manager Clip','User Defined Graphics');
 
 implementation
 
 {$R *.DFM}
 
-Uses Filing, FastCore, InputUtils, ROMUtils, BASSupport, AddCode,
-     BasinMain, Display, UDGOptions, Evaluate, Binaries;
+Uses Filing, FastCore, InputUtils, ROMUtils, BASSupport, AddCode, UDGEdit,
+     BasinMain, Display, UDGOptions, Evaluate, Binaries, MemManager;
 
 Procedure TBinaryWindow.AddBinary(Name, Binary: String);
 Var
@@ -202,10 +210,16 @@ begin
   Panel4.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
   Panel5.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
   Panel6.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
+  Panel7.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
   Label6.SetBounds(8, Panel1.Top - Label6.Height - Bevel4.Height - 8, Label6.Width, Label6.Height);
   Bevel4.SetBounds(8, Label6.Top + Label6.Height + 4, ClientWidth - 16, 2);
   Panel2.SetBounds(Panel2.Left, Panel2.Top, ClientWidth - 16, Panel1.Top - Label6.Height - Bevel4.Height - Panel2.Top - 16);
   Button5.SetBounds(Button3.Left + Button3.Width + 4, Button3.Top, Button5.Width, Button5.Height);
+  Panel6.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
+  Panel7.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
+  
+  Panel8.SetBounds(Panel1.Left, Panel1.Top, Panel1.Width, Panel1.Height);
+  Panel8.Visible := False;
 
   LastSelected := -1;
   BinaryFiles := TStringList.Create;
@@ -355,6 +369,9 @@ begin
   REMstatement1.Checked := False;
   ExtractBASIC1.Checked := False;
   SendtoMemory1.Checked := False;
+  SendToTape1.Checked := False;
+  SendToManager1.Checked := False;
+  SendToUDGEditor1.Checked := False; 
 
   Case Ord(Options[ListView1.Selected.Index].Strings[0][1]) of
      0: DATADecimal1.Checked := true;
@@ -362,6 +379,9 @@ begin
      2: REMstatement1.Checked := True;
      3: ExtractBASIC1.Checked := True;
      4: SendtoMemory1.Checked := True;
+     5: SendToTape1.Checked := True;
+     6: SendToManager1.Checked := True;
+     7: SendToUDGEditor1.Checked := True;
   End;
 
 end;
@@ -414,9 +434,11 @@ begin
 
 end;
 
+
 Procedure TBinaryWindow.BuildOptions(ChangingTo: Integer);
 Var
   BinaryType, Index: Integer;
+  TempName: String; // Dosya ismini tutmak için
 Begin
 
   If ListView1.Selected <> Nil Then Begin
@@ -427,34 +449,49 @@ Begin
         BinaryType := Ord(Options[Index].Strings[0][1]);
 
         Case BinaryType of
+           // ... (Case 0, 1, 2, 4 are unchanged) ...
 
            0, 1: Begin // DATA Dec/Hex
-
-                 Options[Index].Strings[1] := Edit1.Text;                       // Bytes Per Line
-                 Options[Index].Strings[2] := Edit3.Text;                       // Start line number
-                 Options[Index].Strings[3] := Edit2.Text;                       // Step
-                 Options[Index].Strings[4] := Edit4.Text;                       // Address
-                 Options[Index].Strings[5] := Chr(Byte(CheckBox1.Checked));     // Add POKEs
-
+                 Options[Index].Strings[1] := Edit1.Text;
+                 Options[Index].Strings[2] := Edit3.Text;
+                 Options[Index].Strings[3] := Edit2.Text;
+                 Options[Index].Strings[4] := Edit4.Text;
+                 Options[Index].Strings[5] := Chr(Byte(CheckBox1.Checked));
               End;
 
            2: Begin // REM statement
-
-                 Options[Index].Strings[2] := Edit5.Text;                       // Line Number
-                 Options[Index].Strings[4] := Edit8.Text;                       // Address
-                 Options[Index].Strings[5] := Chr(Byte(CheckBox2.Checked));     // Copy Stub
-                 Options[Index].Strings[6] := Chr(Byte(CheckBox3.Checked));     // Force Jump
-
+                 Options[Index].Strings[2] := Edit5.Text;
+                 Options[Index].Strings[4] := Edit8.Text;
+                 Options[Index].Strings[5] := Chr(Byte(CheckBox2.Checked));
+                 Options[Index].Strings[6] := Chr(Byte(CheckBox3.Checked));
               End;
 
            4: Begin // Memory
-
-                 Options[Index].Strings[4] := Edit6.Text;                       // Address
-
+                 Options[Index].Strings[4] := Edit6.Text;
               End;
+
            5: Begin // to tape
-                 Options[Index].Strings[4] := Edit7.Text;                       // Address
-                 Options[Index].Strings[5] := Edit8.Text;                       // File Name
+                 Options[Index].Strings[4] := Edit7.Text; // Address
+                 // Tape Name'i kaydet (Edit9)
+                 if Options[Index].Count > 5 then
+                    Options[Index].Strings[5] := Edit9.Text
+                 else
+                    Options[Index].Add(Edit9.Text);
+              End;
+
+           6: Begin // Send to Memory Manager Window
+                 // Block Name'i kaydet (Edit10)
+                 if Options[Index].Count > 5 then
+                    Options[Index].Strings[5] := Edit10.Text
+                 else
+                    Options[Index].Add(Edit10.Text);
+              End;
+           7: Begin // Send to UDG Editor
+                 Options[Index].Strings[4] := Edit12.Text; // Address
+                 if Options[Index].Count > 5 then
+                    Options[Index].Strings[5] := Edit11.Text // Name
+                 else
+                    Options[Index].Add(Edit11.Text);
               End;
 
         End;
@@ -465,15 +502,19 @@ Begin
      Index := ListView1.Selected.Index;
      BinaryType := ChangingTo;
 
+     // Dosya ismini BinaryFiles listesinden ayikla (Name|BinaryData formatindan)
+     TempName := Copy(BinaryFiles[Index], 1, Pos('|', BinaryFiles[Index]) - 1);
+     TempName := ExtractFileName(TempName); // Yol bilgisini temizle, sadece isim kalsin
+
      Case BinaryType of
+        // ... (Case 0, 1, 2, 4 are unchanged) ...
 
         0, 1: Begin // DATA Dec/Hex
-
-              Edit1.Text := Options[Index].Strings[1];                          // Bytes Per Line
-              Edit3.Text := Options[Index].Strings[2];                          // Start line number
-              Edit2.Text := Options[Index].Strings[3];                          // Step
-              Edit4.Text := Options[Index].Strings[4];                          // Address
-              CheckBox1.Checked := Boolean(Ord(Options[Index].Strings[5][1]));  // Add POKEs
+              Edit1.Text := Options[Index].Strings[1];
+              Edit3.Text := Options[Index].Strings[2];
+              Edit2.Text := Options[Index].Strings[3];
+              Edit4.Text := Options[Index].Strings[4];
+              CheckBox1.Checked := Boolean(Ord(Options[Index].Strings[5][1]));
               Label5.Enabled := CheckBox1.Checked;
               Edit4.Enabled := CheckBox1.Checked;
 
@@ -482,15 +523,15 @@ Begin
               Panel4.Visible := False;
               Panel5.Visible := False;
               Panel6.Visible := False;
-
+              Panel7.Visible := false;
+              Panel8.Visible := False;
            End;
 
         2: Begin // REM statement
-
-              Edit5.Text := Options[Index].Strings[2];                          // Line Number
-              Edit8.Text := Options[Index].Strings[4];                          // Address
-              CheckBox2.Checked := Boolean(Ord(Options[Index].Strings[5][1]));  // Copy Stub
-              CheckBox3.Checked := Boolean(Ord(Options[Index].Strings[6][1]));  // Force Jump
+              Edit5.Text := Options[Index].Strings[2];
+              Edit8.Text := Options[Index].Strings[4];
+              CheckBox2.Checked := Boolean(Ord(Options[Index].Strings[5][1]));
+              CheckBox3.Checked := Boolean(Ord(Options[Index].Strings[6][1]));
               CheckBox3.Enabled := CheckBox2.Checked;
               Edit8.Enabled := CheckBox2.Checked;
               Label10.Enabled := CheckBox2.Checked;
@@ -500,40 +541,104 @@ Begin
               Panel4.Visible := False;
               Panel5.Visible := False;
               Panel6.Visible := False;
-
+              Panel7.Visible := false;
+              Panel8.Visible := False;
            End;
 
         4: Begin // Memory
-
-              Edit6.Text := Options[Index].Strings[4];   // Address
+              Edit6.Text := Options[Index].Strings[4];
               Panel1.Visible := False;
               Panel3.Visible := False;
               Panel4.Visible := True;
               Panel5.Visible := False;
               Panel6.Visible := False;
-
+              Panel7.Visible := false;
+              Panel8.Visible := False;
            End;
-        5: Begin // To tape
 
+        5: Begin // To tape
               Edit7.Text := Options[Index].Strings[4];   // Address
+
+              // Isim kontrolu: Bos mu veya sadece newline karakteri mi var?
+              // AddBinary fonksiyonu varsayilan olarak #10 (LF) ekliyor olabilir.
+              if (Options[Index].Count <= 5) or (Trim(Options[Index].Strings[5]) = '') then
+              begin
+                 if TempName <> '' then
+                    Options[Index].Strings[5] := TempName
+                 else
+                    Options[Index].Strings[5] := 'Grabbed'; // Fallback
+              end;
+
+              Edit9.Text := Options[Index].Strings[5];   // Name -> UI
+
               Panel1.Visible := False;
               Panel3.Visible := False;
               Panel4.Visible := False;
               Panel5.Visible := False;
               Panel6.Visible := True;
-
+              Panel7.Visible := false;
+              Panel8.Visible := False;
            End;
 
-        3: Begin // BASIC extractor
+        6: Begin // Memory Manager
+              // BURASI DEGISTI: Ismi zorla 'Routed' yapmiyoruz.
+              
+              // Isim kontrolu: Bos mu veya sadece newline karakteri mi var?
+              if (Options[Index].Count <= 5) or (Trim(Options[Index].Strings[5]) = '') then
+              begin
+                 if TempName <> '' then
+                    Options[Index].Strings[5] := TempName
+                 else
+                    Options[Index].Strings[5] := 'Routed'; // Fallback
+              end;
+
+              Edit10.Text := Options[Index].Strings[5];   // Name -> UI
 
               Panel1.Visible := False;
               Panel3.Visible := False;
               Panel4.Visible := False;
-              Panel5.Visible := True;
+              Panel5.Visible := False;
               Panel6.Visible := False;
+              Panel7.Visible := true;
+              Panel8.Visible := False;
+           End;
+
+        3: Begin // BASIC extractor
+              Panel1.Visible := False;
+              Panel3.Visible := False;
+              Panel4.Visible := False;
+              Panel5.Visible := False;
+              Panel6.Visible := False;
+              Panel7.Visible := True;
+              Panel8.Visible := False;
               Label9.Caption := 'No options available for this import type.';
               Label9.SetBounds((Panel5.Width Div 2) - (Label9.Width Div 2), (Panel5.Height Div 2) - (Label9.Height Div 2), Label9.Width, Label9.Height);
+           End;
+                7: Begin // Send to UDG Editor
+              // Address (Varsayilan 0 veya mevcut deger)
+              if (Options[Index].Count <= 4) or (Trim(Options[Index].Strings[4]) = '') then 
+                 Edit12.Text := '0'
+              else 
+                 Edit12.Text := Options[Index].Strings[4];
 
+              // Name
+              if (Options[Index].Count <= 5) or (Trim(Options[Index].Strings[5]) = '') then
+              begin
+                 if TempName <> '' then
+                    Options[Index].Strings[5] := TempName
+                 else
+                    Options[Index].Strings[5] := 'ImportedGraphics';
+              end;
+              Edit11.Text := Options[Index].Strings[5];
+
+              // Panelleri ayarla
+              Panel1.Visible := False;
+              Panel3.Visible := False;
+              Panel4.Visible := False;
+              Panel5.Visible := False;
+              Panel6.Visible := False;
+              Panel7.Visible := False;
+              Panel8.Visible := True; // UDG Panelini göster
            End;
 
      End;
@@ -546,6 +651,7 @@ Begin
      Panel5.Visible := False;
      Panel6.Visible := False;
      Label6.Enabled := False;
+     Panel8.Visible := False;
 
   End;
 
@@ -662,6 +768,62 @@ Begin
            End Else
            Options[Item].Strings[4] := IntToStr(Value);
         End;
+     6: Begin // Send to Memory Manager
+           // 1. Adres Validasyonu (0 - 65535)
+           Value := Round(EvaluateNum(Options[Item].Strings[4], -1));
+           If (Value < 0) or (Value > 65535) Then Begin
+              MessageBox(Handle, pChar('Valid Addresses range from 0 to 65535'), pChar('Invalid Address'), MB_OK or MB_ICONWARNING);
+              ErrorControl := Edit9; // Edit9: Address Input
+              Error := True;
+           End Else Begin
+              Options[Item].Strings[4] := IntToStr(Value);
+
+              // 2. Isim Validasyonu (Bos olamaz)
+              If Trim(Options[Item].Strings[5]) = '' Then Begin
+                 MessageBox(Handle, pChar('Please enter a valid Block Name.'), pChar('Invalid Name'), MB_OK or MB_ICONWARNING);
+                 ErrorControl := Edit10; // Edit10: Name Input
+                 Error := True;
+              End Else
+                 Options[Item].Strings[5] := Trim(Options[Item].Strings[5]);
+           End;
+
+           // Hata Durumu Yönetimi
+           If Error Then Begin
+              Panel1.Visible := False;
+              Panel3.Visible := False;
+              Panel4.Visible := False;
+              Panel5.Visible := False;
+              Panel6.Visible := False;
+              Panel7.Visible := True; // Panel7: Memory Manager Panel
+              //ErrorControl.SetFocus;
+           End;
+        End;
+
+        7: Begin // Send to UDG Editor
+           // 1. Adres Validasyonu
+           Value := Round(EvaluateNum(Options[Item].Strings[4], -1));
+           If (Value < 0) or (Value > 65535) Then Begin
+              MessageBox(Handle, pChar('Valid Addresses range from 0 to 65535'), pChar('Invalid Address'), MB_OK or MB_ICONWARNING);
+              ErrorControl := Edit12; 
+              Error := True;
+           End Else Begin
+              Options[Item].Strings[4] := IntToStr(Value);
+              // 2. Isim Validasyonu
+              If Trim(Options[Item].Strings[5]) = '' Then Begin
+                 MessageBox(Handle, pChar('Please enter a valid Name.'), pChar('Invalid Name'), MB_OK or MB_ICONWARNING);
+                 ErrorControl := Edit11;
+                 Error := True;
+              End Else
+                 Options[Item].Strings[5] := Trim(Options[Item].Strings[5]);
+           End;
+
+           If Error Then Begin
+              Panel1.Visible := False;
+              // ... digerlerini gizle ...
+              Panel8.Visible := True;
+              // ErrorControl.SetFocus; // Istege bagli
+           End;
+        End;
 
   End;
 
@@ -695,24 +857,32 @@ end;
 
 procedure TBinaryWindow.Button2Click(Sender: TObject);
 Var
-  Idx: Integer;
+  // Idx degiskenine artik ihtiyacimiz yok
   NewCode: TStringlist;
   NewCodePresent: Boolean;
   Target: Integer;
 begin
 
+  // 1. ÖNCE MEVCUT DÜZENLEMEYI KAYDET
+  // Kullanici son yaptigi degisikligi (örn: isim degisikligi) henüz onaylamamis olabilir.
+  if ListView1.Selected <> nil then
+     BuildOptions(Ord(Options[ListView1.Selected.Index].Strings[0][1]));
+
   NewCode := TStringlist.Create;
-  LastSelected := ListView1.Selected.Index;
-  BuildOptions(ListView1.Selected.Index);
 
-  For Idx := 0 To BinaryFiles.Count -1 Do Begin
+  // 2. LISTE BOSALANA KADAR DÖN (WHILE DÖNGÜSÜ)
+  // Her zaman listenin en basindaki (0. indeks) elemani isleyip silecegiz.
+  // Bir sonrakiler otomatik olarak 0. siraya kayacak.
+  While BinaryFiles.Count > 0 Do Begin
 
+     // Her zaman 0. elemani kontrol et
      If ValidateInput(0) Then Begin
         NewCodePresent := True;
+        
+        // Options[0] ve BinaryFiles[0] kullaniyoruz
         Case Ord(Options[0].Strings[0][1]) Of
 
-           0: Begin
-
+           0: Begin // DATA Dec
                  BinaryToDATADec(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) +1, 999999),
                                  NewCode,
                                  Boolean(Options[0].Strings[5][1]),
@@ -720,11 +890,9 @@ begin
                                  StrToInt(Options[0].Strings[2]),
                                  StrToInt(Options[0].Strings[3]),
                                  StrToInt(Options[0].Strings[1]));
-
               End;
 
-           1: Begin
-
+           1: Begin // DATA Hex
                  BinaryToDATAHex(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) +1, 999999),
                                  NewCode,
                                  Boolean(Options[0].Strings[5][1]),
@@ -732,65 +900,77 @@ begin
                                  StrToInt(Options[0].Strings[2]),
                                  StrToInt(Options[0].Strings[3]),
                                  StrToInt(Options[0].Strings[1]));
-
               End;
 
-           2: Begin
-
+           2: Begin // REM
                  BinaryToREM(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
                              NewCode,
                              Boolean(Options[0].Strings[5][1]),
                              Boolean(Options[0].Strings[6][1]),
                              StrToInt(Options[0].Strings[4]),
                              StrToInt(Options[0].Strings[2]));
-
               End;
 
-           3: Begin
-
+           3: Begin // BASIC
                  BinaryToBASIC(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
                                NewCode);
-
               End;
 
-           4: Begin    //send to mem with compress arda 1.82
-
+           4: Begin // Memory
                  NewCodePresent := False;
                  Target:=1;
                  if (ChkMemoryEmbedZX0.Checked) Then Target:= StrToIntDef(EditMemEmbedAdr.Text,1);
                  BinaryToMemory(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
                                 StrToInt(Options[0].Strings[4]), Target, ChkMemoryCompressZX0.Checked);
-
               End;
-           5: Begin //send to tap arda 1.81
 
+           5: Begin // Tape
                  NewCodePresent := False;
                  Target:=1;
                  if (ChkTapeEmbedZX0.Checked) Then Target:= StrToIntDef(EditTapeEmbedAdr.Text,1);
-
-                 BinaryToTape(Edit9.Text,Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
+                 
+                 // Isim alani artik Options[0]'da dogru sekilde kayitli (Edit9'dan okumuyoruz)
+                 BinaryToTape(Options[0].Strings[5], Copy(BinaryFiles[0], Pos('|', BinaryFiles[0])+1, 999999),
                                 StrToInt(Options[0].Strings[4]),  Target, ChkTapeCompressZX0.Checked);
-
               End;
+
+           6: Begin // Memory Manager
+              NewCodePresent := False;
+              // Isim alani artik Options[0]'da dogru sekilde kayitli
+              MemManagerForm.AddMemBlock(Options[0].Strings[5], 32768, MemManagerForm.StringToTBytes(Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) +1, 999999)));
+           End;
+           7: Begin // Send to UDG Editor
+              NewCodePresent := False; // Kod penceresine kod eklemeyecegiz
+
+              UDGWindow.ImportRawData(
+                  Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) + 1, 999999), // Data
+                  Options[0].Strings[5], // Name
+                  StrToIntDef(Options[0].Strings[4], 0) // Address
+              );
+           End;
 
         End;
 
+        // Islenen (0.) elemani sil
         RemoveBinary(0);
+        
+        // Listeyi güncelle (Bu islem bir sonraki elemani seçili hale getirecek)
         PopulateListBox;
 
-     End Else Begin
+        // Kod varsa ekle penceresine gönder
+        If NewCodePresent Then Begin
+           AddCodeWindow.ClearCode;
+           AddCodeWindow.AddCode(NewCode);
+           CentreFormOnForm(AddCodeWindow, Self);
+           ShowWindow(AddCodeWindow, True);
+           NewCode.Clear;
+        End;
 
+     End Else Begin
+        // Eger 0. eleman validasyondan geçemezse döngüyü kiriyoruz.
+        // Hatali olan eleman ekranda kalmaya devam ediyor (Remove yapilmadi).
         NewCode.Free;
         Exit;
-
-     End;
-
-     If NewCodePresent Then Begin
-        AddCodeWindow.ClearCode;
-        AddCodeWindow.AddCode(NewCode);
-        CentreFormOnForm(AddCodeWindow, Self);
-        ShowWindow(AddCodeWindow, True);
-        NewCode.Clear;
      End;
 
   End;

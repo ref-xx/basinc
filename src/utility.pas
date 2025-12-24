@@ -70,7 +70,7 @@ Type
   Procedure SetProjectName(Name: String);
   Function  TrimExtension(Name: String): String;
 
-  Function ArrayToTBytes(Value: array of byte; Ln: integer):  TByteArray;
+  Function ArrayToTBytes(Value: array of byte; Ln: integer; Start: integer = 0): TByteArray;
   function ColorToHex(Color: TFColor): string;
 
   Procedure GetBASinDIR;
@@ -157,11 +157,16 @@ Var
   Opt_Indenting:          Boolean = False;              // Text indenting of special loop keywords: FOR..NEXT & IF  arda
   Opt_IndentSize:         Integer = 4;                  // Indent size
   Opt_ShowNotes:          Boolean = True;
+  Opt_EnableAI:           Boolean = False;
+  Opt_SelectedAIModel:    String = '';
+  Opt_BYOK_APIKEY:        String = '';
 
   SpeedBackup:            Integer = 69888;              // to store original speed of emulation temporarily
   Opt_CPUSpeed:           Integer = 69888;              // The speed (in TStates) of the CPU - Ts/Frame
+  Opt_EmulationSpeed:     Integer = 19;                  // adjust sleep duration while silent emulation
   Opt_64Colours:          Boolean = True;               // Use the new 64 colour ULA?
   Opt_AllowMultipleInstances: Boolean = True;           // Allow running multiple instances of basin
+  Opt_CheqEditAvailable:  Boolean = False;              // checks for cheq_edit.exe
   Opt_KMouse:             Boolean = True;               // Use Kempston Mouse
   Opt_PCStyleMouse:       Boolean = False;              // When emulating kempston use PC mouse coordinates
   Opt_RenderMethod:       TRenderMethod = rmGDI;        // The method used to draw (and scale) the graphics.
@@ -188,8 +193,11 @@ Var
   Opt_FollowProgram:      Boolean = False;              // Track program execution in the editor? - a CPU hog though.
   Opt_CharacterRuler:     Boolean = True;               // A ruler device for measuring characters in PRINT statements
   Opt_Controlicons:       Boolean = False;              // Breakpoint control icons
+  Opt_ViewInfoLine:       Boolean = False;              // Info Header
   Opt_SubRoutines:        Boolean = True;               // Show Sub-Jump Combobox
   Opt_AutoCollectSubs:    Boolean = True;               // Enable detecting GO SUB commands and add it to Sub-Combo.
+  Opt_AutoCollectJumps:   Boolean = True;               // Enable detecting GO TO targets
+  Opt_ShowJumpOrigins:    Boolean = True;               // Enable origin previews
   Opt_ShowStatusBar:      Boolean = True;               // Display the status bar?
   Opt_ShowToolBar:        Boolean = True;               // Display the Toolbar?
   Opt_ShowAscii:          Boolean = True;               // Display non-alphanumeric/symbol chars (ie, colour changes) as special glyphs?
@@ -199,6 +207,7 @@ Var
   Opt_EvalTimeOut:        DWord   = 5000;               // A five second Time-Out for evaluated expressions.
   Opt_SyntaxHighlight:    Boolean = True;               // Highlight Syntax items?
   Opt_TabSize:            Integer = 16;
+  Opt_EnableBasincTips:   Boolean = True;               // Show BasinC tips on startup
 
   Opt_HighlightKeywords:  Boolean = True;               // Highlight Keywords?
   Opt_KeywordsColour:     Integer = 0;                  // What colour should keywords be?
@@ -250,6 +259,7 @@ Var
 
   Opt_OnlineHelp:         Boolean = True;               //use web help
   Opt_AutoBackup:         Boolean = True;               //Automatically save backup files as BAS
+  Opt_AutoBackInterval:   Integer = 3;                  //10 minutes by default
   Opt_AutoLoadSession:    Boolean = False;              // Load the previous session on startup?
   Opt_LoadAutoStart:      Boolean = False;               // Allow BAS files to autostart on loading?
   Opt_AutoStart:          Boolean = False;               // Automatically save programs with Autostart?
@@ -360,7 +370,7 @@ Var
   Opt_ToolFontSize:       Integer = 0;
 
   Opt_ExternalExec:       String = '<not set>';   //arda add
-
+  Opt_CompoSize:          Bool = False;           // to show special program size calculation for Facebook compos
 
   Opt_TFCol24:           String = '#08080A';
   Opt_TFCol25:           String = '#57ABFF';
@@ -482,7 +492,7 @@ Begin
   NeedSuspend := False;
   DisplaySuspended := True;
   Priority := TpIdle;
-  FreeOnTerminate := True;
+  FreeOnTerminate := False;
   While PeekMessage(MSG, 0, 0, 0, PM_REMOVE) Do
      {loop};
 
@@ -531,13 +541,20 @@ End;
 
 Procedure INITWorkerThread;
 Begin
-  WorkerThread := TWorkerThread.Create(False);
+  If WorkerThread = nil Then Begin
+     WorkerThread := TWorkerThread.Create(False);
+     WorkerThread.FreeOnTerminate := False;
+  End;
 End;
 
 Procedure CloseWorkerThread;
 Begin
-  If WorkerThread <> Nil Then
+  If WorkerThread <> Nil Then Begin
      WorkerThread.Terminate;
+     WorkerThread.WaitFor;
+     WorkerThread.Free;
+     WorkerThread := nil;
+  End;
 End;
 
 Procedure SuspendWorkerThread;
@@ -706,7 +723,7 @@ Begin
     Application.ProcessMessages;
    except
     on E: Exception do
-    ShowMessage('Hata yakalandý: ' + E.Message);
+    ShowMessage('Catch: ' + E.Message);
    end;
   End Else Begin
      RunningEmu := Registers.EmuRunning;
@@ -839,15 +856,39 @@ Begin
 
 End;
 
-function ArrayToTBytes(Value: array of byte; Ln: integer):  TByteArray;
+{
+function ArrayToTBytes(Value: array of byte; Ln: integer, Start: integer=0):  TByteArray;
 var
 i: Integer;
 Begin
    if Ln=0 Then Ln:=Length(Value);
+
    SetLength(Result, Ln);
   for i := 0 to Ln-1 do
     Result[i] := Value[i];
 End;
+ }
+
+function ArrayToTBytes(Value: array of byte; Ln: integer; Start: integer = 0): TByteArray;
+begin
+
+   if Ln = 0 then 
+      Ln := Length(Value) - Start;
+
+
+   if (Start + Ln) > Length(Value) then
+      Ln := Length(Value) - Start;
+
+
+   if Ln < 0 then Ln := 0;
+
+
+   SetLength(Result, Ln);
+
+
+   if Ln > 0 then
+      Move(Value[Start], Result[0], Ln);
+end;
 
 Function TrimExtension(Name: String): String;
 Var
@@ -899,14 +940,23 @@ Begin
   Opt_SeperateDisplay :=     INIRead('Programming', 'Opt_SeperateDisplay', Opt_SeperateDisplay);
   Opt_CharacterRuler :=      INIRead('Programming', 'Opt_CharacterRuler', Opt_CharacterRuler);
   Opt_Controlicons :=        INIRead('Programming', 'Opt_Controlicons', Opt_Controlicons);
+  Opt_ViewInfoLine :=        INIRead('Programming', 'Opt_ViewInfoLine', Opt_ViewInfoLine);
   Opt_SubRoutines:=          INIRead('Programming', 'Opt_SubRoutines', Opt_SubRoutines);           //1.8
   Opt_AutoCollectSubs:=      INIRead('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs);   //1.8
+  Opt_AutoCollectJumps:=     INIRead('Programming', 'Opt_AutoCollectJumps', Opt_AutoCollectJumps);   //1.83
+  Opt_ShowJumpOrigins:=      INIRead('Programming', 'Opt_ShowJumpOrigins', Opt_ShowJumpOrigins);   //1.83
   Opt_ShowAscii :=           INIRead('Programming', 'Opt_ShowASCII', Opt_ShowAscii);
   Opt_Predictive :=          INIRead('Programming', 'Opt_Predictive', Opt_Predictive);
   Opt_OverwriteProtect :=    INIRead('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
   Opt_ProtectNewOnly :=      INIRead('Programming', 'Opt_ProtectNewOnly', Opt_ProtectNewOnly);
   Opt_Language :=            INIRead('Programming', 'Opt_Language', Opt_Language);
   Opt_ShowRemCommands :=     INIRead('Programming', 'Opt_ShowRemCommands', Opt_ShowRemCommands);
+  Opt_EnableBasincTips :=    INIRead('Programming', 'Opt_EnableBasincTips', Opt_EnableBasincTips);
+
+  // AI Options
+
+  Opt_SelectedAIModel :=     INIRead('AI', 'Opt_SelectedAIModel', Opt_SelectedAIModel);
+  Opt_BYOK_APIKEY :=         INIRead('AI', 'Opt_BYOK_APIKEY', Opt_BYOK_APIKEY);
 
   // Syntax Highlight Options
 
@@ -1011,8 +1061,9 @@ Begin
   Opt_CursorToError :=       INIRead('ErrorNotify', 'Opt_CursorToError', Opt_CursorToError);
 
   // Assembler options
+  if FileExists(ExtractFilePath(Application.ExeName) + 'cheq_edit.exe') then Opt_CheqEditAvailable:= True;
   if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_AsmPasmoAvailable:= True;
-  if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_ZX0Available:= True;
+  if FileExists(ExtractFilePath(Application.ExeName) + 'zx0.dll') then Opt_ZX0Available:= True;
 
   Opt_AsmStatusBar :=        INIRead('Assembler', 'Opt_AsmStatusBar', Opt_AsmStatusBar);
   Opt_AsmLabelList :=        INIRead('Assembler', 'Opt_AsmLabelList', Opt_AsmLabelList);
@@ -1086,6 +1137,7 @@ Begin
   Opt_Autostart :=           INIRead('BASFiles', 'Opt_Autostart', Opt_Autostart);
   Opt_SavePretty :=          INIRead('BASFiles', 'Opt_SavePretty', Opt_SavePretty);
   Opt_AutoBackup :=          INIRead('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
+  Opt_AutoBackInterval:=     INIRead('BASFiles', 'Opt_AutoBackInterval', Opt_AutoBackInterval);
   Opt_ShowNotes :=           INIRead('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
 
   // Tape Images
@@ -1144,6 +1196,9 @@ Begin
   End;
 
   LoadEditorFont(BASinOutput.Handle, Opt_EditorFontFilename, Opt_EditorCustomFont);
+  Basinoutput.Timer3.Interval:=(1+(Opt_AutoBackInterval*3))*60000;
+  Basinoutput.Timer3.Enabled:=Opt_AutoBackup;
+  
 
   iniReleaseName :=  INIRead('Version', 'BasinCVersion', ReleaseName);
         if iniReleaseName <> ReleaseName then
@@ -1195,8 +1250,11 @@ Begin
   INIWrite('Programming', 'Opt_SeperateDisplay', Opt_SeperateDisplay);
   INIWrite('Programming', 'Opt_CharacterRuler', Opt_CharacterRuler);
   INIWrite('Programming', 'Opt_Controlicons', Opt_Controlicons);
+  INIWrite('Programming', 'Opt_ViewInfoLine', Opt_ViewInfoLine);
   INIWrite('Programming', 'Opt_SubRoutines', Opt_SubRoutines);         //1.8
   INIWrite('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs); //1.8
+  INIWrite('Programming', 'Opt_AutoCollectJumps', Opt_AutoCollectJumps); //1.83
+  INIWrite('Programming', 'Opt_ShowJumpOrigins', Opt_ShowJumpOrigins); //1.83
   INIWrite('Programming', 'Opt_ShowASCII', Opt_ShowAscii);
   INIWrite('Programming', 'Opt_Predictive', Opt_Predictive);
   INIWrite('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
@@ -1204,7 +1262,12 @@ Begin
   INIWrite('Programming', 'Opt_Language', Opt_Language);
   INIWrite('Programming', 'Opt_AllowMultipleInstances', Opt_AllowMultipleInstances);
   INIWrite('Programming', 'Opt_ShowRemCommands', Opt_ShowRemCommands); //1.81
+  INIWrite('Programming', 'Opt_EnableBasincTips', Opt_EnableBasincTips);
 
+  // AI Options
+
+  INIWrite('AI', 'Opt_SelectedAIModel', Opt_SelectedAIModel);
+  INIWrite('AI', 'Opt_BYOK_APIKEY', Opt_BYOK_APIKEY);
 
   // Syntax Highlight and Colour Options
 
@@ -1375,6 +1438,7 @@ Begin
   INIWrite('BASFiles', 'Opt_LoadAutoStart', Opt_LoadAutoStart);
   INIWrite('BASFiles', 'Opt_Autostart', Opt_Autostart);
   INIWrite('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
+  INIWrite('BASFiles', 'Opt_AutoBackInterval', Opt_AutoBackInterval);
   INIWrite('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
 
 

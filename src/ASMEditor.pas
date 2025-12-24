@@ -75,6 +75,7 @@ type
     N5: TMenuItem;
     SyntaxHighlightingOptions1: TMenuItem;
     UsePasmo1: TMenuItem;
+    oBridge1: TMenuItem;
     procedure FormShow(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -95,6 +96,7 @@ type
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure Edit2KeyPress(Sender: TObject; var Key: Char);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure Assemble1Click(Sender: TObject);
   private
     { Private declarations }
     procedure CMDialogKey(var msg: TCMDialogKey); message CM_DIALOGKEY;
@@ -146,6 +148,8 @@ type
     Procedure AssembleAsDATA;
     Procedure AssembleBinary;
     procedure AssembleTapeWithPasmo;
+    procedure AssembleToBinaryWindowWithPasmo;
+    Procedure AssembleToBinaryWindow;
     Procedure AssembleToTape;
     procedure FillDATALinesSimple(const Mem: array of Byte; StartAddr, Size: Integer);
     Procedure ConvertBinToData(const MemPtr: PByte; Size: Integer);
@@ -264,7 +268,7 @@ implementation
 
 {$R *.DFM}
 
-Uses FastCore, InputUtils, Filing, Sound, AsmForm, AddCode, Tapes,
+Uses FastCore, InputUtils, Filing, Sound, AsmForm, AddCode, Tapes,BinaryForm,
   ReplaceWindow, CPUDisplay;
 
 procedure TASMEditorWindow.CMDialogKey(var msg: TCMDialogKey);
@@ -2122,8 +2126,9 @@ Begin
 
      19: if (UsePasmo1.Checked) Then AssembleWithPasmoAsDATA else AssembleAsDATA;  //1.81 Arda
      20: if (UsePasmo1.Checked) Then AssembleBinaryWithPasmo else AssembleBinary;  //1.81 Arda
-     21: if (UsePasmo1.Checked) Then AssembleTapeWithPasmo else AssembleToTape;  //TODO
+     21: if (UsePasmo1.Checked) Then AssembleTapeWithPasmo else AssembleToTape;  //1.82
      22: CloseFile;
+     23: if (UsePasmo1.Checked) Then AssembleToBinaryWindowWithPasmo else AssembleToBinaryWindow;
      24: Begin
          //use pasmo
          UsePasmo1.Checked:= Not UsePasmo1.Checked;
@@ -2584,6 +2589,193 @@ Begin
 
 End;
 
+Procedure TASMEditorWindow.AssembleToBinaryWindow;
+Var
+  Z80Assembler: TZ80Assembler;
+  AsmMemory: Array[0..65535] of Byte;
+  Line, ErrorType: Integer;
+  Filename, Text: String;
+  // Yeni degiskenler:
+  BinaryData: AnsiString;
+  StartAddress, DataSize: Integer;
+Begin
+
+  If CurFile^.AsmStrs.Count = 0 Then Exit;
+
+  // 1. Assembler Hazirligi (Aynen korundu)
+  Z80Assembler := TZ80Assembler.Create;
+  try
+    Z80Assembler.atStartOfPass := AtStartOfPass;
+    Z80Assembler.atEndOfPass := AtEndOfPass;
+    Z80Assembler.AfterLine := AfterLineProc;
+    Z80Assembler.SetMem48(@AsmMemory[16384]);
+    AddSourceFiles(Z80Assembler, TabSet1.TabIndex);
+    
+    // 2. Assemble Islemi
+    Z80Assembler.Assemble(CurFile^.AsmStrs, '', -1, '');
+
+    // 3. Hata Kontrolü
+    If Z80Assembler.NumErrors > 0 Then Begin
+       Z80Assembler.GetError(0, Line, Filename, ErrorType, Text);
+       MessageBox(Handle, pChar('Assembly failed at line '+IntToStr(Line)+' with error:'#13#13+Text), pChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+       CursorToLine(Line, 1, Filename);
+    End Else Begin
+       
+       // 4. BASARILI: Hafizadan veriyi çek
+       // AltLo: Baslangiç adresi (ORG), AltHi: Bitis adresi
+       StartAddress := Z80Assembler.DefaultPage.AltLo;
+       DataSize := Z80Assembler.DefaultPage.AltHi - StartAddress;
+
+       if DataSize > 0 then
+       begin
+          // Binary datayi string içine kopyala
+          SetLength(BinaryData, DataSize);
+          Move(AsmMemory[StartAddress], BinaryData[1], DataSize);
+
+          // BinaryWindow'a gönder
+          // Isim olarak o anki dosyanin adini kullaniyoruz
+
+          BinaryWindow.AddBinaryEx(ExtractFileName(ExtractFileName(CurFile^.AsmFilename)), BinaryData, btManager, Word(StartAddress));
+
+          // Pencereyi aç ve güncelle
+          BinaryWindow.Show;
+          BinaryWindow.BringToFront;
+          BinaryWindow.PopulateListBox;
+          
+          MessageBox(Handle, 'Code assembled and sent to Import Window.', 'Success', MB_OK or MB_ICONINFORMATION);
+       end
+       else
+       begin
+          MessageBox(Handle, 'Assembly produced 0 bytes of code.', 'Warning', MB_OK or MB_ICONWARNING);
+       end;
+
+    End;
+  finally
+    Z80Assembler.Free;
+  end;
+
+End;
+
+procedure TASMEditorWindow.AssembleToBinaryWindowWithPasmo;
+var
+  SrcFile, OutFile, Output, BinaryData: AnsiString;
+  OrgAdr: Integer;
+  FStream: TFileStream;
+begin
+
+  OrgAdr := GetOrg;
+  if OrgAdr < 0 then
+  begin
+    MessageBox(Handle, PChar('Please specify an ORG <adress> as start address.'), PChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+    Exit;
+  end;
+
+
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  OutFile := ChangeFileExt(SrcFile, '.bin');
+
+  //  Pasmo
+  if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+
+    if Pos('ERROR', UpperCase(Output)) > 0 then
+    begin
+      MessageBox(Handle, PChar(Output), 'Pasmo Error', MB_OK or MB_ICONERROR);
+      Exit;
+    end
+    else if Pos('PASS 2 FINISHED', UpperCase(Output)) > 0 then
+    begin
+
+      if FileExists(OutFile) then
+      begin
+        try
+          FStream := TFileStream.Create(OutFile, fmOpenRead);
+          try
+            SetLength(BinaryData, FStream.Size);
+            if FStream.Size > 0 then
+              FStream.Read(BinaryData[1], FStream.Size);
+          finally
+            FStream.Free;
+          end;
+
+
+          BinaryWindow.AddBinaryEx(ExtractFileName(SrcFile), BinaryData, btManager, Word(OrgAdr));
+
+          BinaryWindow.Show;
+          BinaryWindow.BringToFront;
+
+          BinaryWindow.PopulateListBox;
+          
+        except
+          on E: Exception do
+            MessageBox(Handle, PChar('Error reading generated binary: ' + E.Message), 'Error', MB_OK or MB_ICONERROR);
+        end;
+
+        DeleteFile(OutFile);
+      end
+      else
+      begin
+        MessageBox(Handle, 'Output file not found despite successful assembly.', 'Error', MB_OK or MB_ICONERROR);
+      end;
+    end;
+  end
+  else
+    MessageBox(Handle, 'Pasmo execution failed.', 'Error', MB_OK or MB_ICONERROR);
+end;
+
+
+
+
+procedure TASMEditorWindow.AssembleBinaryWithPasmo;
+var
+  SrcFile, OutFile, Output: AnsiString;
+  OrgAdr: Word;
+  NumBytes: Integer;
+begin
+  OrgAdr := GetOrg;
+  if OrgAdr < 0 then
+  begin
+    MessageBox(Handle, PChar('Please specify an ORG <adress> as start address.'), PChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+    Exit;
+  end;
+
+  SaveToTempFile(TabSet1.TabIndex, SrcFile);
+  OutFile := ChangeFileExt(SrcFile, '.bin');
+
+  if RunPasmo(SrcFile, OutFile, Output) then
+  begin
+    if Pos('ERROR', UpperCase(Output)) > 0 then
+    begin
+      MessageBox(Handle, PChar(Output), 'Pasmo Error', MB_OK or MB_ICONERROR);
+      Exit;
+    end
+    else if Pos('PASS 2 FINISHED', UpperCase(Output)) > 0 then
+    begin
+      NumBytes := FileSizeByName(OutFile);
+      Filename := OpenFile(Handle, 'Save Binary File', [FTAssembly], '', True, False);
+      if Filename = '' then Exit;
+
+      if FileExists(Filename) then DeleteFile(Filename);
+      if FileExists(Filename) then
+      begin
+        MessageBox(Handle, PChar('Could not overwrite your file '#39 + ExtractFilename(Filename) + #39 + '.'), PChar('Save Error'), MB_ICONWARNING or MB_OK);
+        Exit;
+      end;
+
+      // Eksik olan kopyalama iþlemi:
+      if not CopyFile(PChar(OutFile), PChar(Filename), False) then
+        MessageBox(Handle, 'Could not save binary output.', 'Save Error', MB_OK or MB_ICONERROR)
+      else
+        MessageBox(Handle, 'Binary saved successfully.', 'Success', MB_OK or MB_ICONINFORMATION);
+    end;
+  end
+  else
+    MessageBox(Handle, 'Pasmo execution failed.', 'Error', MB_OK or MB_ICONERROR);
+end;
+
+
+
+
 Procedure TASMEditorWindow.AssembleAsDATA;
 Var
   Z80Assembler: TZ80Assembler;
@@ -2719,53 +2911,6 @@ begin
   end;
 end;
 
-
-procedure TASMEditorWindow.AssembleBinaryWithPasmo;
-var
-  SrcFile, OutFile, Output: AnsiString;
-  OrgAdr: Word;
-  NumBytes: Integer;
-begin
-  OrgAdr := GetOrg;
-  if OrgAdr < 0 then
-  begin
-    MessageBox(Handle, PChar('Please specify an ORG <adress> as start address.'), PChar('Assembly Error'), MB_OK or MB_ICONWARNING);
-    Exit;
-  end;
-
-  SaveToTempFile(TabSet1.TabIndex, SrcFile);
-  OutFile := ChangeFileExt(SrcFile, '.bin');
-
-  if RunPasmo(SrcFile, OutFile, Output) then
-  begin
-    if Pos('ERROR', UpperCase(Output)) > 0 then
-    begin
-      MessageBox(Handle, PChar(Output), 'Pasmo Error', MB_OK or MB_ICONERROR);
-      Exit;
-    end
-    else if Pos('PASS 2 FINISHED', UpperCase(Output)) > 0 then
-    begin
-      NumBytes := FileSizeByName(OutFile);
-      Filename := OpenFile(Handle, 'Save Binary File', [FTAssembly], '', True, False);
-      if Filename = '' then Exit;
-
-      if FileExists(Filename) then DeleteFile(Filename);
-      if FileExists(Filename) then
-      begin
-        MessageBox(Handle, PChar('Could not overwrite your file '#39 + ExtractFilename(Filename) + #39 + '.'), PChar('Save Error'), MB_ICONWARNING or MB_OK);
-        Exit;
-      end;
-
-      // Eksik olan kopyalama iþlemi:
-      if not CopyFile(PChar(OutFile), PChar(Filename), False) then
-        MessageBox(Handle, 'Could not save binary output.', 'Save Error', MB_OK or MB_ICONERROR)
-      else
-        MessageBox(Handle, 'Binary saved successfully.', 'Success', MB_OK or MB_ICONINFORMATION);
-    end;
-  end
-  else
-    MessageBox(Handle, 'Pasmo execution failed.', 'Error', MB_OK or MB_ICONERROR);
-end;
 
 
 
@@ -3215,7 +3360,7 @@ Begin
      Close1.Enabled := True;
      Save1.Enabled := CurFile^.Changed;
      SaveAs1.Enabled := True;
-     Assemble1.Enabled := HasContent(TabSet1.TabIndex);
+     Assemble1.Enabled := True; //HasContent(TabSet1.TabIndex);
 
      LabelList1.Enabled := True;
 
@@ -3251,6 +3396,15 @@ procedure TASMEditorWindow.FormClose(Sender: TObject;
   var Action: TCloseAction);
 begin
  timer1.Enabled:=false;
+end;
+
+procedure TASMEditorWindow.Assemble1Click(Sender: TObject);
+begin
+If (not HasContent(TabSet1.TabIndex)) Then Begin
+     MessageBox(Handle, pChar('Please enter some asm code first and specify an ORG <adress> as start address.'), pChar('Assembly Error'), MB_OK or MB_ICONWARNING);
+     Exit;
+  End;
+
 end;
 
 Initialization

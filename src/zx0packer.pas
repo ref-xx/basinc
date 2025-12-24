@@ -6,7 +6,7 @@ uses
 SysUtils;
 
 type
-  TByteArray = array of Byte;
+  TZX0ByteArray = array of Byte;
 
 //==============================================================================
 //  ANA FONKSIYON
@@ -15,7 +15,7 @@ type
 // out: another byte array
 // if fails, returns empty byte array
 //==============================================================================
-function PackZX0(const InputData: TByteArray): TByteArray;
+function PackZX0(const InputData: TZX0ByteArray): TZX0ByteArray;
 
 
 implementation
@@ -31,7 +31,7 @@ procedure ZX0_Free(ptr: Pointer); cdecl; external 'zx0_32.dll';
 //==============================================================================
 //  PackZX0
 //==============================================================================
-function PackZX0(const InputData: TByteArray): TByteArray;
+function PackZX0(const InputData: TZX0ByteArray): TZX0ByteArray;
 var
   pCompressedData: PByte;
   pInputData: PByte;

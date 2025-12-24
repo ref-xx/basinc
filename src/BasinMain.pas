@@ -9,7 +9,8 @@ uses
   ToolWin, Buttons, ImgList, CommCtrl, ROMUtils, Tabs, MMSystem, ShellAPI,
   TransparentPanel, AnimPreview, Parser, ConsoleOutput,Languages,
   GraphicEx, ThemeBevelUnit;
-
+const
+  WM_AFTERSHOW = WM_USER + 1;
 type
 
   TSourceMarker = Record MarkedLine, MarkedStatement: Integer; Assigned: Boolean; End;
@@ -143,8 +144,6 @@ type
      WatchVariable1:               TMenuItem;
      FindLine1:                    TMenuItem;
      Tokenise1:                    TMenuItem;
-
-    ZXPrinterOutput1: TMenuItem;
     oggleBreakpoint1: TMenuItem;
     ProfileResults1: TMenuItem;
     EnableProfiling1: TMenuItem;
@@ -214,7 +213,6 @@ type
     Timer4: TTimer;
     CoolBar1: TPanel;
     Label1: TLabel;
-    Subroutines1: TMenuItem;
     SubRoutineList1: TMenuItem;
     SpeedButton1: TSpeedButton;
     SpeedButton2: TSpeedButton;
@@ -241,6 +239,48 @@ type
     N23: TMenuItem;
     Notes1: TMenuItem;
     PrintOutput1: TMenuItem;
+    OptimizeBasic1: TMenuItem;
+    CopyAsPlainText1: TMenuItem;
+    CopyAsPlainText2: TMenuItem;
+    InfoLine1: TMenuItem;
+    JumpTargets1: TMenuItem;
+    EnableAutoSub1: TMenuItem;
+    AutoDetectGoSubs1: TMenuItem;
+    AutoDetectGOTOs2: TMenuItem;
+    PreviewOrigins1: TMenuItem;
+    EnableSubList1: TMenuItem;
+    N24: TMenuItem;
+    GraphEditor1: TMenuItem;
+    AIChatPanel1: TMenuItem;
+    ShowaTip1: TMenuItem;
+    N25: TMenuItem;
+    BasinCOfficialDiscordServer1: TMenuItem;
+    ZXPrinterOutput1: TMenuItem;
+    SourceMarkers2: TMenuItem;
+    Clearall2: TMenuItem;
+    N26: TMenuItem;
+    GetMarker2: TMenuItem;
+    Marker93: TMenuItem;
+    Marker83: TMenuItem;
+    Marker73: TMenuItem;
+    Marker63: TMenuItem;
+    Marker53: TMenuItem;
+    Marker43: TMenuItem;
+    Marker33: TMenuItem;
+    Marker23: TMenuItem;
+    Marker13: TMenuItem;
+    Marker03: TMenuItem;
+    SetMarker2: TMenuItem;
+    Marker94: TMenuItem;
+    Marker84: TMenuItem;
+    Marker74: TMenuItem;
+    Marker64: TMenuItem;
+    Marker54: TMenuItem;
+    Marker44: TMenuItem;
+    Marker34: TMenuItem;
+    Marker24: TMenuItem;
+    Marker14: TMenuItem;
+    Marker04: TMenuItem;
 
 
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
@@ -312,14 +352,31 @@ type
     procedure CheckUpdates1Click(Sender: TObject);
     procedure View1Click(Sender: TObject);
     procedure Timer4Timer(Sender: TObject);
-    procedure ComboFuncsChange(Sender: TObject);
+    procedure ComboFuncsClick(Sender: TObject);
     procedure ComboFuncsCloseUp(Sender: TObject);
+    procedure ComboFuncsChange(Sender: TObject);
+    procedure JumpToOriginClick(Sender: TObject);
+    function CreateNewLineNumber: Integer;
+    procedure RunOrActivateCheqEdit;
+    procedure BasinCOfficialDiscordServer1Click(Sender: TObject);
+    //procedure WMAfterShow(var Msg: TMessage); message WM_AFTERSHOW; //causes trouble
 
 
-
-  
   private
     { Private declarations }
+                 //AI panel
+       PanelAI: TPanel;
+       SplitterAI: TSplitter;
+       MemoPrompt: TMemo;
+       btnPromptSend: TButton;
+       btnHelp: TButton;
+       btnOverwriteCode: TButton;
+       MemoChat: TMemo;
+       FKeySink: Tedit;
+
+    procedure btnPromptSendClick(Sender: TObject);
+    procedure btnHelpClick(Sender: TObject);
+    procedure btnOverwriteCodeClick(Sender: TObject);
     procedure WMCopyData(var Msg : TWMCopyData); message WM_COPYDATA; //arda
     procedure WMMove(var Msg: TWMMove); message WM_MOVE;
 
@@ -343,6 +400,7 @@ type
     BracketLevel,
     ViewOffset,
     ViewLine,
+    LastNumLines,   //last rendered screen line count
     ViewColumn,
     StringLen,
     StringStart,
@@ -366,6 +424,7 @@ type
     SystTemp,
     LastLineBuffer,
     BASICMem:                      String;
+    OverwriteCodeCache:          String;
 
     WantNewLine,
     CodeError,
@@ -409,9 +468,10 @@ type
     FSysVarsBackup:                Array[0..182 - 1] of Byte;
 
     Procedure GetBASIC;
-    Procedure RepaintBASIC         (DoPaint: Boolean);
+    //Procedure RepaintBASIC         (DoPaint: Boolean);
+    Procedure RepaintBASIC           (DoPaint: Boolean;  DoFullRender: Boolean = False);
     Procedure ExtractSubs;
-    Procedure ExtractGosubs;
+    procedure ExtractGosubs(FindGOSUBs, FindGOTOs, ShowOrigin: Boolean);
     Procedure ExtractRems;
     Function  RepaintCursor:       Boolean;
     Procedure MakeCursorVisible;
@@ -450,7 +510,8 @@ type
     Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles;
     Procedure SaveListingAsImage;
     procedure HtmlHelpOnline(hwndCaller: HWND; pszFile: PChar; uCommand: UINT; dwData: DWORD);
-
+    procedure SplitterAIMoved(Sender: TObject);
+    function GetAutoBackupDir: string;
 
   end;
 
@@ -486,6 +547,8 @@ const
   HH_DISPLAY_TOC          = $0001;
   HH_CLOSE_ALL            = $0012;
 
+
+
   Function  HtmlHelp(hwndCaller: HWND; pszFile: PChar; uCommand: UINT; dwData: DWORD): HWND; stdcall; external 'HHCTRL.OCX' name 'HtmlHelpA';
 
   Procedure SmallTextOut(Bmp: TFastDIB; Text: String; X, Y: Integer; Clr: TFColorA);
@@ -505,16 +568,17 @@ implementation
 {$R *.DFM}
 {$Z4}
 
-Uses FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
+Uses StrUtils,FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
      Evaluate, Breakpoints, LogWind, Watches, VarsWindow, SysVars, HexEdit, About, CommandHistory,
      FindWindow, ReplaceWindow, ErrorWindow, TokenWindow, Tapes, MemMap, UDGEdit, RenumWindow,
      BinaryForm, Compiler, Options, Display, GOSUB, Sound, BEEP, ErrorDescs, AddCode, SpecialVarEdit,
      BreakpointProperties, WatchProps, MessageBox, MemBlockAdd, ColoursWind, UDGOptions,
      PrinterOutput, Printing, Profiling, ProfilingForm, ProgInfo, CPUDisplay, AsmEditor,
      BlockProps, AsmForm, GrabParms, GridSetup, BinaryGrab, PaintBox, Binaries,
-     MemManager, UlaColours, basinet, notes, ShFolder, RomPrintOutputUnit;
+     MemManager, UlaColours, basinet, notes, ShFolder, RomPrintOutputUnit, BasicMergeWindow,
+     BasinCTips;
 
-
+function AskGemini(TargetUrl, ApiKey, UserPrompt, SystemPrompt: PChar): PChar; stdcall; external 'BasinAI.dll';
 
 
 procedure InitializeCommonControls;  // 1.8 arda -- trying to avoid crashes...
@@ -526,7 +590,10 @@ begin
   InitCommonControlsEx(ICC);
 end;
 
-function GetAutoBackupDir: string;   //arda -- in search of a more system friendly folders
+
+
+
+function Tbasinoutput.GetAutoBackupDir: string;   //arda -- in search of a more system friendly folders
 var
   path: array[0..MAX_PATH] of Char;
 begin
@@ -620,6 +687,234 @@ Begin
   Result := True;
 End;
 
+
+
+function ExtractJsonStringValue(const S, Key: string; out Value: string): Boolean;
+var
+  P, Q: Integer;
+  Pattern: string;
+begin
+  Result := False;
+  Value := '';
+
+  // Looks for: "Key": "VALUE"
+  Pattern := '"' + Key + '"';
+  P := Pos(Pattern, S);
+  if P = 0 then Exit;
+
+  P := PosEx(':', S, P + Length(Pattern));
+  if P = 0 then Exit;
+
+  // Find first quote after colon
+  P := PosEx('"', S, P + 1);
+  if P = 0 then Exit;
+
+  Q := PosEx('"', S, P + 1);
+  if Q = 0 then Exit;
+
+  Value := Copy(S, P + 1, Q - (P + 1));
+  Result := True;
+end;
+
+function ExtractJsonIntValue(const S, Key: string; out Value: Integer): Boolean;
+var
+  P, Q: Integer;
+  Pattern, Num: string;
+begin
+  Result := False;
+  Value := 0;
+
+  Pattern := '"' + Key + '"';
+  P := Pos(Pattern, S);
+  if P = 0 then Exit;
+
+  P := PosEx(':', S, P + Length(Pattern));
+  if P = 0 then Exit;
+
+  Inc(P);
+  while (P <= Length(S)) and (S[P] in [' ', #9]) do Inc(P);
+
+  Q := P;
+  while (Q <= Length(S)) and (S[Q] in ['0'..'9']) do Inc(Q);
+
+  if Q = P then Exit;
+
+  Num := Copy(S, P, Q - P);
+  Value := StrToIntDef(Num, 0);
+  Result := True;
+end;
+
+function GetFriendlyAIErrorMessage(const RawResponse: string; out FriendlyMsg: string; out Status: string): Boolean;
+var
+  Code: Integer;
+  ServerMsg: string;
+begin
+  Result := False;
+  FriendlyMsg := '';
+  Status := '';
+
+  // Detect the typical "AI Error: { ... }" payload or any JSON error block
+  if (Pos('"error"', RawResponse) = 0) and (Pos('"status"', RawResponse) = 0) then Exit;
+
+  // Prefer RPC status string if available
+  if not ExtractJsonStringValue(RawResponse, 'status', Status) then
+    Status := '';
+
+  // Optional: pull numeric code and server message for logging / unknowns
+  ExtractJsonIntValue(RawResponse, 'code', Code);
+  ExtractJsonStringValue(RawResponse, 'message', ServerMsg);
+
+  // Map known statuses to user-facing messages
+  if Status = 'RESOURCE_EXHAUSTED' then
+  begin
+    FriendlyMsg :=
+      'Quota exceeded. Please switch to a different model or add credits, then try again.';
+    Result := True;
+    Exit;
+  end;
+
+  if Status = 'UNAUTHENTICATED' then
+  begin
+    FriendlyMsg :=
+      'Invalid API key. Please verify your key in Options > Tools > AI and try again.';
+    Result := True;
+    Exit;
+  end;
+
+  if Status = 'PERMISSION_DENIED' then
+  begin
+    FriendlyMsg :=
+      'Permission denied. Your API key/project is not allowed to use this model.';
+    Result := True;
+    Exit;
+  end;
+
+  if Status = 'NOT_FOUND' then
+  begin
+    FriendlyMsg :=
+      'Model not found. Please select an existing model in Options > Tools > AI.';
+    Result := True;
+    Exit;
+  end;
+
+  if Status = 'UNAVAILABLE' then
+  begin
+    FriendlyMsg :=
+      'Temporary service outage. Please retry shortly, or switch to another model.';
+    Result := True;
+    Exit;
+  end;
+
+  // Unknown error status, but still an error payload
+  Result := True;
+  FriendlyMsg :=
+    'An AI error occurred. Please check basinc.log for details.';
+end;
+
+
+
+// Automatically creates a new line number
+function TBASinOutput.CreateNewLineNumber: Integer;
+var
+  CurrLineStart, PrevLineStart, NextLineStart: Integer;
+  PrevNum, NextNum, NewNum: Integer;
+  sStart, i: Integer;
+  NumStr: string;
+begin
+
+  CurrLineStart := CursOffset;
+  if CurrLineStart > Length(BASICMem) then CurrLineStart := Length(BASICMem);
+  
+  while (CurrLineStart > 1) and (BASICMem[CurrLineStart-1] <> #13) do
+    Dec(CurrLineStart);
+
+  i := CurrLineStart;
+  NumStr := '';
+
+  while (i <= Length(BASICMem)) and (BASICMem[i] = ' ') do Inc(i);
+
+  while (i <= Length(BASICMem)) and (BASICMem[i] in ['0'..'9']) do
+  begin
+    NumStr := NumStr + BASICMem[i];
+    Inc(i);
+  end;
+
+  if NumStr <> '' then
+  begin
+    Result := StrToIntDef(NumStr, 0);
+    Exit;
+  end;
+
+  PrevNum := 0;
+  if CurrLineStart > 1 then
+  begin
+
+    PrevLineStart := CurrLineStart - 1;
+
+    while (PrevLineStart > 1) and (BASICMem[PrevLineStart-1] <> #13) do
+      Dec(PrevLineStart);
+
+    i := PrevLineStart;
+    NumStr := '';
+    while (i <= Length(BASICMem)) and (BASICMem[i] = ' ') do Inc(i);
+    while (i <= Length(BASICMem)) and (BASICMem[i] in ['0'..'9']) do
+    begin
+      NumStr := NumStr + BASICMem[i];
+      Inc(i);
+    end;
+    if NumStr <> '' then PrevNum := StrToIntDef(NumStr, 0);
+  end;
+
+  NextNum := 10000; 
+
+  NextLineStart := CurrLineStart;
+  while (NextLineStart <= Length(BASICMem)) and (BASICMem[NextLineStart] <> #13) do
+    Inc(NextLineStart);
+  
+  if NextLineStart < Length(BASICMem) then
+  begin
+    Inc(NextLineStart); 
+
+    i := NextLineStart;
+    NumStr := '';
+    while (i <= Length(BASICMem)) and (BASICMem[i] = ' ') do Inc(i);
+    while (i <= Length(BASICMem)) and (BASICMem[i] in ['0'..'9']) do
+    begin
+      NumStr := NumStr + BASICMem[i];
+      Inc(i);
+    end;
+
+    if NumStr <> '' then NextNum := StrToIntDef(NumStr, NextNum);
+  end
+  else
+  begin
+
+    NextNum := PrevNum + 1000; 
+  end;
+
+
+  if NextNum - PrevNum <= 1 then
+  begin
+    Result := 99999;
+    Exit;
+  end;
+
+  NewNum := PrevNum + 10;
+
+  if NewNum >= NextNum then
+  begin
+
+    NewNum := PrevNum + ((NextNum - PrevNum) div 2);
+
+    if NewNum <= PrevNum then NewNum := PrevNum + 1;
+  end;
+
+  if (NewNum > PrevNum) and (NewNum < NextNum) then
+    Result := -NewNum 
+  else
+    Result := 99999; 
+end;
+
 Procedure TBASinOutput.IdleProc(Sender: TObject; var Done: Boolean);
 Begin
 
@@ -641,7 +936,7 @@ Begin
         If Not SoundAvailable Then Begin
            // No Sound, so we have to
            // time a frame - 20 ms is one frame at 50hz
-           While GetTickCount - SysTime < 19 Do Begin
+           While (GetTickCount - SysTime) < (Opt_EmulationSpeed) Do Begin
               // Just sleep for the remainder of the frame.
               Sleep(1);
            End;
@@ -752,6 +1047,7 @@ begin
   Application.CreateForm(TUDGWindow, UDGWindow);
   Application.CreateForm(TUDGNew, UDGNew);
   Application.CreateForm(TRenumberForm, RenumberForm);
+  Application.CreateForm(TBasicMergeForm, BasicMergeForm);
   Application.CreateForm(TBinaryWindow, BinaryWindow);
   Application.CreateForm(TOptionsWindow, OptionsWindow);
   Application.CreateForm(TAddCodeWindow, AddCodeWindow);
@@ -831,6 +1127,10 @@ begin
 
      ShowWindows;
 
+     //PostMessage(Handle, WM_AFTERSHOW, 0, 0);
+     timer4.Enabled:=true;
+
+
   End;
 
 end;
@@ -871,40 +1171,55 @@ begin
 End;
 
 
-
 procedure TBASinOutput.FormResize(Sender: TObject);
 begin
-
   If AppClosing Then Exit;
 
   ClearSoundBuffers;
 
   StatusBar1.Panels[0].Width := 25;
   Panel2.Visible := Opt_ShowingSyntax;
-
   StatusBar1.Visible := Opt_ShowStatusBar;
 
   ScrollBox1.Align := AlNone;
   RulerIMG.Align := AlNone;
   Panel2.Align := AlNone;
   Bevel5.Align := AlNone;
+  
+  if Assigned(PanelAI) then PanelAI.Align := alNone;
+  if Assigned(SplitterAI) then SplitterAI.Align := alNone;
+
 
   Bevel5.Align := AlBottom;
   Panel2.Align := AlBottom;
   RulerIMG.Align := AlBottom;
+
+
+  if Assigned(PanelAI) and Assigned(SplitterAI) then
+  begin
+
+    PanelAI.Visible := Opt_EnableAI;
+    SplitterAI.Visible := Opt_EnableAI;
+
+    if Opt_EnableAI then
+    begin
+      PanelAI.Align := alRight;
+      SplitterAI.Align := alRight;
+    end;
+  end;
+
+  // 4. ScrollBox (Merkez)
   ScrollBox1.Align := AlClient;
 
+  // DisplayWindow Snap mantigi (Ayni kaliyor)
   if (Opt_DisplaySnap) Then Begin
-
     if IsZoomed(Handle) Then Begin
      DisplayWindow.Top:=BASinOutput.Top+96;
      DisplayWindow.Left:=BASinOutput.Left+BASinOutput.Width-DisplayWindow.Width;
      ShowWindow(DisplayWindow, False);
      End Else Begin
-
       DisplayWindow.Top:=BASinOutput.Top;
       DisplayWindow.Left:=BASinOutput.Left+BASinOutput.Width;
-
     End;
   End;
 
@@ -914,19 +1229,21 @@ begin
   ColourLabel1.SetBounds(4, 3, Panel2.Width - 8, 16);
   ColourLabel2.SetBounds(4, 19, Panel2.Width - 8, 16);
 
+  // FastIMG1 boyutlandirmasi
   FastIMG1.Setbounds(ScrollBox1.Left +2, ScrollBox1.Top +2, ScrollBox1.ClientWidth, ScrollBox1.ClientHeight);
+
   If ScrollBox1.ClientHeight > ScrollBox1.VertScrollBar.Range Then ViewLine := 0;
+
   Label1.SetBounds(Bevel3.Left + Bevel3.Width + 8, (CoolBar1.Height Div 2) - (Label1.Height Div 2), CoolBar1.ClientWidth - Bevel3.Left - Bevel3.Width - 16, Label1.Height);
+  
   RepaintBASIC(True);
-
   UpdateParseText;
-
 end;
 
 procedure TBASinOutput.MenuItemClick(Sender: TObject);
 Var
   Token: Byte;
-  Idx: Integer;
+  Idx, TempInt: Integer;
   TempKey: Word;
   TempBool: Bool;
   Expr: TExpression;
@@ -1003,7 +1320,12 @@ begin
      11:
         Begin // Assembler
 
-           Windows.MessageBox(BASinOutput.Handle, pChar('Assembler in BasinC is incomplete, unstable'#13'and unsupported.'), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+           if (Not Opt_AsmPasmoAvailable) Then Begin
+              Windows.MessageBox(BASinOutput.Handle, pChar('Assembler in BasinC is incomplete, unstable'#13'and unsupported. Please put pasmo.exe to the root to use pasmo as default assembler.'), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+           End Else Begin
+              Windows.MessageBox(BASinOutput.Handle, pChar('Pasmo detected, activate using File > Assemble > Use Pasmo' + #13#10 +  'Note: Assembler in BasinC is unsupported.' ), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+
+           End;
            ShowWindow(AsmEditorWindow, False);
         End;
      12:
@@ -1257,7 +1579,7 @@ begin
      48:
         Begin // Memory grabber
            CentreFormOnForm(BinaryGrabWindow, Self);
-           BinaryWindow.Caption := 'Import Grabbed Memory to ...';
+           //BinaryWindow.Caption := 'Import Grabbed Memory to ...';
            ShowWindow(BinaryGrabWindow, True);
            If Not BinaryGrabWindow.Cancelled Then Begin
               BinaryWindow.ClearBinaries;
@@ -1506,6 +1828,7 @@ begin
      113:
         Begin  // Add Snippet
 
+          if (addsnippet1.ImageIndex=-1) Then Begin
           BasinetWindow.ClearSnippet;
 
           TempStr := InsertEscapes(Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart)));
@@ -1515,27 +1838,36 @@ begin
           TempStr :=  Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart));
 
 
-         NewLines := TStringlist.Create;
-	 Repeat
-		BASIC := Copy(TempStr, 1, Pos(#13, TempStr)-1);
-		TempStr :=  Copy(TempStr, Pos(#13, TempStr)+1, 999999);
-		If BASIC <> '' Then
-		   NewLines.Add(InsertEscapes(BASIC));
-	 Until Pos(#13, TempStr) = 0;
+          NewLines := TStringlist.Create;
 
-	 If TempStr <> '' Then
-		NewLines.Add(TempStr);
-                
-	 BasinetWindow.AddSnippet(NewLines);
-         BasinetWindow.AddingSnippet;
-	 NewLines.Free;
+          Repeat
+         		BASIC := Copy(TempStr, 1, Pos(#13, TempStr)-1);
+	         	TempStr :=  Copy(TempStr, Pos(#13, TempStr)+1, 999999);
+         		If BASIC <> '' Then
+         		   NewLines.Add(InsertEscapes(BASIC));
+         	Until Pos(#13, TempStr) = 0;
 
-	 ShowWindow(BasinetWindow, False);
+         	If TempStr <> '' Then
+          		NewLines.Add(TempStr);
+
+         	BasinetWindow.AddSnippet(NewLines);
+          BasinetWindow.AddingSnippet;
+        	NewLines.Free;
+          ShowWindow(BasinetWindow, False);
+          End else Begin
+            //insert Snippet
+            BasinetWindow.Edit1.Text:=IntToStr(addsnippet1.ImageIndex+5);
+            BasinetWindow.CheckBox2.Checked:=true;
+
+            ShowWindow(BasinetWindow, False);
+
+          End;
+
 
         End;
      79:
         Begin // Find Line
-           If FindLine1.Caption = '&Find Line' Then
+           If (Pos(':',FindLine1.Caption)>0) Then
               FindAndActivateLine(FindLine1.ImageIndex, 1)
            Else
               FindAndActivateLine(FindLine1.ImageIndex, EditVariable1.ImageIndex);
@@ -1730,8 +2062,10 @@ begin
         End;
         129:
         Begin
-            //View Notes...
-             ShowWindow(NotesWindow, False);
+            //View compo info
+            Opt_CompoSize:=Not Opt_CompoSize;
+            OnHint(Nil);
+
         End;
 
         130:
@@ -1742,36 +2076,137 @@ begin
 
         131:
         Begin
-            //used for testing
-            //TestROMCompare;
-            //RestoreSysvars;
+               //CheqEdit
+               RunOrActivateCheqEdit;
         End;
+        132:   //Copy as Plain Text
+        Begin
+
+           Idx := EditorSelStart;
+           BASIC := '';
+           TempStr := '';
+           InString := False;
+           if (Length(BASICMem)<EditorSelEnd) Then Exit;
+
+           While Idx <= EditorSelEnd Do Begin
+              If BASICMem[Idx] = '"' Then InString := Not InString;
+              If Not InString and (BASICMem[Idx] = #13) Then Begin
+                 TempStr := InsertEscapes(TempStr);
+                 BASIC := BASIC + TempStr  + #13#10;
+                 TempStr := '';
+              End Else Begin
+                 TempStr := TempStr + BASICMem[Idx];
+              End;
+              Inc(Idx);
+           End;
+           ClipBoard.SetTextBuf(pChar(BASIC));
+
+        End;
+
+        133:   //tools>Optimize Basic
+        Begin
+           CentreFormOnForm(BasicMergeForm, Self);
+           ShowWindow(BasicMergeForm, True);
+        End;
+        134:
+        Begin
+           Opt_ViewInfoLine:=Not Opt_ViewInfoLine;
+           Label1.Visible:=Opt_ViewInfoLine;
+        End;
+        135:
+        Begin //autodetect GO TOS
+           Opt_AutoCollectJumps := Not Opt_AutoCollectJumps;
+           ExtractSubs;
+        End;
+        136:  //preview jump targets
+        Begin
+           Opt_ShowJumpOrigins := Not Opt_ShowJumpOrigins;
+           ExtractSubs;
+
+        End;
+        137:
+        Begin
+          Opt_EnableAI:=Not Opt_EnableAI;
+          if (trim(Opt_BYOK_APIKEY)<>'') And (trim(Opt_SelectedAIModel)<>'') Then  MemoChat.Lines.Text := 'AI is ready ('+ trim(Opt_SelectedAIModel) +')' else MemoChat.Lines.Text := 'Please setup your AI agent in Options > Tools > AI...';
+          
+
+          FormResize(nil);
+        End;
+        139:
+        Begin
+          FormBasinCTips.ChkShowTips.Checked:=True;
+          Opt_EnableBasinCTips:=True;
+          FormBasinCTips.ShowOnStartupIfEnabled;
+
+        End;
+
   End;
 
 end;
 
+procedure Tbasinoutput.RunOrActivateCheqEdit;
+var
+  h: HWND;
+  r: HINST;
+begin
+  // Try to find existing window
+  h := Windows.FindWindow (nil, 'Cheqedit');
 
+  if h <> 0 then
+  begin
+    // If minimized, restore it
+    if IsIconic(h) then
+      Windows.ShowWindow(h, SW_RESTORE)
+    else
+      Windows.ShowWindow(h, SW_SHOW);
+
+    // Bring window to foreground
+    SetForegroundWindow(h);
+    Exit; // Do not start a new instance
+  end;
+
+  // No existing window, start a new process
+  r := ShellExecute(0, 'open', PChar('Cheq_edit.exe'), nil, nil, SW_SHOWNORMAL);
+  if r <= 32 then
+    ShellExecute(0, 'open', PChar('https://arda.kisafilm.org/blog/?p=713&lang=en'), nil, nil, SW_SHOWNORMAL);
+
+end;
 
 procedure TBASinOutput.SaveListingAsImage;
-Var
-   Result: TFastDIB;
-   Filename: String;
+var
+  ResultBmp: TFastDIB;
+  Filename: string;
+begin
+  if AppClosing then Exit;
 
-Begin
+  // 1) Render the whole listing into FastIMG1.Bmp
+  //    DoFullRender = True -> uses full height instead of window height
+  RepaintBASIC(True, True);
+
+  ResultBmp := TFastDIB.Create;
+  try
+    // 2) Copy exactly what was rendered (full height)
+    ResultBmp.SetSize(FastIMG1.Bmp.Width, FastIMG1.Bmp.AbsHeight, 32);
+    FastIMG1.Bmp.Draw(ResultBmp.hDc, 0, 0);
+
+    // 3) Ask for filename and save
+    Filename := OpenFile(Handle,
+                         'Save Listing as Bitmap Image',
+                         [FTBmp],
+                         '',
+                         True,
+                         False);
+    if Filename <> '' then
+      ResultBmp.SaveToFile(Filename);
+
+  finally
+    // 4) Cleanup and restore normal editor view
+    ResultBmp.Free;
+    RepaintBASIC(True); // DoFullRender defaults to False
+  end;
+end;
 
 
-  Result := TFastDIB.Create;
-
-     Result.SetSize(BASinOutput.FastIMG1.Bmp.Width, BASinOutput.FastIMG1.Bmp.AbsHeight, 32);
-     BASinOutput.FastIMG1.Bmp.Draw(Result.hDc, 0, 0);
-
-    // get a filename.
-    Filename := OpenFile(Handle, 'Save Listing as Bitmap Image', [FTBmp], '', True, False);
-    If Filename = '' Then Exit;
-
-    Result.SaveToFile(Filename);
-    Result.Free;
-End;
 
 function GetShortName(sLongName: string): string;
 var
@@ -1896,10 +2331,11 @@ Begin
                           CursorType := 'C'
                        Else
                           CursorType := 'L';
-                          if (Opt_AutoCollectSubs) Then Begin                         //well I know this only works when syntax helper is also enabled
+                          if (Opt_AutoCollectSubs or Opt_AutoCollectJumps) Then Begin                         //well I know this only works when syntax helper is also enabled
                           ComboFuncs.ItemIndex:=-1;
                           if (ParseError.Error = 'Ok') Then Begin
-                             TempInt:= Pos('GO SUB',ParseResult);                   //Subroutine Detection Patch - Arda 1.81
+                             {TempInt:= Pos('GO SUB',ParseResult);                   //Subroutine Detection Patch - Arda 1.81
+                             if (TempInt=0) Then TempInt:= Pos('GO TO',ParseResult);
                              if (TempInt<>0) Then Begin
                                     if (TryStrToInt(Trim(Copy(ParseResult, TempInt+7, MaxInt)),TempInt)) Then Begin
                                            for idx := 0 to ComboFuncs.Items.Count - 1 do
@@ -1909,10 +2345,26 @@ Begin
                                                   End;
                                     End;
 
-                             End;
+                             End;}
+                           TempInt := Pos('GO SUB', ParseResult);
+                       if (TempInt = 0) then TempInt := Pos('GO TO', ParseResult);
+
+                          if (TempInt <> 0) then
+                          begin
+                             if ( (UpCase(ParseResult[TempInt + 3]) = 'S') and TryStrToInt(Trim(Copy(ParseResult, TempInt + 6, MaxInt)), TempInt) ) or
+                                ( (UpCase(ParseResult[TempInt + 3]) <> 'S') and TryStrToInt(Trim(Copy(ParseResult, TempInt + 5, MaxInt)), TempInt) ) then
+                             begin
+                                    for idx := 0 to ComboFuncs.Items.Count - 1 do
+                                      if Pos(Format('%4d:', [TempInt]), ComboFuncs.Items[idx]) = 1 then
+                                      begin
+                                        ComboFuncs.ItemIndex := idx;
+                                        Break;
+                                      end;
+                                    end;
+                             end;
 
                           End;
-                          End;
+                       End;
 
            StatusBar1.Repaint;
         End Else Begin
@@ -2000,9 +2452,11 @@ Procedure TBASinOutput.OnHint(Sender: TObject);
 Var
   Atk, Acnt, Aen, Bytes, BytesUsed: Integer;
   Status: String;
+  ShowCompetitionSize: Bool;
 label
 loop10, loop20, loop60;
 Begin
+ShowCompetitionSize:=Opt_CompoSize;
   If (Screen.ActiveForm = Self) or (Sender = Timer2) Then
      If Application.Hint <> '' Then
         StatusBar1.Panels[1].Text := ' '+Application.Hint
@@ -2010,15 +2464,15 @@ Begin
         Bytes := GetWord(@Memory[RAMTOP])-GetWord(@Memory[STKEND]);
         BytesUsed := GetWord(@Memory[E_LINE])-GetWord(@Memory[PROG])-1;
 
-
+        if (ShowCompetitionSize) Then Begin
         // Following code is just an experiment by arda
         Aen := GetWord(@Memory[PROG]);
         Acnt:=0;
 
-loop10:
+          loop10:
           Aen := Aen+4;
           Acnt:=Acnt+4;
-loop20:
+          loop20:
           if Aen>GetWord(@Memory[STKEND]) Then Begin
             Acnt:=Acnt-4;
             Goto loop60;
@@ -2044,23 +2498,20 @@ loop20:
           Goto loop20;
 
 
-loop60:
-       //end of experiment
-
+       loop60:
+       End;
 
 
         If Bytes < 1024 Then
-           Status := ' '+IntToStr(Abs(Bytes))+' Bytes available to BASIC ('
+           Status := ' '+IntToStr(Abs(Bytes))+' Bytes available to BASIC: '
         Else
-           Status := ' '+IntToStr(Bytes Div 1024)+' Kb available to BASIC (';
-
-        //If BytesUsed < 1024 Then  //commented by arda
+           Status := ' '+IntToStr(Bytes Div 1024)+' Kb available to BASIC: ';
            Status := Status + IntToStr(Abs(BytesUsed)) + ' Total Bytes Used';
-        //Else
-           //Status := Status + IntToStr(BytesUsed Div 1024) + ' Kb Used)';
-
-           Status := Status + ', '+ IntToStr(Abs(Acnt)) + ' Bytes in Listing';
-        Status := Status +')';
+        If BytesUsed > 1023 Then
+           Status := Status + ' (' + IntToStr(BytesUsed Div 1024) + ' Kb)';
+           if (ShowCompetitionSize) Then Begin
+            Status := Status + ', [Compo Size: '+ IntToStr(Abs(Acnt)) + ' Bytes in Listing until STOP]';  //This is for Facebook size coding competitions
+           End;
         StatusBar1.Panels[1].Text := Status;
      End;
   StatusBar1.Panels[0].Width := 25;
@@ -2098,33 +2549,23 @@ End;
 
 procedure TBASinOutput.FormCreate(Sender: TObject);
 Var
-  Idx: Integer;
+  Idx, i: Integer;
+  InputPanel: TPanel;
+  OutputPanel: TPanel;
 begin
 
  //arda new menu manual redrawing directive begin
-
-   //Screen.MenuFont.Name := 'Arial Black';
-   //MainMenu1.OwnerDraw:=True;
-   //Screen.MenuFont.Size:=12;
-   // Application.OnException := AppException;
-
-   //init SimpleCON register so it can be displayed at editbox
-
    if ConsoleAddon[255]= 0 Then Begin
         for Idx:=1 to 255 do begin
             ConsoleAddon[Idx]:=ord(' ');
         end;
    End;
-
-   ConsoleAddon[0]:=1; //set simpleCon index to 1, so it's ready.
-   CoolBar1.DoubleBuffered := True;
-
+   ConsoleAddon[0]:=1;
  //arda  end
 
   Abort := False;
 
   GetOSVersion;
-
 
   RunningAck := Not Running;
   RunLine := 65536;
@@ -2140,13 +2581,90 @@ begin
   CursOffset := 1;
   Panel1.visible := false;
 
-  ScrollBox1 := TNewScrollBox.Create(Self);
+
+  PanelAI := TPanel.Create(Self);
+  PanelAI.Parent := Self;
+  PanelAI.Width := 300; 
+  PanelAI.Align := alRight;
+  PanelAI.BevelOuter := bvNone;
+  PanelAI.Caption := '';
+  PanelAI.Color := clWhite;
+  PanelAI.TabStop:=false;
+
+
+  InputPanel := TPanel.Create(PanelAI);
+  InputPanel.Parent := PanelAI;
+  InputPanel.Align := alBottom;
+  InputPanel.Height := 120;
+  InputPanel.BevelOuter := bvNone;
+  InputPanel.TabStop:=false;
+
+  OutputPanel := TPanel.Create(InputPanel);
+  OutputPanel.Parent := InputPanel;
+  OutputPanel.Align := alRight;
+  OutputPanel.Width := 80;
+  OutputPanel.BevelOuter := bvNone;
+  OutputPanel.TabStop:=false ;
+
+  btnOverwriteCode := TButton.Create(OutputPanel);
+  btnOverwriteCode.Parent := OutputPanel;
+  btnOverwriteCode.Align := alTop;
+  btnOverwriteCode.Height := 40;
+  btnOverwriteCode.Caption := 'Paste Code';
+  btnOverwriteCode.Visible := True;
+  btnOverwriteCode.Enabled := False;
+  btnOverwriteCode.OnClick := btnOverwriteCodeClick;
+  btnOverwriteCode.TabStop:=false ;
+
+  btnHelp := TButton.Create(OutputPanel);
+  btnHelp.Parent := OutputPanel;
+  btnHelp.Align := alTop;
+  btnHelp.Height := 40;
+  btnHelp.Caption := 'Help';
+  btnHelp.OnClick := btnHelpClick;
+  btnHelp.TabStop:=false;
+
+  btnPromptSend := TButton.Create(OutputPanel);
+  btnPromptSend.Parent := OutputPanel;
+  btnPromptSend.Align := alBottom;
+  btnPromptSend.Height := 40;
+  btnPromptSend.Caption := 'Send';
+  btnPromptSend.OnClick := btnPromptSendClick;
+  btnPromptSend.TabStop:=false;
+
+  MemoPrompt := TMemo.Create(InputPanel);
+  MemoPrompt.Parent := InputPanel;
+  MemoPrompt.Align := alClient;
+  MemoPrompt.ScrollBars := ssVertical;
+  MemoPrompt.Lines.Text := 'Summarize the program flow';
+  MemoPrompt.TabStop:=false ;
+
+  MemoChat := TMemo.Create(PanelAI);
+  MemoChat.Parent := PanelAI;
+  MemoChat.Align := alClient;
+  MemoChat.Lines.Text := 'Setup your AI agent in options > tools > AI...';
+  MemoChat.ScrollBars := ssVertical;
+  MemoChat.TabStop:=false ;
+
+  SplitterAI := TSplitter.Create(Self);
+  SplitterAI.Parent := Self;
+  SplitterAI.Align := alRight; 
+  SplitterAI.Width := 5;
+  SplitterAI.Color := clBtnFace;
+  PanelAI.Visible := Opt_EnableAI;
+  SplitterAI.Visible := Opt_EnableAI;
+  SplitterAI.OnMoved := SplitterAIMoved;
+
+
+ScrollBox1 := TNewScrollBox.Create(Self);
   ScrollBox1.SetBounds(Panel1.Left, Panel1.Top, Panel1.ClientWidth, Panel1.ClientHeight);
-  ScrollBox1.Align := AlClient;
+  ScrollBox1.Align := AlClient; 
   ScrollBox1.Parent := Self;
   ScrollBox1.AutoScroll := False;
   ScrollBox1.OnVerticalScroll := ScrollBox1VScroll;
   ScrollBox1.OnHorizontalScroll := ScrollBox1HScroll;
+
+  //FastIMG1.Parent := ScrollBox1; //disabled: we do not need to put fastimage into scrollbox -- it causes problems
 
   ColourLabel1 := TColourLabel.Create(Panel2);
   ColourLabel1.AutoSize := False;
@@ -2173,6 +2691,242 @@ begin
   DragAcceptFiles(Handle, True);
   Application.HookMainWindow(AppKeyDownHook)
 
+end;
+
+procedure TBASinOutput.btnHelpClick(Sender: TObject);
+begin
+  BasinOutput.HtmlHelpOnline(
+    Application.Handle,
+    PChar(BASinDir + '\BASin.chm::/topics/window_ai_chat.html'),
+    HH_DISPLAY_TOPIC,
+    0
+  );
+end;
+
+procedure TBASinOutput.btnPromptSendClick(Sender: TObject);
+var
+  ApiUrl, ApiKey, UserQuestion, SystemRole, SelectedModel, FinalUrl: String;
+  AIResponse: PChar;
+  RawResponse: String;
+  FormattedResponse: String;
+  PayloadPrompt: String;
+  BasicStartPos, BasicEndPos, Idx: Integer;
+  BasicBlock,BASIC,TempStr: String;
+  InString : Boolean;
+  FriendlyMsg, ErrStatus: string;
+begin
+  SelectedModel := Trim(Opt_SelectedAIModel);
+  if SelectedModel = '' then
+    SelectedModel := 'gemini-1.5-flash-latest';
+
+  FinalUrl := 'https://generativelanguage.googleapis.com/v1beta/models/' +
+              SelectedModel +
+              ':generateContent';
+
+  ApiUrl := FinalUrl;
+  ApiKey := Trim(Opt_BYOK_APIKEY);
+  UserQuestion := Trim(MemoPrompt.Lines.Text);
+
+SystemRole := 
+'You are an expert Sinclair ZX Spectrum Sinclair BASIC programmer.' + #13#10 +
+'OUTPUT RULES:' + #13#10 +
+'1. Do NOT use Markdown formatting (no bold, no italics, no backticks).' + #13#10 +
+'2. Use plain ASCII text only. Keep explanations extremely short. ' + #13#10 +
+'3. Use UPPERCASE for section headings and separate them with dashed lines.' + #13#10 +
+'4. CRITICAL: When providing Sinclair BASIC code, enclose it strictly between [BASIC_START] and [BASIC_END] tags.' + #13#10 +
+'5. Inside tags, write ONLY valid, line-numbered Sinclair BASIC code.' + #13#10 +
+'6. If any non-ASCII or language-specific characters appear (e.g. Turkish or French letters), replace them with the closest equivalent characters available in the ZX Spectrum character set.' + #13#10 +
+'7. Never provide more than one code tag block. Combine all code parts into a single BASIC listing.' + #13#10 +
+'8. Do not provide unchanged lines in the code tag block.' + #13#10 +
+'9. If a line is no longer needed and no replacement is also needed, provide only the line number to mark it for removal.' + #13#10 +
+'10. If the user query does not require code, DO NOT use the tags.' + #13#10 +
+'12. If you see a [SELECTED_SOURCE] tag, it means the user selected only a part of the source code. Focus on this part of the code.' + #13#10 +
+'13. Use CR (ASCII 13) as the only line separator inside BASIC code blocks.';
+
+  if ApiKey = '' then
+  begin
+    ShowMessage('Please enter an API key in the Options.');
+    Exit;
+  end;
+
+  if (ApiUrl = '') or (UserQuestion = '') then
+    Exit;
+
+
+  if ((EditorSelEnd - EditorSelStart)>7 ) then
+  begin
+           //copy as text
+           Idx := EditorSelStart;
+           BASIC := '';
+           TempStr := '';
+           InString := False;
+           if (Length(BASICMem)<EditorSelEnd) Then Exit;
+
+           While Idx <= EditorSelEnd Do Begin
+              If BASICMem[Idx] = '"' Then InString := Not InString;
+              If Not InString and (BASICMem[Idx] = #13) Then Begin
+                 TempStr := InsertEscapes(TempStr);
+                 BASIC := BASIC + TempStr  + #13#10;
+                 TempStr := '';
+              End Else Begin
+                 TempStr := TempStr + BASICMem[Idx];
+              End;
+              Inc(Idx);
+           End;
+
+    PayloadPrompt := UserQuestion + '[SELECTED_SOURCE]' +pChar(BASIC) + #13#10+ '[FULL_SOURCE]' + BASICMem;
+  end
+  else
+  begin
+    PayloadPrompt := UserQuestion + '[FULL_SOURCE]' + BASICMem;
+  end;
+
+  MemoChat.Lines.Add('BasinC: ' + UserQuestion);
+  MemoChat.Lines.Add(SelectedModel + ': Please wait... (BasinC may hang for a while)');
+  btnPromptSend.Enabled := False;
+  btnOverwriteCode.Visible := True;
+  OverwriteCodeCache := '';
+  Application.ProcessMessages;
+  btnOverwriteCode.enabled:=false;
+
+  try
+    AIResponse := AskGemini(
+      PChar(ApiUrl),
+      PChar(ApiKey),
+      PChar(PayloadPrompt),
+      PChar(SystemRole)
+    );
+
+    if AIResponse = nil then
+      RawResponse := 'Error: Response unavailable'
+    else
+      RawResponse := StrPas(AIResponse);
+
+   if GetFriendlyAIErrorMessage(RawResponse, FriendlyMsg, ErrStatus) then
+  begin
+    // Known errors: show friendly message; unknown: already generic message, but log details.
+    if (ErrStatus <> 'RESOURCE_EXHAUSTED') and
+       (ErrStatus <> 'UNAUTHENTICATED') and
+       (ErrStatus <> 'PERMISSION_DENIED') and
+       (ErrStatus <> 'NOT_FOUND') and
+       (ErrStatus <> 'UNAVAILABLE') then
+    begin
+      DebugLog('AI ERROR RAW: ' + RawResponse);
+    end;
+    MemoChat.Lines.Add('AI: ' + FriendlyMsg);
+    btnPromptSend.Enabled := True;
+    MemoPrompt.SetFocus;
+    Exit;
+  end;
+  
+   BasicStartPos := Pos('[BASIC_START]', RawResponse);
+   BasicEndPos   := Pos('[BASIC_END]', RawResponse);
+
+   BasicBlock := '';
+   if (BasicStartPos > 0) and (BasicEndPos > BasicStartPos) then
+   begin
+   // Capture the block between tags (content only)
+   BasicBlock := Copy(
+      RawResponse,
+      BasicStartPos + Length('[BASIC_START]'),
+      BasicEndPos - (BasicStartPos + Length('[BASIC_START]'))
+   );
+
+   // Remove only the tags, keep the content in place
+   Delete(RawResponse, BasicEndPos, Length('[BASIC_END]'));
+   Delete(RawResponse, BasicStartPos, Length('[BASIC_START]'));
+
+   btnOverwriteCode.enabled := True;
+   OverwriteCodeCache := BasicBlock;
+   end;
+
+
+    FormattedResponse := StringReplace(RawResponse, #10, #13#10, [rfReplaceAll]);
+
+    MemoChat.Lines.Add('AI:');
+    MemoChat.Text := MemoChat.Text + FormattedResponse + #13#10;
+    SendMessage(MemoChat.Handle, EM_LINESCROLL, 0, MemoChat.Lines.Count);
+  except
+    on E: Exception do
+      ShowMessage('DLL Error: ' + E.Message);
+  end;
+
+  btnPromptSend.Enabled := True;
+  MemoPrompt.SetFocus;
+end;
+
+procedure TBASinOutput.btnOverwriteCodeClick(Sender: TObject);
+var
+  TempStr, BASIC: String;
+  NewLines: TStringList;
+begin
+  btnOverwriteCode.Visible := True;
+
+  if OverwriteCodeCache = '' then
+  begin
+    MemoPrompt.SetFocus;
+    Exit;
+  end;
+
+  if Running or Registers.EmuRunning then Exit;
+
+  // 1) Source text
+  TempStr := OverwriteCodeCache;
+
+  // 2) Normalize separators: AI often returns lines split with #A
+  TempStr := StringReplace(TempStr, #10, #13, [rfReplaceAll]); // if needed: keep single delimiter
+  TempStr := StringReplace(TempStr, #13#10, #13, [rfReplaceAll]); // normalize CRLF -> CR
+  TempStr := StringReplace(TempStr, #10, #13, [rfReplaceAll]);    // LF -> CR
+  TempStr := StringReplace(TempStr, #7,  #13, [rfReplaceAll]);    // if #A is Bell in your pipeline
+  TempStr := StringReplace(TempStr, '#A', #13, [rfReplaceAll]);   // if it is literal text "#A"
+
+  TempStr := FormatEscapes(TempStr);
+
+  AddUndo;
+
+  // Paste over selection (same logic)
+  if EditorSelStart <> EditorSelEnd then
+    BASICMem := Copy(BASICMem, 1, EditorSelStart - 1) + Copy(BASICMem, EditorSelEnd, 999999);
+
+  ShowingPrediction := False;
+
+  // 3) Multiline handling: reuse your existing logic
+  if Pos(#13, TempStr) <> 0 then
+  begin
+    AddCodeWindow.ClearCode;
+    NewLines := TStringList.Create;
+    try
+      repeat
+        BASIC := Copy(TempStr, 1, Pos(#13, TempStr) - 1);
+        TempStr := Copy(TempStr, Pos(#13, TempStr) + 1, 999999);
+        if BASIC <> '' then
+          NewLines.Add(InsertEscapes(BASIC));
+      until Pos(#13, TempStr) = 0;
+
+      if TempStr <> '' then
+        NewLines.Add(TempStr);
+
+      AddCodeWindow.AddCode(NewLines);
+    finally
+      NewLines.Free;
+    end;
+
+    CentreFormOnForm(AddCodeWindow, Self);
+    ShowWindow(AddCodeWindow, True);
+  end
+  else
+  begin
+    BASICMem := Copy(BASICMem, 1, EditorSelStart - 1) + TempStr + Copy(BASICMem, EditorSelStart, 999999);
+    UpdateCursorPos(EditorSelStart + DWord(Length(TempStr)), False);
+  end;
+
+  BASICChanged := True;
+  UpdateParseText;
+  RepaintBASIC(False);
+  MakeCursorVisible;
+
+  OverwriteCodeCache := '';
+  MemoPrompt.SetFocus;
 end;
 
 
@@ -2254,6 +3008,11 @@ Begin
   OnEnterMenuLoop(Message);
 End;
 
+procedure TBASinOutput.SplitterAIMoved(Sender: TObject);
+begin
+  FormResize(nil); // Recalculate layout after splitter moved
+end;
+
 procedure TBASinOutput.OnEnterMenuLoop(var Message: TMessage);
 Var
   F: Integer;
@@ -2287,6 +3046,7 @@ Begin
   CopyListing1.Enabled := Length(BASICMem) <> 0;
   Cut1.Enabled := Editing and (EditorSelStart <> EditorSelEnd);
   Copy1.Enabled := Cut1.Enabled;
+  CopyAsPlainText2.Enabled:=Copy1.Enabled;
   Paste1.Enabled := Editing and (ClipBoard.HasFormat(CF_TEXT)) and (ClipBoard.AsText <> '');
   Delete1.Enabled := Cut1.Enabled;
 
@@ -2395,8 +3155,15 @@ Begin
   CharacterRuler1.Checked := Opt_CharacterRuler;
   CodeControlIcons1.Checked := Opt_Controlicons;
   EnableProfiling1.Checked := ProfilingEnabled;
-  SubRoutineList1.Checked:=Opt_SubRoutines;
-  Subroutines1.Checked:=Opt_AutoCollectSubs;
+  EnableSubList1.Checked:=Opt_SubRoutines;
+  AutoDetectGoSubs1.Checked:=Opt_AutoCollectSubs;
+  AutodetectGOTOs2.Checked:=Opt_AutoCollectJumps;
+  PreviewOrigins1.Checked:=Opt_ShowJumpOrigins;
+  InfoLine1.Checked:=Opt_ViewInfoLine;
+  GraphEditor1.Visible:=Opt_CheqEditAvailable;
+  CheqEditPage1.Visible:=Not Opt_CheqEditAvailable;
+  Notes1.Checked:=Opt_CompoSize;
+  AIChatPanel1.Checked:=Opt_EnableAI;
 
 End;
 
@@ -2479,7 +3246,7 @@ End;
 
 Procedure TBASinOutput.SetCaption;
 Begin
-  Caption := ReleaseName + ' WIP - DO NOT USE - ';
+  Caption := ReleaseName + ' - ' +CurProjectName ;
   Application.Title := CurProjectName + ' - BasinC';
 
 
@@ -2597,7 +3364,7 @@ End;
 // -****************PAINT EDITOR SCREEN***********************************************************************************-
 // -**********************************************************************************************************************-
 
-Procedure TBASinOutput.RepaintBASIC(DoPaint: Boolean);
+Procedure TBASinOutput.RepaintBASIC(DoPaint: Boolean;  DoFullRender: Boolean = False);
 Var
   ReturnFlag: Bool;
   Ink, Paper, Bright, pInk, pPaper, pBright, pTemp, Inverse: Byte;
@@ -2610,11 +3377,26 @@ Var
   BreakType: Byte;
   DIB: TFastDIB;
   tempscale: integer; //used for downsizing zx stripes temporarily.
+  OldViewLine, OldViewColumn: Integer;
+   LineStartPos, FirstDigitPos, LastDigitPos, DigitIndex, DigitCount, FirstDigitCol, DigitCol, LogXPos: Integer; // NEW
 Const
   HexChars: AnsiString = '0123456789ABCDEF';
 Label
   ColonChar;
 Begin
+
+  OldViewLine   := ViewLine;
+  OldViewColumn := ViewColumn;
+
+  if DoFullRender then
+  begin
+    // For full render, always start from top-left
+    ViewLine   := 0;
+    ViewColumn := 0;
+  end;
+
+
+
   Opt_collapse:= false; //Opt_indenting ; //Activates Region nn Begin/End rem commands
   RegionTempB:=0;
   RegionCollapseTo:=0;
@@ -2633,6 +3415,7 @@ Begin
   CurPos := 1;
   LineLen := 0;
   SizeOpt := 8 * Opt_FontScale;
+
 
   CursorVisible := False;
   InString := False;
@@ -2680,10 +3463,26 @@ Begin
 
 
   If DoPaint Then Begin
-     //FastIMG1.Bmp.SetSize(ScrollBox1.Width+SizeOpt , ScrollBox1.Height+16, 32);
-     //FastIMG1.Bmp.SetSize(((ScrollBox1.Width+(8)) Div (8))*(8), ((ScrollBox1.Height+16) Div (8))*(8), 32);
-     FastIMG1.Bmp.SetSize(((ScrollBox1.Width+(8*Opt_FontScale)) Div (8*Opt_FontScale))*(8*Opt_FontScale), ((ScrollBox1.Height+8*Opt_FontScale) Div (8*Opt_FontScale))*(8*Opt_FontScale), 32);
+     //FastIMG1.Bmp.SetSize(((ScrollBox1.Width+(8*Opt_FontScale)) Div (8*Opt_FontScale))*(8*Opt_FontScale), ((ScrollBox1.Height+8*Opt_FontScale) Div (8*Opt_FontScale))*(8*Opt_FontScale), 32);
 
+     if DoFullRender then
+     begin
+       // Full render: use full listing height, not window height
+       FastIMG1.Bmp.SetSize(
+         ((ScrollBox1.Width + (8*Opt_FontScale)) div (8*Opt_FontScale)) * (8*Opt_FontScale),
+         ((1 + Integer(LastNumLines)) * (8*Opt_FontScale)),
+         32
+       );
+     end
+     else
+     begin
+       // Normal UI render: keep existing behavior
+       FastIMG1.Bmp.SetSize(
+         ((ScrollBox1.Width + (8*Opt_FontScale)) div (8*Opt_FontScale)) * (8*Opt_FontScale),
+         ((ScrollBox1.Height + 8*Opt_FontScale) div (8*Opt_FontScale)) * (8*Opt_FontScale),
+         32
+       );
+     end;
 
      If Opt_FontScale = 1 Then Begin
        DIB := FastIMG1.Bmp;
@@ -2717,8 +3516,7 @@ Begin
      CurChar := BASICMem[CurPos];
 
      // Test for a line number, and if found, pad it out.
-
-     If NewLine Then Begin
+       If NewLine Then Begin
         LineStr := '';
         LastWord := '';
         Offset := CurPos;
@@ -2728,9 +3526,13 @@ Begin
               LineStr := LineStr + BASICMem[Offset];
               Inc(Offset);
            End;
+
            LineNum := StrToIntDef(LineStr, -1);
            StatementNum := 1;
+
            If LineNum >= 0 Then Begin
+
+              LogXPos:=Xpos+40 - Min((Length(LineStr)*8), 32); //to use for cursor drawing 1.83
               if Opt_Indenting and (Xpos>0) Then Begin
                 Inc(XPos, 40 - Min((Length(LineStr)*8), 32));
                 CurWordOrg := 40 - Min((Length(LineStr)*8), 32);
@@ -2773,6 +3575,7 @@ Begin
 
      End;      //END NEW LINE
 
+
            //OutputDebugString (PChar('BBEQU-'+IntToStr(FastIMG1.Bmp.Height - GetSystemMetrics(SM_CYHSCROLL)- (40*Opt_FontScale))+'hi,'+ IntToStr( CursorPoint.Y )+'y, '+ IntToStr( YPos )));
 
      // Test for and store the params of the cursor, if we're at the right position.
@@ -2781,7 +3584,54 @@ Begin
         CursorChar := BASICMem[CurPos];
 
         CursorPoint := Point(XPos, YPos);
-        //Label2.Caption:= IntToStr(Ypos);
+
+          { --- FIX: if cursor is over line-number digits, draw it in the right-aligned number field --- }
+  if Opt_Indenting and (LineNum > 0) then
+  begin
+    LineStartPos := TempPrevLine;
+    if LineStartPos < 1 then
+      LineStartPos := 1;
+
+    Idx := LineStartPos;
+    if BASICMem[Idx] = #13 then
+      Inc(Idx); // skip CR if any
+
+    FirstDigitPos := 0;
+    // detect leading digits of line number in BASICMem
+    if (Idx <= Length(BASICMem)) and (BASICMem[Idx] in ['0'..'9']) then
+    begin
+      FirstDigitPos := Idx;
+      while (Idx <= Length(BASICMem)) and (BASICMem[Idx] in ['0'..'9']) do
+        Inc(Idx);
+      LastDigitPos := Idx - 1;
+    end
+    else
+      LastDigitPos := 0;
+
+    if (FirstDigitPos <> 0) and
+       (CursOffset >= DWord(FirstDigitPos)) and
+       (CursOffset <= DWord(LastDigitPos)) then
+    begin
+      // which digit in the line number (0-based)
+      DigitIndex := Integer(CursOffset) - FirstDigitPos;
+      // how many digits we have
+      DigitCount := LastDigitPos - FirstDigitPos + 1;
+      if DigitCount < 1 then DigitCount := 1;
+      if DigitCount > 5 then DigitCount := 5; // safety
+
+      // 5-char wide field, right-aligned
+      FirstDigitCol := 5 - DigitCount;   // 0..4
+      DigitCol := FirstDigitCol + DigitIndex;
+
+      if DigitCol < 0 then DigitCol := 0;
+      if DigitCol > 4 then DigitCol := 4;
+
+      CursorPoint.X := (-ViewColumn * 8) + (DigitCol * 8);
+    end;
+  end;
+  { --- END FIX --- }
+
+
 
         CursPrevLineStart := TempPrevLine2;
         CursLineStart := TempPrevLine;
@@ -3227,7 +4077,8 @@ Begin
                     If (CurChar in ['0'..'9', 'A'..'Z', 'a'..'z']) or REMCommand or InString Then Begin
                        If CurWord = '' Then Begin
                           if Opt_Indenting Then Begin
-                              if Not ((CurChar in ['0'..'9']) And (CurWordOrg < 40 )) Then CurWordOrg := XPos; //line numbers always show up on start
+                              //if Not ((CurChar in ['0'..'9']) And (CurWordOrg < 40 )) Then CurWordOrg := XPos; //line numbers always show up on start
+                              if Not ((CurChar in ['0'..'9']) And (CurWordOrg < (40 - (ViewColumn * 8)) )) Then CurWordOrg := XPos; 
                           End Else Begin
                               CurWordOrg := XPos;
                           End;
@@ -3476,14 +4327,19 @@ Begin
         CharDIB.SetSize(8, 8, 32);
         CursorPoint := Point(CursorPoint.X * Opt_FontScale, CursorPoint.Y * Opt_FontScale);  // ardafix1795 removed1795
      End;
-
+   if not DoFullRender then
+     begin
      ScrollBox1.VertScrollBar.Range := (1+Integer(NumLines)) * (8*Opt_FontScale);
+     LastNumLines:=Numlines;
      ScrollBox1.VertScrollBar.Increment := 8*Opt_FontScale;
      ScrollBox1.VertScrollBar.Visible := True;
 
      ScrollBox1.HorzScrollBar.Range := (8+Integer(MaxLineLen)) * (8*Opt_FontScale);
      ScrollBox1.HorzScrollBar.Increment := 8*Opt_FontScale;
      ScrollBox1.HorzScrollBar.Visible := True;
+
+     ScrollBox1.VertScrollBar.Position := Min(ScrollBox1.VertScrollBar.Position, Max(0, ScrollBox1.VertScrollBar.Range - ScrollBox1.ClientHeight));
+     ScrollBox1.HorzScrollBar.Position := Min(ScrollBox1.HorzScrollBar.Position, Max(0, ScrollBox1.HorzScrollBar.Range - ScrollBox1.ClientWidth));
 
      FillRect(FastIMG1.Bmp, 0, FastIMG1.Bmp.Height - FastIMG1.Height, FastIMG1.Width -1, (FastIMG1.Bmp.Height - FastIMG1.Height) + 7, TfBlack);
 
@@ -3507,7 +4363,11 @@ Begin
         FastIMG1.Repaint;
         DoPaint := False;
      End;
-
+    end else begin
+       //dofullrender restore values
+       ViewLine   := OldViewLine;
+       ViewColumn := OldViewColumn;
+    End;
   End;
 
   If Opt_CharacterRuler and Not DoPaint Then DrawRuler;
@@ -3519,18 +4379,18 @@ Begin
       if Not Opt_SubRoutines then exit;
       ComboFuncs.Items.Clear;
       ExtractRems;
-      if Opt_AutoCollectSubs then ExtractGosubs;
+      if (Opt_AutoCollectSubs Or Opt_AutoCollectJumps) then ExtractGosubs(Opt_AutoCollectSubs,Opt_AutoCollectJumps,Opt_ShowJumpOrigins);
 
 end;
 
 procedure TBASinOutput.ExtractRems;
 var
-  i, j, lineNum: Integer;
+  i, j,  wStart, lineNum: Integer;
   lineStart, lineLen: Integer;
-  currentLine, subName: String;
+  firstWord, currentLine, subName: String;
   inString, remFound: Boolean;
 begin
-
+  firstWord:='';
 
 
 
@@ -3585,6 +4445,16 @@ begin
       // skip spaces
       while (j <= Length(currentLine)) and (currentLine[j] = ' ') do
         Inc(j);
+      // if the first word after REM is "HIDE", skip listing this line
+      if (j <= Length(currentLine)) then
+      begin
+        wStart := j;
+        while (j <= Length(currentLine)) and not (currentLine[j] in [' ', '#']) do
+          Inc(j);
+        firstWord := UpperCase(Copy(currentLine, wStart, j - wStart));
+        if firstWord = 'HIDE' then
+          Continue;
+      end;
       // # is the region identifier
       if (j <= Length(currentLine)) and (currentLine[j] = '#') then
       begin
@@ -3600,30 +4470,49 @@ begin
   end;
 end;
 
-procedure TBASinOutput.ExtractGosubs;
+procedure TBASinOutput.ExtractGosubs(FindGOSUBs, FindGOTOs, ShowOrigin: Boolean);
+type
+  TTargetInfo = record
+    TargetLine: Integer;
+    Preview: string;
+    SourceLines: string;
+    Count: Integer;
+  end;
 var
   i, j, k, j2, stmtStart, stmtEnd, tokenPos: Integer;
   lineStart, lineLen: Integer;
-  currentLine, currentLineNoNum,stmt, token, targetLinePreview, tempLine: string;
+  firstWord, currentLine, currentLineNoNum, stmt, token, targetLinePreview, tempLine: string;
   lineNum, gosubValue, candidate, targetLine, tempLineNum: Integer;
-  goSubFound, inString: Boolean;
-  idx: Integer;
-  alreadyExists: Boolean;
+  inString: Boolean;
+  idx, tIdx: Integer;
+  cmdLen: Integer;
+  skipHiddenTarget: Boolean;
+  Target: Boolean;
+  
+  TargetList: array of TTargetInfo;
+  FoundIndex: Integer;
+  FinalStr: string;
+  TempInfo: TTargetInfo;
+  x, y: Integer;
+  
+
+  p: Integer; 
 begin
- i := 1;
+  SetLength(TargetList, 0);
+
+  i := 1;
   while i <= Length(BASICMem) do
   begin
-    { look for end of lines and split }
+
     lineStart := i;
     while (i <= Length(BASICMem)) and not (BASICMem[i] in [#13, #10]) do
       Inc(i);
     lineLen := i - lineStart;
     currentLine := Copy(BASICMem, lineStart, lineLen);
-    { skip crlf }
     while (i <= Length(BASICMem)) and (BASICMem[i] in [#13, #10]) do
       Inc(i);
 
-    { get line numbers }
+
     j := 1;
     lineNum := 0;
     while (j <= Length(currentLine)) and (currentLine[j] in ['0'..'9']) do
@@ -3632,16 +4521,14 @@ begin
       Inc(j);
     end;
 
-    { explode statements seperated by : }
-    stmtStart := 1;
 
-    currentLine:=Copy(currentLine,pos(' ',currentLine)+1,MaxInt);
+    stmtStart := 1;
+    currentLine := Copy(currentLine, Pos(' ', currentLine) + 1, MaxInt);
 
     while stmtStart <= Length(currentLine) do
     begin
       inString := False;
       stmtEnd := stmtStart;
-      { skip if char is in quotes "" }
       while (stmtEnd <= Length(currentLine)) do
       begin
         if currentLine[stmtEnd] = '"' then
@@ -3652,10 +4539,36 @@ begin
       end;
       stmt := Trim(Copy(currentLine, stmtStart, stmtEnd - stmtStart));
 
-      { if Statement is "GO SUB"  (case insensitive) }
-      if (Length(stmt) >= 6) and (UpperCase(Copy(stmt, 1, 6)) = 'GO SUB') then
+
+      { Eger statement IF ile basliyorsa, THEN'i bul ve sonrasini al }
+      if (Length(stmt) >= 3) and (UpperCase(Copy(stmt, 1, 3)) = 'IF ') then
       begin
-        j := 7;
+        p := 1;
+        inString := False;
+        while p <= Length(stmt) - 3 do // THEN 4 harf, en az 4 harf kalmali
+        begin
+          if stmt[p] = '"' then inString := not inString;
+          
+          { Tirnak iï¿½inde degilsek ve THEN bulduysak }
+          if (not inString) and (UpperCase(Copy(stmt, p, 5)) = 'THEN ') then
+          begin
+            { THEN ve sonrasindaki boslugu at, kalani stmt yap }
+            stmt := Trim(Copy(stmt, p + 4, MaxInt)); 
+            Break; // Dï¿½ngï¿½den ï¿½ik, artik stmt "GO SUB ..." oldu
+          end;
+          Inc(p);
+        end;
+      end;
+
+      cmdLen := 0;
+      if FindGOSUBs and (Length(stmt) >= 6) and (UpperCase(Copy(stmt, 1, 6)) = 'GO SUB') then
+        cmdLen := 6
+      else if FindGOTOs and (Length(stmt) >= 5) and (UpperCase(Copy(stmt, 1, 5)) = 'GO TO') then
+        cmdLen := 5;
+
+      if cmdLen > 0 then
+      begin
+        j := cmdLen + 1;
         while (j <= Length(stmt)) and (stmt[j] = ' ') do
           Inc(j);
         token := '';
@@ -3665,67 +4578,136 @@ begin
           token := token + stmt[tokenPos];
           Inc(tokenPos);
         end;
-        { Only look for absolute line numbers. }
+
         if token <> '' then
         begin
-          { check for spaces... }
           while (tokenPos <= Length(stmt)) and (stmt[tokenPos] = ' ') do
             Inc(tokenPos);
+            
           if tokenPos > Length(stmt) then
           begin
-            { token is absolute numbers }
             gosubValue := StrToInt(token);
-            candidate := gosubValue;// - 50;
-            if candidate < 0 then
-              candidate := 0;
-            { find that number in BASICMem lines }
-            targetLine := -1;
-            k := 1;
-            while k <= Length(BASICMem) do
-            begin
-              lineStart := k;
-              while (k <= Length(BASICMem)) and not (BASICMem[k] in [#13, #10]) do
-                Inc(k);
-              lineLen := k - lineStart;
-              tempLine := Copy(BASICMem, lineStart, lineLen);
-              { read numbers at start of line }
-              j2 := 1;
-              tempLineNum := 0;
-              while (j2 <= Length(tempLine)) and (tempLine[j2] in ['0'..'9']) do
-              begin
-                tempLineNum := tempLineNum * 10 + (Ord(tempLine[j2]) - Ord('0'));
-                Inc(j2);
-              end;
-              if tempLineNum >= candidate then
-              begin
-                if (targetLine = -1) or (tempLineNum < targetLine) then
-                begin
-                  targetLine := tempLineNum;
-                  targetLinePreview := Copy(tempLine, Pos(' ', templine)+1, 14);
-                end;
-              end;
-              while (k <= Length(BASICMem)) and (BASICMem[k] in [#13, #10]) do
-                Inc(k);
-            end;
-            if targetLine <> -1 then
-            begin
-                alreadyExists := False;
-                for idx := 0 to ComboFuncs.Items.Count - 1 do
-                if Pos(Format('%4d:', [targetLine]), ComboFuncs.Items[idx]) = 1 then
-                begin
-                  alreadyExists := True;
+            candidate := gosubValue;
+            if candidate < 0 then candidate := 0;
 
-                  Break;
+
+            FoundIndex := -1;
+            for idx := 0 to High(TargetList) do
+            begin
+              if TargetList[idx].TargetLine = candidate then
+              begin
+                FoundIndex := idx;
+                Break;
+              end;
+            end;
+
+            if FoundIndex <> -1 then
+            begin
+              if TargetList[FoundIndex].SourceLines <> '' then
+                TargetList[FoundIndex].SourceLines := TargetList[FoundIndex].SourceLines + ',';
+              TargetList[FoundIndex].SourceLines := TargetList[FoundIndex].SourceLines + IntToStr(lineNum);
+              Inc(TargetList[FoundIndex].Count);
+            end
+            else
+            begin
+
+              targetLine := -1;
+              targetLinePreview := '';
+              
+              k := 1;
+              skipHiddenTarget := False;
+              while k <= Length(BASICMem) do
+              begin
+                lineStart := k;
+                while (k <= Length(BASICMem)) and not (BASICMem[k] in [#13, #10]) do
+                  Inc(k);
+                lineLen := k - lineStart;
+                tempLine := Copy(BASICMem, lineStart, lineLen);
+                
+                j2 := 1;
+                tempLineNum := 0;
+                while (j2 <= Length(tempLine)) and (tempLine[j2] in ['0'..'9']) do
+                begin
+                  tempLineNum := tempLineNum * 10 + (Ord(tempLine[j2]) - Ord('0'));
+                  Inc(j2);
                 end;
-                if not alreadyExists then Begin
-                   ComboFuncs.Items.Add(Format('%4d: %s', [targetLine, targetLinePreview]));
-                End;
-             end;
-           end;
-         end;
-       end;
-      stmtStart := stmtEnd + 1;  { move to next statement }
+
+                if tempLineNum >= candidate then
+                begin
+                  if (targetLine = -1) or (tempLineNum < targetLine) then
+                  begin
+                    targetLine := tempLineNum;
+                    
+                    targetLinePreview := Copy(tempLine, Pos(' ', tempLine) + 1, MaxInt);
+                    targetLinePreview := Trim(targetLinePreview);
+                    if (Length(targetLinePreview) >= 3) and (UpperCase(Copy(targetLinePreview, 1, 3)) = 'REM') then
+                    begin
+                      Delete(targetLinePreview, 1, 3);
+                      targetLinePreview := Trim(targetLinePreview);
+                    end;
+                    // Skip hidden labels: REM hide ...
+                    firstWord := targetLinePreview;
+                    p := Pos(' ', firstWord);
+                    if p > 0 then
+                      firstWord := Copy(firstWord, 1, p - 1);
+                    firstWord := UpperCase(Trim(firstWord));
+                    if firstWord = 'HIDE' then
+                    begin
+                      targetLine := -1;      // mark as invalid so it won't be added
+                      targetLinePreview := '';
+                      skipHiddenTarget := True;
+                      Break;
+                    end
+                    else
+                      targetLinePreview := Copy(targetLinePreview, 1, 14);
+                  end;
+                end;
+                while (k <= Length(BASICMem)) and (BASICMem[k] in [#13, #10]) do
+                  Inc(k);
+              end;
+
+              if (not skipHiddenTarget) and (targetLine <> -1) then
+              begin
+                SetLength(TargetList, Length(TargetList) + 1);
+                tIdx := High(TargetList);
+                TargetList[tIdx].TargetLine := targetLine;
+                TargetList[tIdx].Preview := targetLinePreview;
+                TargetList[tIdx].SourceLines := IntToStr(lineNum);
+                TargetList[tIdx].Count := 1;
+              end;
+            end;
+          end;
+        end;
+      end;
+      stmtStart := stmtEnd + 1;
     end;
+  end;
+
+
+  if Length(TargetList) > 1 then
+  begin
+    for x := 0 to High(TargetList) - 1 do
+      for y := 0 to High(TargetList) - 1 - x do
+      begin
+        if TargetList[y].TargetLine > TargetList[y + 1].TargetLine then
+        begin
+          TempInfo := TargetList[y];
+          TargetList[y] := TargetList[y + 1];
+          TargetList[y + 1] := TempInfo;
+        end;
+      end;
+  end;
+
+  for idx := 0 to High(TargetList) do
+  begin
+    FinalStr := Format('%4d: %s', [TargetList[idx].TargetLine, TargetList[idx].Preview]);
+    
+    if ShowOrigin then
+      FinalStr := FinalStr + Format(' (%s)', [TargetList[idx].SourceLines])
+    else if TargetList[idx].Count > 1 then
+      FinalStr := FinalStr + Format(' (*%d)', [TargetList[idx].Count]);
+
+    ComboFuncs.Items.Add(FinalStr);
   end;
 end;
 
@@ -4137,7 +5119,14 @@ Var
   InsertChar: String;
   TempStr, KeyString, KeyChar, WordFragment: String;
 	Caps, Shifted, CtrlDown, InString, REMCommand, IsDirect: Boolean;
+
+  sStart, sEnd, cPos, j: Integer;  //1.83
+  sStr, sNum: AnsiString;
+  TargetLn: Integer;
 begin
+
+  if Assigned(MemoPrompt) and MemoPrompt.Focused then
+    Exit;
 
   If ProgStateFlag = PS_Reset then exit;
 
@@ -4322,6 +5311,56 @@ begin
         Begin // Pressing Return indicates that you have finished your current line and
               // would like it checked and inserted into the program.
 
+                     if Shifted Then Begin
+             // --- BURAYA Findandactivateline EKLENDI ---
+
+             // 1. Imlecin bulundugu ifadenin (statement) basini bul (Satir basi veya :)
+             sStart := CursOffset;
+             while (sStart > 1) and not (BASICMem[sStart-1] in [#13, ':']) do
+                Dec(sStart);
+
+             // 2. Imlecin bulundugu ifadenin sonunu bul (Satir sonu veya :)
+             sEnd := CursOffset;
+             while (sEnd <= Length(BASICMem)) and not (BASICMem[sEnd] in [#13, ':']) do
+                Inc(sEnd);
+
+             // 3. Ifadeyi al ve bï¿½yï¿½lt
+             sStr := UpperCase(Copy(BASICMem, sStart, sEnd - sStart));
+
+             // 4. Komut var mi kontrol et (GO TO, GOTO, GO SUB, GOSUB)
+             cPos := Pos('GO TO', sStr);
+             if cPos = 0 then cPos := Pos('GOTO', sStr);
+             if cPos = 0 then cPos := Pos('GO SUB', sStr);
+             if cPos = 0 then cPos := Pos('GOSUB', sStr);
+
+             // 5. Komut bulunduysa sayiyi ayikla
+             if cPos > 0 then
+             begin
+                // j'yi komutun basladigi yere koy ve harfleri/bosluklari geï¿½
+                j := cPos;
+                while (j <= Length(sStr)) and (sStr[j] in ['A'..'Z', ' ']) do Inc(j);
+
+                // Simdi rakamlari oku
+                sNum := '';
+                while (j <= Length(sStr)) and (sStr[j] in ['0'..'9']) do
+                begin
+                   sNum := sNum + sStr[j];
+                   Inc(j);
+                end;
+
+                // Sayi geï¿½erli mi?
+                TargetLn := StrToIntDef(sNum, -1);
+                if TargetLn > -1 then
+                begin
+                   FindAndActivateLine(TargetLn, 1);
+                   Key := 0; // Enter tusunu iptal et (yeni satir aï¿½masin)
+                   Exit;     // Prosedï¿½rden ï¿½ik
+                end;
+             end;
+             // ------------------------------------------
+          End;
+
+
            AddUndo;
            If ShowingPrediction Then
               If EditorSelStart <> EditorSelEnd Then Begin
@@ -4420,6 +5459,14 @@ begin
               AcceptPrediction;
               Exit;
            End;
+
+             if (CursOffset < 1) or (CursOffset > Length(BASICMem)) then
+             begin
+               // Nothing to move on an empty buffer; keep cursor at 1
+               UpdateCursorPos(1, Shifted);
+               Exit;
+             end;
+
            If (BASICMem[CursOffset] = #13) Then Begin
               // If this is a direct command, then we should just stop and not move.
               Idx := CursOffset;
@@ -4741,6 +5788,15 @@ begin
 		   End;
         If Key <> $FF Then KeyString := Chr(Key);
         If KeyString <> '' Then Begin
+           if Length(BASICMem) = 0 then
+           begin
+            // For empty buffer, just insert the char and return
+            BASICMem := KeyString;
+            BASICChanged := True;
+            CursOffset := Length(BASICMem) + 1;
+            UpdateCursorPos(CursOffset, False);
+            Exit;
+           end;
            AddUndo;
            If ShowingPrediction and (KeyString = '.') Then Begin
               AcceptPrediction;
@@ -4826,6 +5882,7 @@ begin
                     If InsertChar = ')' Then
                        Dec(BracketLevel);
                  WordFragment := '';
+
                  If BASICMem[CursOffset] = #13 Then // only at the end of a line
                     If CursStringStart = 0 Then // and not in string literals
                        If Opt_Predictive Then // and of course, it's got to be enabled
@@ -4966,7 +6023,7 @@ Begin
               If (UpperCase(Copy(BASICMem, CurPos, 4)) = 'REM ') Then REMCommand := True;
         If BASICMem[CurPos] = '"' Then InString := Not InString;
         If BASICMem[CurPos] = #13 Then Begin
-           indentX:=0;
+           //indentX:=0;  //1.83 ardafix
            Inc(YPos, (8*Opt_FontScale));
            REMCommand := False;
         End;
@@ -5010,7 +6067,7 @@ Begin
      REMCommand := REMCommand or ((BASICMem[CurPos] in ['R', 'r']) and (Uppercase(Copy(BASICMem, CurPos, 4)) = 'REM '));
      CurPos := Result;
 
-     if Opt_Indenting Then Dec(X, ((Opt_FontScale*8)*Opt_Indentsize*indentX));   // arda ident fix
+     if Opt_Indenting Then Dec(X, ((Opt_FontScale*8)*(Opt_Indentsize*indentX)));   // arda ident fix
 
      While (BASICMem[CurPos] <> #13) and
            Not ((BASICMem[CurPos] = ':') and SplitStatements and Not InString and Not REMCommand) and
@@ -5047,11 +6104,29 @@ end;
 
 procedure TBASinOutput.FastIMG1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 Var
-  CurPos, sndType: Integer;
-  isDirect: Boolean;
+  CurPos, sndType,i: Integer;
+  isDirect, FocusBkp: Boolean;
 begin
   sndType := 1;
   IsDirect := False;
+
+  if Assigned(MemoPrompt) and (MemoPrompt.Focused or btnOverwriteCode.Focused or btnHelp.focused or btnPromptSend.Focused or memochat.Focused )then Begin
+    if Assigned(ComboFuncs) Then Begin    //damn basin! 1.83
+     FocusBkp:=panel3.Visible;
+     panel3.Visible:=True;
+     ComboFuncs.Visible := True;
+     ComboFuncs.Enabled := True;
+     ComboFuncs.HandleNeeded;
+     Application.ProcessMessages;
+     BasinOutput.ActiveControl := ComboFuncs;
+     Application.ProcessMessages;
+     ComboFuncs.Enabled := False;
+     Application.ProcessMessages;
+     ComboFuncs.Enabled:=true;
+     panel3.Visible := FocusBkp;
+    End;
+  End;
+
   If (Button = mbLeft) and (ViewOffset > 0) Then Begin
      CurPos := GetCharPos(X, Y);
      If CurPos <> Integer(CursOffset) Then Begin
@@ -5076,6 +6151,7 @@ begin
      End;
   MousePos.X := X;
   MousePos.Y := Y;
+
 End;
 
 procedure TBASinOutput.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -5278,6 +6354,10 @@ Begin
   Label1.Caption := 'Project ' + CurProjectName + ', Line ' + IntToStr(CursLineNum) + ':' + IntToStr(CursStatementNum) + ', Char ' + IntTostr(Offset - LineStart +1) + ', Address '+IntToStr(LineAddr)+' ';
 
 End;
+
+
+
+
 
 Function EditorSelStart: DWord;
 Begin
@@ -6335,6 +7415,8 @@ Var
   BASIC, CurLine: String;
   OldPROG: Word;
   Idx, CurIdx, LineNum, LineStart: Integer;
+  ProgAddr: Word;
+  L: Integer;
 Begin
 
   // Send the Editor Text to memory as a BASIC memory block.
@@ -6415,8 +7497,12 @@ Begin
   OldPROG := GetWord(@Memory[PROG]);
   MoveSpectrumMemory(GetWord(@Memory[VARS]), Length(BASIC) - (GetWord(@Memory[VARS]) - GetWord(@Memory[PROG])));
   PutWord(@Memory[PROG], OldPROG);
-  CopyMemory(@Memory[GetWord(@Memory[Prog])], @Basic[1], Length(BASIC));
+  //CopyMemory(@Memory[GetWord(@Memory[Prog])], @Basic[1], Length(BASIC));
+  ProgAddr := GetWord(@Memory[PROG]);
+  L := Length(BASIC);
 
+  if L > 0 then
+    CopyMemory(@Memory[ProgAddr], PChar(BASIC), L); // Safe even when L>0
   BracketLevel := 0;
 
 End;
@@ -6673,6 +7759,7 @@ Begin
   Bevel5.Visible := Opt_ShowStatusbar and (Opt_ShowingSyntax or Opt_CharacterRuler);
   CoolBar1.Visible := Opt_ShowToolbar;
 
+  Label1.Visible:= Opt_ViewInfoLine;
 
   SpeedButton12.Visible:= Opt_Controlicons;
   SpeedButton11.Visible:= Opt_Controlicons;
@@ -6680,6 +7767,7 @@ Begin
   SpeedButton8.Visible:= Opt_Controlicons;
   SpeedButton7.Visible:= Opt_Controlicons;
   SpeedButton9.Visible:= Opt_Controlicons;
+
   Bevel4.Visible:= Opt_Controlicons;
   Panel3.Visible:= Opt_SubRoutines;
   Bevel8.Visible:= Opt_SubRoutines;
@@ -6702,6 +7790,13 @@ if Opt_ControlIcons then
   FormResize(nil);
 End;
 
+
+ {
+procedure TBASinOutput.WMAfterShow(var Msg: TMessage);
+begin
+
+end;
+  }
 Procedure TBASinOutput.DrawRuler;
 Var
   PosInString: Boolean;
@@ -7110,6 +8205,11 @@ Var
   TempStr: AnsiString;
   FoundTokens: TStringlist;
   Expr: TExpression;
+
+  OriginList: TStringList;
+  NewItem: TMenuItem;
+  LineText, OriginsStr: string;
+  TempFind, TargetLineVal, pOpen, pClose: Integer;
 Label
   Exit_Proc;
 begin
@@ -7264,7 +8364,9 @@ begin
      Tokenise1.Visible := IsToken or PosInString;
      EditVariable1.Visible := False;
      FindLine1.Visible := False;
-     FindLine1.Caption := 'Find Line';
+     TempFind:=Pos(' :',FindLine1.Caption);
+     if (Tempfind>0) Then FindLine1.Caption := Copy(FindLine1.Caption,1,TempFind-1); //this is all for localization 1.83
+
      // If it's a GOSUB/GOTO etc then get the line number
      If Idx in [39, 62, 66, 73, 74, 77, 80, 84] Then Begin
         If Idx <> 80 Then
@@ -7293,7 +8395,9 @@ begin
               Expr.SyntaxChecked := False;
               EvaluateExpr(Expr);
               If Expr.ResultType = 1 Then Begin
+
                  FindLine1.ImageIndex := Round(Expr.ResultNum);
+                 FindLine1.Caption:=FindLine1.Caption+' :'+IntToStr(FindLine1.ImageIndex);
                  FindLine1.Visible := True;
               End;
            End Else Begin
@@ -7317,7 +8421,7 @@ begin
                     TempStr := Copy(TempStr, 1, Pos(']', TempStr) -1);
                     EditVariable1.ImageIndex := StrToIntDef(TempStr, -1);
                     If (EditVariable1.ImageIndex > -1) and (FindLine1.ImageIndex > -1) Then Begin
-                       FindLine1.Caption := 'Find Loop point';
+                       FindLine1.Caption := FindLine1.Caption+' : Loop Entry';
                        FindLine1.Visible := True;
                     End;
                  End;
@@ -7422,11 +8526,11 @@ begin
   if Not Token1.Visible Then Begin
         //There is nothing there, so show selection
         if (EditorSelEnd - EditorSelStart)<>0 Then Begin
-        TempStr := InsertEscapes(Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart)));
+        TempStr := InsertEscapes(Trim(Copy(BASICMem, EditorSelStart, (EditorSelEnd - EditorSelStart))));
         End Else
-        TempStr := InsertEscapes(Copy(BASICMem, EditorSelStart, 1));
+        TempStr := InsertEscapes(Trim(Copy(BASICMem, EditorSelStart, 1)));
 
-        if Length(TempStr)>15 Then Token1.Caption:= 'Selection: '+Copy(TempStr, 1, 14)+'...'  Else Token1.Caption:= 'Selection: '+TempStr;
+        if Length(TempStr)>15 Then Token1.Caption:= 'Selection: '+Copy(TempStr, 1, 14)+'...'  Else if Length(Trim(TempStr))<1 Then Token1.Caption:= 'None' Else Token1.Caption:= 'Selection: '+TempStr;
         Token1.Visible:=True;
   End;
   Exit_Proc:
@@ -7434,9 +8538,19 @@ begin
   Paste2.Enabled := ClipBoard.AsText <> '';
   Cut2.Enabled := (EditorSelLength <> 0);
   Copy2.Enabled := Cut2.Enabled;
-  AddSnippet1.Enabled := Cut2.Enabled;
+  CopyAsPlainText1.enabled:=Cut2.enabled;
+
   AddNote1.Enabled := Cut2.Enabled;
-  
+
+  AddSnippet1.Enabled := true;
+  if (Cut2.Enabled) Then Begin
+     AddSnippet1.ImageIndex:=-1;   //add snippet to library
+     AddSnippet1.Caption:='Add to Snippets';
+     End else Begin
+     AddSnippet1.ImageIndex:=CursLineNum;   //get snippet from library
+     AddSnippet1.Caption:='Insert from Snippets...';
+  End;
+
   StringOperation1.Visible := PosInString;
   WordWrapString1.Visible := PosInString and (StringLen > 32);
   If PosInString Then Begin
@@ -7451,7 +8565,7 @@ begin
      SplitAt32Chars1.Enabled := (Uppercase(TempStr) = 'PRINT') or (UpperCase(TempStr) = 'INPUT');
      WordWrapString1.Tag := StringStart;
   End;
-
+ CurPos := SavePos;
   // If we've clicked a line with a valid number, then get that number for the debug items.
   If CurPos >= Length(BASICMem) Then Dec(CurPos);
 
@@ -7490,12 +8604,78 @@ begin
      RunToCursor1.Enabled := True;
      GoToCursor1.Enabled := True;
      ToggleBreakPoint1.ImageIndex := StrToInt(TempStr);
+
+          { --- YENI EKLENEN KISIM: JumpTargets1 Mantigi --- }
+     JumpTargets1.Clear;
+     JumpTargets1.Enabled := False;
+     
+     TargetLineVal := StrToIntDef(TempStr, -1);
+
+     for Idx := 0 to ComboFuncs.Items.Count - 1 do
+     begin
+       if Pos(Format('%4d:', [TargetLineVal]), ComboFuncs.Items[Idx]) = 1 then
+       begin
+         LineText := ComboFuncs.Items[Idx];
+
+         pOpen := LastDelimiter('(', LineText);
+         pClose := LastDelimiter(')', LineText);
+         
+         if (pOpen > 0) and (pClose > pOpen) then
+         begin
+           OriginsStr := Copy(LineText, pOpen + 1, pClose - pOpen - 1);
+
+           if (OriginsStr <> '') and (OriginsStr[1] <> '*') then
+           begin
+             OriginList := TStringList.Create;
+
+             try
+               OriginList.CommaText := OriginsStr;
+               
+               for Idx2 := 0 to OriginList.Count - 1 do
+               begin
+                 NewItem := TMenuItem.Create(JumpTargets1);
+                 NewItem.Caption := 'Go to ' + OriginList[Idx2];
+
+                 NewItem.Tag := StrToIntDef(OriginList[Idx2], 0);
+                 
+                 NewItem.ImageIndex := -1;
+                 NewItem.OnClick := JumpToOriginClick;
+
+                 JumpTargets1.Add(NewItem);
+               end;
+             finally
+               OriginList.Free;
+             end;
+
+
+             if JumpTargets1.Count > 0 then
+               JumpTargets1.Enabled := True;
+           end;
+         end;
+         Break; // Satir bulundu, dï¿½ngï¿½den ï¿½ik
+       end;
+     end;
+     { ------------------------------------------------ }
+
+
+
   End Else Begin
      ToggleBreakPoint1.Enabled := False;
      RunToCursor1.Enabled := False;
      GoToCursor1.Enabled := False;
   End;
 
+end;
+
+procedure TBASinOutput.JumpToOriginClick(Sender: TObject);
+var
+  TargetLine: Integer;
+begin
+  if (Sender is TMenuItem) then
+  begin
+    TargetLine := (Sender as TMenuItem).Tag;
+    FindAndActivateLine(TargetLine, 1);
+  end;
 end;
 
 procedure TBASinOutput.Help2MeasureItem(Sender: TObject; ACanvas: TCanvas; var Width, Height: Integer);
@@ -7704,13 +8884,69 @@ end;
 
 
 
-
+ {
 procedure TBASinOutput.WMCopyData(var Msg: TWMCopyData);
 var
   s : string;
 begin
   s := PAnsiChar(Msg.copyDataStruct.lpData);
   if (s<>'') then loadquotequote(s);
+end;
+  }
+procedure TBASinOutput.WMCopyData(var Msg: TWMCopyData);
+var
+  TempStr,BASIC : string;
+  NewLines : TStringlist;
+begin
+  TempStr := PAnsiChar(Msg.copyDataStruct.lpData);
+
+  // Grab CheqEdit data as ID (100)
+  if Msg.copyDataStruct.dwData = 100 then 
+  begin
+     if TempStr <> '' then
+     begin
+        TempStr := FormatEscapes(TempStr);
+              AddUndo;
+              If EditorSelStart <> EditorSelEnd Then Begin // Paste over selection
+                 BASICMem := Copy(BASICMem, 1, EditorSelStart -1)+Copy(BASICMem, EditorSelEnd, 999999);
+              End;
+              ShowingPrediction := False;
+
+        If Pos(#13, TempStr) <> 0 Then Begin // Multiline paste?
+                 AddCodeWindow.ClearCode;
+                 NewLines := TStringlist.Create;
+                 Repeat
+                    BASIC := Copy(TempStr, 1, Pos(#13, TempStr)-1);
+                    TempStr :=  Copy(TempStr, Pos(#13, TempStr)+1, 999999);
+                    If BASIC <> '' Then
+                       NewLines.Add(InsertEscapes(BASIC));
+                 Until Pos(#13, TempStr) = 0;
+                 If TempStr <> '' Then
+                    NewLines.Add(TempStr);
+                 AddCodeWindow.AddCode(NewLines);
+                 NewLines.Free;
+                 CentreFormOnForm(AddCodeWindow, Self);
+                 ShowWindow(AddCodeWindow, True);
+                 BASICChanged := True;
+              UpdateParseText;
+              RepaintBASIC(False);
+              MakeCursorVisible;
+
+        End else begin
+
+        BASICMem := Copy(BASICMem, 1, CursOffset - 1) + TempStr + Copy(BASICMem, CursOffset, 999999);
+        CursOffset := CursOffset + Length(TempStr);
+        BASICChanged := True;
+        RepaintBASIC(True);
+        UpdateCursorPos(CursOffset, True);
+     end;
+  end
+  else
+  begin
+     // Eski davranis (Dosya aï¿½ma)
+     if (TempStr <> '') then loadquotequote(TempStr);
+  end;
+end;
 end;
 
 function TBASinOutput.GetShortName(sLongName: string): string;
@@ -7781,10 +9017,12 @@ begin
     // "::" split
     LocalPath := pszFile;
     Delete(LocalPath, 1, Pos('::', LocalPath) + 1);
-    HelpURL := 'https://zx.tr/basinc/help' + LocalPath+'?basinc182';
+    HelpURL := 'https://zx.tr/basinc/help' + LocalPath+'?basinc183';
 
     // open default browser
     ShellExecute(0, 'open', PChar(HelpURL), nil, nil, SW_SHOWNORMAL);
+    
+
   end
   else
   begin
@@ -7807,10 +9045,11 @@ end;
 procedure TBASinOutput.Timer4Timer(Sender: TObject);
 begin
         //BasinetWindow.AnnounceSnippet; //Update Check
+        if Assigned(FormBasinCTips) then FormBasinCTips.ShowOnStartupIfEnabled;
         Timer4.Enabled:=False;
 end;
 
-procedure TBASinOutput.ComboFuncsChange(Sender: TObject);
+procedure TBASinOutput.ComboFuncsClick(Sender: TObject);
 var
   SelectedText: string;
   Satirno: Integer;
@@ -7844,28 +9083,66 @@ begin
        
 end;
 
+
+
+
+procedure TBASinOutput.ComboFuncsChange(Sender: TObject);
+begin
+
+ if ComboFuncs.ItemIndex >= 0 then
+  begin
+    ComboFuncs.Hint := ComboFuncs.Items[ComboFuncs.ItemIndex];
+    ComboFuncs.ShowHint := True; // Hint gï¿½sterimini aï¿½
+  end
+  else
+    ComboFuncs.ShowHint := False;
+
+ end;
+
+
+procedure TBASinOutput.BasinCOfficialDiscordServer1Click(Sender: TObject);
+begin
+ ShellExecute(0, 'open', PChar('https://discord.gg/V7Mf27Z5DY'), nil, nil, SW_SHOWNORMAL);
+end;
+
 initialization
-  InitializeCommonControls;  // Uygulama baþlarken çaðýr
+  InitializeCommonControls;  
 
 end.
 
 // history & todo:
-// todo: boriel's zxbasic compiler integration
-// todo: Charset window RST10 capture
+// todo: 2.0 goal: multiple bas file managing
+
 // todo: Snippets to support asm functions
 // todo: sprite handler snippet
 // todo: basincnet web site - somewhere to store snippets, share on social media and run on web emulator or run on basinc locally.
-// bug: print #0;,,,"s" crashes emulation, 10 PRINT PI^EXP PI run twice to corrupt something
 
-
+// todo: Ulaplus only works in supereagle mode?!?
 
 //1.83
+// Fixed - Nasty bug on NEG opcode emulation caused all sort of problems in new delphi compiler. Sorted! (Uwe Geiken)
+// Fixed - A renumber bug caused lines start with a : cause a crash in basinc    (briefer666)
+// Fixed - A workaround implemented if you want to paste escape code characters into listing (mefjak)
+// Fixed - (Hopefully) An edgecase bug after loading from a save - lines at the end of a program disappeared. (Johnny McGibbitts)
+// Fixed - SimpleConV2 partial port decoding was causing zx printer emulation to feed the paper :)
 // Added - Tape Trap Streaning Options now saved with the session
 // Added - Tape block grab implementation
 // Added - Tape block right button menu
 // Tuned - Block properties window position is now item sensitive
-// Fixed - Nasty bug on NEG opcode emulation caused all sort of problems in new delphi compiler. Sorted! (Uwe Geiken)
-
+// Added - Basic Program Minify Tool in Tools > Clean/Minify basic (Make your programs a bit faster)
+// Added - Charset capture mode (Captures printed characters in 50fps to draw a windows compatible text mode output)
+// Added - A much better screen listing image save function View > Save Listing as Image can now save full listing not just visible part on screen
+// Added - Subroutine list can now show GO TO locations (view > Subs > auto detect goto's)
+// Added - Subroutine list can also show jump origins in two different modes. (view > Subs > Show Origins)
+// Added - Context Sensitive Right Click Popup menu enhancements: Find Line to follow target and Retrace Origins (if Auto-sub detection is enabled)
+// Added - More flow control: Shift+Enter on a GOTO or GOSUB statement will jump to target line
+// Added - Cpu Window has two more options: watch and break an 16 or 8 bit value at a specific address (to enable just enter address any other than 0)
+// Changed - Not really usable yet but editing in indenting mode is getting better. Cursor works a bit better now in Indent mode (F2 key to toggle)
+// Added - BasinC online help search filter box and some new styles to improve readability
+// Added - BasinC online help new entries for Notes, Snippets, Manager, Bridge and Minify windows
+// Added - AI API Calls. Ofcourse what did you expect?! :) Bring your own key style. Google Cloud only for now. see Options>External Tools/AI -- Nothing is exposed to internet unless you click SEND button
+// Added - Snippets window now has a splitter in the middle to change the size of the panes
+// Added - AutoBackup folder view button and interval setting in options > files tab.
 
 // 1.82
 // Added - ZX0 compression natively supported in basinC (you may find options on export menus or memory grabber etc.)
@@ -7874,7 +9151,7 @@ end.
 // Added - System Variables Window can now compare and show if a value changed and highlights in red color.
 // Added - Tab key to accept code prediction (right arrow still works too)
 
-// 1.81 -- first released in ZX Spectrum Discord Server  06.06.2025 -- Compiled with Delphi7
+// 1.81 -- first released in ZX Spectrum Discord Server  06.06.2025 -- Compiled with Delphi7  -- NEG bug started happenin here due to new compiler.
 // Added - Sysvars now can be sorted by clicking on the column headers
 // Added - Memory Grab/Binary Grab window can now send data direcly to tape as a block
 // Added - Assembler can now use pasmo assembler if pasmo.exe exist in the basinc folder

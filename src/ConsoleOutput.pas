@@ -14,11 +14,13 @@ type
     CheckBox1: TCheckBox;
     Button1: TButton;
     Button2: TButton;
+    Button3: TButton;
     procedure Edit1Change(Sender: TObject);
     procedure ClearClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -29,6 +31,8 @@ var
   ConsoleOutForm: TConsoleOutForm;
 
 implementation
+
+uses BasinMain;
 
 {$R *.DFM}
 
@@ -78,6 +82,12 @@ var
 x: byte;
 begin
   
+end;
+
+procedure TConsoleOutForm.Button3Click(Sender: TObject);
+begin
+ BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_simplecon.html'), HH_DISPLAY_TOPIC, 0);
+
 end;
 
 end.

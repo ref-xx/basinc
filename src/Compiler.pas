@@ -35,6 +35,8 @@ uses
   Function  CompileLET(BASIC: String; var Index: Integer): String;
   Function  CompilePAUSE(BASIC: String; Var Index: Integer): String;
   Function  CompileDIM(BASIC: String; var Index: Integer): String;
+  Function  CompilePRINT(BASIC: String; Var Index: Integer): String; //1.83
+
 
   // BASIC Functions
 
@@ -78,6 +80,7 @@ Const
   Use_UpdateFORVar           = 12;
   Use_DoNext                 = 13;
   Use_PerformDIM             = 14;
+  Use_HelperPrints           = 15;
 
 implementation
 
@@ -334,6 +337,11 @@ Begin
            Begin
               Result := Result + CompilePOKE(BASIC, Index) +#13;
            End;
+        #245: // PRINT
+           Begin
+              Result := Result + CompilePRINT(BASIC, Index) +#13;
+           End;
+
      End;
      Inc(Index);
   Until Index > Length(BASIC);
@@ -1105,6 +1113,69 @@ Begin
   Flags[Use_StackShortInt] := True;
 End;
 
+
+Function CompilePRINT(BASIC: String; Var Index: Integer): String;
+Var
+  SuppressNewLine: Boolean;
+  IsString: Boolean;
+Begin
+  // PRINT [Expression][;|,][Expression]...
+  Flags[Use_HelperPrints]:=true;
+
+  Inc(Index); // "PRINT"
+  Result := '';
+  SuppressNewLine := False;
+
+  While Index <= Length(BASIC) Do Begin
+
+
+     If BASIC[Index] = ';' Then Begin
+        SuppressNewLine := True;
+        Inc(Index);
+     End Else
+     If BASIC[Index] = ',' Then Begin
+        Result := Result + '   LD A, $06'#13'   RST $10'#13#13;
+        SuppressNewLine := True;
+        Inc(Index);
+     End Else
+     If BASIC[Index] = #22 Then Begin // AT (Satir, Sütun)
+        Inc(Index);
+        Result := Result + '   LD A, $16'#13'   RST $10'#13;
+        Result := Result + GetExpression(BASIC, Index);
+        Result := Result + '   CALL PrintByteFromStack'#13; // Yigindan alip bas
+        If BASIC[Index] = ',' Then Inc(Index);
+
+        Result := Result + GetExpression(BASIC, Index);
+        Result := Result + '   CALL PrintByteFromStack'#13; // Yigindan alip bas
+
+        SuppressNewLine := True;
+     End Else
+     Begin
+
+        IsString := False;
+        If BASIC[Index] = '"' Then IsString := True;
+        If BASIC[Index] = #194 Then IsString := True; // CHR$
+        if (BASIC[Index] in ['a'..'z', 'A'..'Z']) then begin
+                   //todo
+        end;
+
+        if (BASIC[Index] = '"') or (BASIC[Index] = #194) then IsString := True; // Literal String or CHR$
+        Result := Result + GetExpression(BASIC, Index);
+
+        If IsString Then
+           Result := Result + '   CALL PrintStackString'#13#13
+        Else
+           Result := Result + '   CALL PrintStackNumber'#13#13;
+
+        SuppressNewLine := False;
+     End;
+  End;
+
+  If Not SuppressNewLine Then
+     Result := Result + '   LD A, $0D'#13'   RST $10'#13;
+
+End;
+
 // Additional code and library routines
 
 Procedure AddLibs;
@@ -1471,6 +1542,32 @@ Begin
      AsmOutput.Add('   RET');
      AsmOutput.Add('');
 
+  End;
+
+  If Flags[Use_HelperPrints] Then Begin
+  // --- PRINT Routines ---
+
+  AsmOutput.Add('; --- PRINT Helper Routines ---');
+  AsmOutput.Add('');
+
+  AsmOutput.Add('PrintStackNumber:');
+  AsmOutput.Add('   CALL $2DE3        ; [ROM] PRINT-FP');
+  AsmOutput.Add('   RET');
+  AsmOutput.Add('');
+
+  AsmOutput.Add('PrintStackString:');
+  AsmOutput.Add('   CALL $2BF1        ; [ROM] STK-FETCH (String to DE BC )');
+  AsmOutput.Add('   CALL $203C        ; [ROM] PR-STRING-DE (print string at de at len bc)');
+  AsmOutput.Add('   RET');
+  AsmOutput.Add('');
+
+
+  AsmOutput.Add('PrintByteFromStack:');
+  AsmOutput.Add('   CALL $2DA2        ; [ROM] FP-TO-BC ');
+  AsmOutput.Add('   LD   A, C         ; ');
+  AsmOutput.Add('   RST  $10          ; call the print routine');
+  AsmOutput.Add('   RET');
+  AsmOutput.Add('');
   End;
 
 End;

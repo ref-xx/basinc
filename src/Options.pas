@@ -157,14 +157,11 @@ type
     CheckBox1: TCheckBox;
     CheckBox34: TCheckBox;
     TabSheet8: TTabSheet;
-    Label44: TLabel;
     Edit2: TEdit;
     SpeedButton2: TSpeedButton;
-    ThemeBevel4: TThemeBevel;
     Label46: TLabel;
     ThemeBevel6: TThemeBevel;
-    Edit3: TEdit;
-    SpeedButton3: TSpeedButton;
+    EditAIQueryURL: TEdit;
     Label47: TLabel;
     Label48: TLabel;
     Edit4: TEdit;
@@ -172,6 +169,20 @@ type
     Label49: TLabel;
     Edit5: TEdit;
     SpeedButton5: TSpeedButton;
+    Label50: TLabel;
+    TrackBar7: TTrackBar;
+    Label51: TLabel;
+    Label53: TLabel;
+    Label54: TLabel;
+    ThemeBevel7: TThemeBevel;
+    Label55: TLabel;
+    RadioAI1: TRadioButton;
+    RadioAI2: TRadioButton;
+    EditAPIKEY: TEdit;
+    cbAIModelSelect: TComboBox;
+    btnAImodelFetch: TButton;
+    TrackBar8: TTrackBar;
+    Button6: TButton;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -206,11 +217,16 @@ type
     procedure SpeedButton3Click(Sender: TObject);
     procedure SpeedButton4Click(Sender: TObject);
     procedure SpeedButton5Click(Sender: TObject);
+    procedure TrackBar7Change(Sender: TObject);
+    procedure btnAImodelFetchClick(Sender: TObject);
+    procedure TrackBar8Change(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
   private
     { Private declarations }
     ComboBoxL: TListLessComboBox;
     SizingTree: Boolean;
     Function  GetTreeNodeHeight(Node: TTreeNode): Integer;
+
   public
     { Public declarations }
   end;
@@ -229,11 +245,42 @@ const
    ISAClosedFolder = 1;
    ISAOpenFolder = 2;
 
+   CFrameTimeMs: array[0..10] of Integer = (
+    1000, //  1 FPS
+    200,  //  5 FPS
+    83,   // 12 FPS
+    42,   // 24 FPS
+    19,   // 50 FPS (forced 19 ms)
+    17,   // 60 FPS
+    14,   // 70 FPS
+    13,   // 80 FPS
+    10,   // 100 FPS
+    4,    // 250 FPS
+    1     // 1000 FPS
+  );
+    CFPSValues: array[0..10] of Integer = (
+    1,    // pos 0
+    5,    // pos 1
+    12,   // pos 2
+    24,   // pos 3
+    50,   // pos 4
+    60,   // pos 5
+    70,   // pos 6
+    80,   // pos 7
+    100,  // pos 8
+    250,  // pos 9
+    1000  // pos 10
+  );
+
+
 implementation
 
 {$R *.DFM}
 
-Uses FastCore, Filing, ROMUtils, BasinMain, Display, ColoursWind, Sound, Tapes, LogWind, ConsoleOutput;
+Uses ShellAPI,FastCore, Filing, ROMUtils, BasinMain, Display, ColoursWind, Sound, Tapes, LogWind, ConsoleOutput;
+
+function AskGemini(TargetUrl, ApiKey, UserPrompt, SystemPrompt: PChar): PChar; stdcall; external 'BasinAI.dll';
+function GetModelList(ApiKey: PChar): PChar; stdcall; external 'BasinAI.dll';
 
 Procedure TListLessComboBox.DropDown;
 Begin
@@ -358,6 +405,8 @@ begin
 
   //AutoBackup
   CheckBox32.Checked := Opt_AutoBackup;
+  trackbar8.Position:= opt_AutoBackInterval;
+
 
   // Languages
 
@@ -394,7 +443,9 @@ begin
   TrackBar2Change(nil);
   TrackBar3Change(nil);
 
-  
+  EditAPIKEY.Text := Opt_BYOK_APIKEY;
+  cbAIModelSelect.Text := Opt_SelectedAIModel;
+
   Edit2.Text:= Opt_ExternalExec;
 
   Edit1.Text := Opt_EditorFontFolder;
@@ -403,6 +454,9 @@ begin
   GatherFonts;
 
   RenderFontPreview;
+
+  if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_AsmPasmoAvailable:= True;
+  if Opt_AsmPasmoAvailable then Edit4.Text:=ExtractFilePath(Application.ExeName) + 'pasmo.exe' Else Edit4.Text:='<pasmo.exe is not found>';
 
 end;
 
@@ -423,7 +477,7 @@ begin
   ComboBoxL.Show;
 
   Combobox11.Items.Add( 'English' );
-  Combobox11.Items.Add( 'Türkçe');
+  Combobox11.Items.Add( 'Tï¿½rkï¿½e');
    Combobox11.Items.Add( 'Spanish');
     Combobox11.Items.Add( 'Deutsch');
 
@@ -487,11 +541,19 @@ begin
     Opt_ShowNotes := CheckBox33.Checked; //arda
     //Opt_CheckUpdates := CheckBox35.Checked;   //arda --removed 1.8
     Opt_ShowRemCommands:= CheckBox34.Checked; //arda 1.81
+
+  Opt_BYOK_APIKEY := Trim(EditAPIKEY.Text);
+  if cbAIModelSelect.ItemIndex >= 0 then
+    Opt_SelectedAIModel := cbAIModelSelect.Items[cbAIModelSelect.ItemIndex]
+  else
+    Opt_SelectedAIModel := Trim(cbAIModelSelect.Text);
     
   // CPU Speed options
 
   Opt_CPUSpeed := TrackBar4.Position;
   SpeedBackup := Opt_CPUSpeed; //used for returning back to this value after Rem Speed x execution
+  Opt_EmulationSpeed := CFrameTimeMs[TrackBar7.Position];
+
 
   Case ComboBox9.ItemIndex Of
      0: Begin
@@ -554,7 +616,14 @@ begin
   Opt_TapeTrapLOAD := CheckBox17.Checked;
   Opt_TapeTrapSAVE := CheckBox18.Checked;
   Opt_TapeRewind := CheckBox19.Checked;
+
+  //autobackup
   Opt_AutoBackup := CheckBox32.Checked;
+  Opt_AutoBackInterval:=trackbar8.Position;
+
+  basinoutput.Timer3.Interval:=(1+(Opt_AutoBackInterval*3))*60000;
+  basinoutput.Timer3.enabled:= Opt_AutoBackup;
+
   // Sound Settings
 
   Case ComboBox5.ItemIndex of
@@ -596,6 +665,11 @@ begin
   Opt_DSoundSynch := CheckBox23.Checked;
 
   Opt_SoundEnabled := CheckBox14.Checked;
+  SoundAvailable := Opt_SoundEnabled; // not sure if this would be here
+  if (Opt_EmulationSpeed=19) then Begin
+   if Opt_SoundEnabled Then SoundAvailable:=True;
+   End Else SoundAvailable:=False;   // if speed is not 19, then sound is muted
+
   Opt_KeyClick48k := ComboBox8.ItemIndex = 0;
   Opt_EditorSounds := CheckBox16.Checked;
 
@@ -978,6 +1052,7 @@ end;
 procedure TOptionsWindow.ButtonResetClick(Sender: TObject);
 begin
      TrackBar4.Position := 69888;
+     TrackBar7.Position := 4;
 end;
 
 procedure TOptionsWindow.Button5Click(Sender: TObject);
@@ -997,15 +1072,15 @@ end;
 
 procedure TOptionsWindow.SpeedButton3Click(Sender: TObject);
 begin
-     Filename := OpenFile(Handle, 'Please select zxbc.exe file', [FTExec], '', False, False);
+     Filename := OpenFile(Handle, 'Please select zxbc.exe file', [FTExec], 'zxbc.exe', False, False);
      if not SameText(ExtractFileName(Filename), 'zxbc.exe') then
         Exit;
-     Edit3.Text := ExtractFilePath(Filename);
+     //Edit3.Text := ExtractFilePath(Filename);
 end;
 
 procedure TOptionsWindow.SpeedButton4Click(Sender: TObject);
 begin
-     Filename := OpenFile(Handle, 'Please select pasmo.exe file', [FTExec], '', False, False);
+     Filename := OpenFile(Handle, 'Please select pasmo.exe file', [FTExec], 'pasmo.exe', False, False);
      if not SameText(ExtractFileName(Filename), 'pasmo.exe') then
         Exit;
      Edit4.Text := ExtractFilePath(Filename);
@@ -1016,8 +1091,96 @@ begin
      Filename := OpenFile(Handle, 'Please select an text editor executable file', [FTExec], '', False, False);
      If Filename = '' Then
         Exit;
-     Edit2.Text := Filename;
+     Edit5.Text := Filename;
 end;
+
+procedure TOptionsWindow.TrackBar7Change(Sender: TObject);
+var
+  fps: Integer;
+begin
+  fps := CFPSValues[TrackBar7.Position];
+
+  if fps = 50 then
+    Label53.Caption := 'Sound Available'
+  else if fps=1000 then
+    Label53.Caption := 'Fast PC?!'
+  else
+    Label53.Caption := 'Sound Disabled';
+
+  // FPS label
+  Label51.Caption := IntToStr(fps) + ' Fps';
+end;
+
+
+procedure TOptionsWindow.btnAImodelFetchClick(Sender: TObject);
+var
+  ApiKey: String;
+  RawList: PChar;
+  ListStr: String;
+  TempList: TStringList;
+begin
+  ApiKey := Trim(EditAPIKEY.Text);
+  if ApiKey = '' then
+  begin
+    ShowMessage('Please enter your API key.');
+    Exit;
+  end;
+
+  cbAIModelSelect.Clear;
+  cbAIModelSelect.Text := 'Loading models...';
+  Application.ProcessMessages;
+
+  try
+    RawList := GetModelList(PChar(ApiKey));
+
+    if RawList = nil then
+      ListStr := 'Error: No answer'
+    else
+      ListStr := StrPas(RawList);
+
+    if (Pos('Error:', ListStr) = 1) or (Trim(ListStr) = '') then
+    begin
+      ShowMessage('Hata: ' + ListStr);
+      cbAIModelSelect.Text := '';
+      Exit;
+    end;
+
+    TempList := TStringList.Create;
+    try
+      TempList.Text := ListStr;
+      cbAIModelSelect.Items.Assign(TempList);
+
+      if cbAIModelSelect.Items.Count > 0 then
+        cbAIModelSelect.ItemIndex := 0
+      else
+        cbAIModelSelect.Text := 'Model not found';
+    finally
+      TempList.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      ShowMessage('DLL error: ' + E.Message);
+      cbAIModelSelect.Text := '';
+    end;
+  end;
+end;
+
+
+procedure TOptionsWindow.TrackBar8Change(Sender: TObject);
+begin
+
+    Checkbox32.Caption:='Backup as .BAS every '+inttostr(1+(trackbar8.Position*3)) +' minutes';
+    end;
+
+
+procedure TOptionsWindow.Button6Click(Sender: TObject);
+begin
+
+ ShellExecute(0, 'open', PChar(BasinOutput.GetAutoBackupDir), nil, nil, SW_SHOWNORMAL);
+end;
+
+
 
 Initialization
 

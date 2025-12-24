@@ -4,7 +4,7 @@ interface
 
 Uses
 
-  Windows, Classes, SysUtils, BASSupport, FastCore, ROMUtils, Tapes, Filing, Utility, zx0packer;
+  Windows, Classes, SysUtils, BASSupport, FastCore, ROMUtils, Tapes, Filing, Utility, zx0packer, MemManager;
 
 Type
 
@@ -17,7 +17,8 @@ Type
   Procedure BinaryToBASIC(Binary: String; var List: TStringlist);
   Procedure BinaryToMemory(Binary: String; Address: Word; Target: Word = 1; Pack: Boolean = False);
   Procedure BinaryToTape(BlockName: String; Binary: String; Address: Word; Target: Word = 1; Pack: Boolean = False);
-
+  function RelocateDepacker(NewBaseAddress: Word): TZX0ByteArray;
+  
 const
 
  ZX0_DEPACKER_HEADER: array[0..80] of Byte = (
@@ -76,7 +77,8 @@ const
 
 implementation
 
-function RelocateDepacker(NewBaseAddress: Word): TByteArray;
+
+function RelocateDepacker(NewBaseAddress: Word): TZX0ByteArray;
 const
   ORIGINAL_BASE_ADDRESS = $8000; // kind of what I am doing now moment...
 var
@@ -373,11 +375,11 @@ End;
 Procedure BinaryToMemory(Binary: String; Address: Word; Target: Word = 1; Pack: Boolean = False);
 Var
   Idx: Integer;
-  PackedData: TByteArray;
+  PackedData: TZX0ByteArray;
   FinalData: String;
-  Depacker: TByteArray; // Artik dinamik bir dizi (TByteArray)
+  Depacker: TZX0ByteArray;
 begin
-  // ... (sikistirma ve veri dönüstürme mantigi ayni kalir) ...
+
   if not Pack then
   begin
     FinalData := Binary;
@@ -424,27 +426,13 @@ begin
 End;
 
 
-{
-Procedure BinaryToTape(BlockName:String; Binary: String; Address: Word);
-Begin
-
-  // Sends a binary object to the current tape file, as a CODE block.
-
-  SetLength(FileArray, Length(Binary));
-  CopyMemory(@FileArray[0], @Binary[1], Length(Binary));
-  TapeBlockAdd(CODEToTape(BlockName, Address));
-  TapeWindow.UpdateTapeList;
-  ShowWindow(TapeWindow, False);
-
-End;
- }
 
 
 Procedure BinaryToTape(BlockName: String; Binary: String; Address: Word;  Target: Word = 1; Pack: Boolean = False);
 var
-  PackedData: TByteArray;
+  PackedData: TZX0ByteArray;
   FinalData: String;
-  Depacker: TByteArray; 
+  Depacker: TZX0ByteArray; 
 Begin
   if not Pack then
   begin

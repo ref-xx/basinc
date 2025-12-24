@@ -10,6 +10,7 @@ type
 
     TBasinetWindow = class(TForm)
     BtnClose: TButton;
+    PanelMain: TPanel;
     GroupBox1: TGroupBox;
     Label1: TLabel;
     Label2: TLabel;
@@ -55,6 +56,8 @@ type
     Edit4: TEdit;
     Button4: TButton;
     Label8: TLabel;
+    Button5: TButton;
+    Splitter1: TSplitter;
     procedure FormCreate(Sender: TObject);
     procedure BtnCloseClick(Sender: TObject);
     procedure BtnSaveClick(Sender: TObject);
@@ -68,6 +71,7 @@ type
     procedure Button1Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure Button5Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -561,6 +565,12 @@ begin
 if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
 if Opt_ToolFontSize>0 Then Memo_Snippet.Font.Size:=Opt_ToolFontSize;
 Edit3.Text:= SessionID;
+end;
+
+procedure TBasinetWindow.Button5Click(Sender: TObject);
+begin
+ BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_snippets.html'), HH_DISPLAY_TOPIC, 0);
+
 end;
 
 end.

@@ -35,6 +35,7 @@ Type
   Procedure Page7FFDTransparent(Value, Paged: Byte);
   Procedure ROMTrap;
 	Procedure ModifyROM;
+  Procedure MergeBASICLines(MaxLineLength, StartLine, EndLine: Integer; SkipDATA, JoinSame, KeepBreakpoints: Boolean);
   Function  GetCurrentStatement(Line: AnsiString): AnsiString;
 	Function  GetEditLine: AnsiString;
   Procedure PutEditLine(Tokens: AnsiString; Var Mem: Array of Byte);
@@ -70,6 +71,7 @@ Type
   Function  InsertLine(Line: AnsiString; Overwrite: Boolean): AnsiString;
   Procedure GenerateBASICChecksum(var Check: DWord);
   Function  GetProgramLineCount: Word;
+  Procedure RemoveCommentsFromBasic;
   Procedure RenumberBASIC(Start, Step: Word);
   Procedure RenumberBASICEx(RangeStart, RangeEnd, StartLine, Step: Integer);
   Function  GetClipText(Index: Integer): AnsiString;
@@ -4295,6 +4297,616 @@ Begin
   End;
 End;
 
+
+//begin
+Procedure RemoveCommentsFromBasic;
+Var
+  BASICList: TStringList;
+  LineStr, TempStr, UpperLine: String;
+  Idx, I, K, RemPos, CutPos: Integer;
+  OldSplitState, InString: Boolean;
+  IsLineNumOnly: Boolean;
+Begin
+  BASICList := TStringList.Create;
+
+  // 1. Mevcut kodu hafizaya al
+  OldSplitState := BASinOutput.SplitStatements;
+  BASinOutput.GetBASIC;
+  BASinOutput.SplitStatements := OldSplitState;
+
+  // 2. BASICMem'i satirlara böl (Manuel parsing en güvenlisidir)
+  Idx := 1;
+  LineStr := '';
+  While Idx <= Length(BASinOutput.BASICMem) Do Begin
+     If BASinOutput.BASICMem[Idx] = #13 Then Begin
+        // Satir bitti, listeye ekle
+        If LineStr <> '' Then BASICList.Add(LineStr);
+        LineStr := '';
+     End Else Begin
+        // Satiri karakter karakter biriktir
+        LineStr := LineStr + BASinOutput.BASICMem[Idx];
+     End;
+     Inc(Idx);
+  End;
+  // Kalan son satiri da ekle
+  If LineStr <> '' Then BASICList.Add(LineStr);
+
+  // 3. Her satiri isle
+  For Idx := 0 To BASICList.Count - 1 Do Begin
+     LineStr := BASICList[Idx];
+     
+     // Bu satirda REM var mi diye karakter karakter tara
+     // Tirnak içindeki "REM" yazilarini atlamak için InString kontrolü yapiyoruz.
+     RemPos := 0;
+     InString := False;
+     
+     // 3 karakterlik 'REM' kelimesini arayacagimiz için Length-2'ye kadar gidiyoruz
+     For I := 1 To Length(LineStr) - 2 Do Begin
+        If LineStr[I] = '"' Then InString := Not InString;
+
+        If Not InString Then Begin
+           // Karakterleri büyük harfe çevirip kontrol et (küçük harf rem yazilsa da bulsun)
+           If (UpCase(LineStr[I])   = 'R') And
+              (UpCase(LineStr[I+1]) = 'E') And
+              (UpCase(LineStr[I+2]) = 'M') Then Begin
+              RemPos := I;
+              Break; // Ilk REM'i bulunca çik, geri kalani yorumdur.
+           End;
+        End;
+     End;
+
+     // Eger REM bulunduysa
+     If RemPos > 0 Then Begin
+        CutPos := RemPos;
+
+        // REM'den geriye dogru giderek ':' isaretini ara
+        // Aradaki bosluklari atla.
+        K := RemPos - 1;
+        While (K > 0) And (LineStr[K] = ' ') Do Dec(K);
+
+        If (K > 0) And (LineStr[K] = ':') Then Begin
+           CutPos := K; // Kesme noktasini ':' isaretine çek (onu da silmek için)
+        End;
+
+        // Satiri kes (1'den Kesme Noktasina kadar al)
+        LineStr := Copy(LineStr, 1, CutPos - 1);
+        
+        // --- SILINME KONTROLÜ ---
+        // Kestikten sonra geriye sadece satir numarasi mi kaldi?
+        TempStr := Trim(LineStr);
+        IsLineNumOnly := True;
+        
+        If TempStr = '' Then
+           IsLineNumOnly := True // Zaten bossa silinecek
+        Else Begin
+           For K := 1 To Length(TempStr) Do Begin
+              // Eger rakam disinda bir sey varsa (örn: PRINT), bu geçerli bir satirdir.
+              If Not (TempStr[K] In ['0'..'9']) Then Begin
+                 IsLineNumOnly := False;
+                 Break;
+              End;
+           End;
+        End;
+
+        If IsLineNumOnly Then
+           BASICList[Idx] := '' // Bos string yaparak silinmek üzere isaretle
+        Else
+           BASICList[Idx] := LineStr; // Temizlenmis satiri güncelle
+     End;
+  End;
+
+  // 4. BASICMem'i yeniden insa et
+  // Önce bellegi tamamen temizle (Corruption'i önlemek için kritik)
+  BASinOutput.BASICMem := '';
+  BASinOutput.LastLineBuffer := '';
+
+  For Idx := 0 To BASICList.Count - 1 Do Begin
+     // Isaretlenmis bos satirlari atla
+     If BASICList[Idx] <> '' Then Begin
+        // Satiri ve satir sonu karakterini ekle
+        BASinOutput.BASICMem := BASinOutput.BASICMem + Trim(BASICList[Idx]) + #13;
+     End;
+  End;
+
+  // Dosya sonu belirteci
+  BASinOutput.BASICMem := BASinOutput.BASICMem + #13;
+
+  BASICList.Free;
+
+  // 5. Degisiklikleri editöre ve hafizaya uygula
+  BASinOutput.BASICChanged := True;
+  BASinOutput.TokeniseEditText(False);
+  BASinOutput.RepaintBASIC(True);
+End;
+
+
+//helper
+Function HasDynamicGOTO: Boolean;
+Var
+  Idx, K, LenKey: Integer;
+  TempMem, SubStr: String;
+  InString: Boolean;
+  
+  Function CheckNextChars(P: Integer): Boolean;
+  Var 
+    Cp: Integer;
+  Begin
+    Result := False; 
+    Cp := P;
+    // Skip spaces
+    While (Cp <= Length(TempMem)) and (TempMem[Cp] <= ' ') Do Inc(Cp);
+    
+    // 1. Case: Not a digit (e.g. GOTO A)
+    If (Cp <= Length(TempMem)) and Not (TempMem[Cp] In ['0'..'9']) Then Begin
+       Result := True;
+       Exit;
+    End;
+    
+    // 2. Case: Starts with digit but followed by math operator (e.g. GOTO 100+5)
+    While (Cp <= Length(TempMem)) and (TempMem[Cp] In ['0'..'9']) Do Inc(Cp);
+    
+    // Skip spaces after number
+    While (Cp <= Length(TempMem)) and (TempMem[Cp] <= ' ') Do Inc(Cp);
+    
+    If Cp <= Length(TempMem) Then Begin
+       // If it is followed by an operator, it is dynamic
+       If TempMem[Cp] In ['+', '-', '*', '/', '^', '=', '<', '>', 'A'..'Z', 'a'..'z'] Then
+          Result := True;
+    End;
+  End;
+
+Begin
+  Result := False;
+  // Get raw text
+  TempMem := UpperCase(BASinOutput.BASICMem);
+  InString := False;
+  
+  For Idx := 1 To Length(TempMem) Do Begin
+     If TempMem[Idx] = '"' Then InString := Not InString;
+     
+     If Not InString Then Begin
+        // Check keywords: GOTO, GOSUB, RUN, RESTORE
+        // We check 'GOTO' (4), 'RUN' (3), etc.
+        if (TempMem[Idx] = 'G') then begin
+           // GOTO
+           if Copy(TempMem, Idx, 4) = 'GOTO' then begin
+              if CheckNextChars(Idx + 4) then begin Result := True; Exit; end;
+           end
+           // GO TO
+           else if Copy(TempMem, Idx, 5) = 'GO TO' then begin
+              if CheckNextChars(Idx + 5) then begin Result := True; Exit; end;
+           end
+           // GOSUB
+           else if Copy(TempMem, Idx, 5) = 'GOSUB' then begin
+              if CheckNextChars(Idx + 5) then begin Result := True; Exit; end;
+           end
+           // GO SUB
+           else if Copy(TempMem, Idx, 6) = 'GO SUB' then begin
+              if CheckNextChars(Idx + 6) then begin Result := True; Exit; end;
+           end;
+        end
+        else if (TempMem[Idx] = 'R') then begin
+           // RUN
+           if Copy(TempMem, Idx, 3) = 'RUN' then begin
+              // Ensure it is not RND or RETURN
+              SubStr := Copy(TempMem, Idx, 6);
+              if (Pos('RND', SubStr) = 0) and (Pos('RETURN', SubStr) = 0) then begin
+                 // Check boundary (e.g. RUNNER is variable)
+                 if (Length(TempMem) < Idx+3) or (Not (TempMem[Idx+3] In ['A'..'Z', '0'..'9'])) then
+                    if CheckNextChars(Idx + 3) then begin Result := True; Exit; end;
+              end;
+           end
+           // RESTORE
+           else if Copy(TempMem, Idx, 7) = 'RESTORE' then begin
+              if CheckNextChars(Idx + 7) then begin Result := True; Exit; end;
+           end;
+        end;
+     End;
+  End;
+End;
+
+
+
+
+Procedure MergeBASICLines(MaxLineLength, StartLine, EndLine: Integer; SkipDATA, JoinSame, KeepBreakpoints: Boolean);
+Type
+  TLineStatus = Record
+     Exists: Boolean;
+     MustStartNew: Boolean;    // Target of a static GOTO/GOSUB/RESTORE or Breakpoint
+     ForcesNextNew: Boolean;   // Ends with REM, IF, STOP, RETURN or Breakpoint
+     Content: String;
+     LineNum: Integer;
+  End;
+Var
+  BASICList: TStringList;
+  LineInfos: Array[0..9999] of TLineStatus;
+  LineStr, TempLine, CurrentStmt: String;
+  Idx, I, J, K, LineNum, TargetLine: Integer;
+  OldSplitState: Boolean;
+  LastActiveLine: Integer;
+  InString: Boolean;
+  LenLine: Integer;
+  
+  // Breakpoint variables
+  HasBP: Boolean;
+  BPIdx: Integer;
+
+  // Range Control
+  IsInRange: Boolean;
+  PrevLineInRange: Boolean;
+
+  // Optimization variables
+  LastStmtStart: Integer;
+  LastKeyword, NewKeyword: String;
+  Separator, ContentToAdd: String;
+  LastChar: Char;
+
+  // --- Helper Functions ---
+
+  Function GetNumberAt(Const S: String; StartPos: Integer): Integer;
+  Var P: Integer; NumStr: String;
+  Begin
+     Result := -1;
+     P := StartPos;
+     NumStr := '';
+     While (P <= Length(S)) and (S[P] <= ' ') Do Inc(P);
+     While (P <= Length(S)) and (S[P] In ['0'..'9']) Do Begin
+        NumStr := NumStr + S[P];
+        Inc(P);
+     End;
+     If NumStr <> '' Then Result := StrToIntDef(NumStr, -1);
+  End;
+
+  Function FindKeyword(Const Stmt, Key: String): Integer;
+  Var 
+    KeyLen, StmtLen, X: Integer; 
+    PrevC, NextC: Char;
+    InStr: Boolean;
+  Begin
+     Result := 0;
+     KeyLen := Length(Key);
+     StmtLen := Length(Stmt);
+     InStr := False;
+     
+     For X := 1 To StmtLen - KeyLen + 1 Do Begin
+        if Stmt[X] = '"' then InStr := Not InStr;
+        if Not InStr then Begin
+           if UpCase(Stmt[X]) = UpCase(Key[1]) then Begin
+              if CompareText(Copy(Stmt, X, KeyLen), Key) = 0 then Begin
+                 if X > 1 then PrevC := Stmt[X-1] else PrevC := ' ';
+                 if X + KeyLen <= StmtLen then NextC := Stmt[X+KeyLen] else NextC := ' ';
+                 
+                 if Not ((UpCase(PrevC) In ['A'..'Z', '0'..'9']) Or 
+                         (UpCase(NextC) In ['A'..'Z', '0'..'9', '$'])) then 
+                 Begin
+                    Result := X + KeyLen;
+                    Exit;
+                 End;
+              End;
+           End;
+        End;
+     End;
+  End;
+
+  Function GetLastStatementPos(Const Buf: String): Integer;
+  Var X: Integer; InStr: Boolean;
+  Begin
+     Result := 0;
+     InStr := False;
+     For X := Length(Buf) DownTo 1 Do Begin
+        if Buf[X] = '"' then InStr := Not InStr;
+        if (Not InStr) and (Buf[X] = ':') then Begin
+           Result := X + 1;
+           Exit;
+        End;
+     End;
+     X := 1;
+     While (X <= Length(Buf)) and (Buf[X] In ['0'..'9']) Do Inc(X); 
+     Result := X + 1; 
+  End;
+
+  Function GetKeywordAt(Const Buf: String; StartPos: Integer): String;
+  Var X: Integer;
+  Begin
+     Result := '';
+     X := StartPos;
+     While (X <= Length(Buf)) and (Buf[X] <= ' ') Do Inc(X); 
+     While (X <= Length(Buf)) and (UpCase(Buf[X]) In ['A'..'Z']) Do Begin
+        Result := Result + UpCase(Buf[X]);
+        Inc(X);
+     End;
+  End;
+
+  Function StripKeyword(Const Content, Key: String): String;
+  Var X: Integer;
+  Begin
+     X := 1;
+     While (X <= Length(Content)) and (Content[X] <= ' ') Do Inc(X); 
+     X := X + Length(Key); 
+     Result := Trim(Copy(Content, X, MaxInt));
+  End;
+
+Begin
+  BASICList := TStringList.Create;
+
+  // Initialize Status Array
+  For I := 0 To 9999 Do Begin
+     LineInfos[I].Exists := False;
+     LineInfos[I].MustStartNew := False;
+     LineInfos[I].ForcesNextNew := False;
+     LineInfos[I].Content := '';
+  End;
+
+  // 1. Get BASIC Memory safely
+  OldSplitState := BASinOutput.SplitStatements;
+  BASinOutput.SplitStatements := False;
+  BASinOutput.GetBASIC;
+  BASinOutput.SplitStatements := OldSplitState;
+
+  // 2. Parse into StringList
+  Idx := 1; 
+  LineStr := '';
+  While Idx <= Length(BASinOutput.BASICMem) Do Begin
+     If BASinOutput.BASICMem[Idx] = #13 Then Begin
+        If Trim(LineStr) <> '' Then BASICList.Add(Trim(LineStr));
+        LineStr := '';
+     End Else 
+        LineStr := LineStr + BASinOutput.BASICMem[Idx];
+     Inc(Idx);
+  End;
+  If Trim(LineStr) <> '' Then BASICList.Add(Trim(LineStr));
+
+  // 3. Extract Line Numbers and Content
+  For I := 0 To BASICList.Count - 1 Do Begin
+     LineStr := BASICList[I];
+     J := 1;
+     While (J <= Length(LineStr)) and (LineStr[J] In ['0'..'9']) Do Inc(J);
+     
+     LineNum := StrToIntDef(Copy(LineStr, 1, J-1), -1);
+     If (LineNum >= 0) And (LineNum <= 9999) Then Begin
+        LineInfos[LineNum].Exists := True;
+        LineInfos[LineNum].LineNum := LineNum;
+        LineInfos[LineNum].Content := Trim(Copy(LineStr, J, MaxInt));
+     End;
+  End;
+
+  // First line always starts new
+  If BASICList.Count > 0 Then Begin
+     LineNum := StrToIntDef(Copy(BASICList[0], 1, Pos(' ', BASICList[0])-1), -1);
+     If LineNum <> -1 Then LineInfos[LineNum].MustStartNew := True;
+  End;
+
+  // 4. Analyze Lines
+  For I := 0 To 9999 Do Begin
+     If Not LineInfos[I].Exists Then Continue;
+
+     // --- Breakpoint Check ---
+     If KeepBreakpoints Then Begin
+        HasBP := False;
+        // Check all potential statement slots for this line
+        For BPIdx := 1 To Length(BreakpointsList[I]) Do Begin
+           If BreakpointsList[I][BPIdx] <> #0 Then Begin
+              HasBP := True;
+              Break;
+           End;
+        End;
+        If HasBP Then Begin
+           LineInfos[I].MustStartNew := True;
+           LineInfos[I].ForcesNextNew := True;
+           // If it has a breakpoint, we treat it as a barrier. 
+           // We can still analyze it for GOTO targets, but we won't merge it.
+        End;
+     End;
+
+     TempLine := LineInfos[I].Content;
+     LenLine := Length(TempLine);
+     
+     // Check for REM
+     K := FindKeyword(TempLine, 'REM');
+     if K > 0 then Begin
+        LineInfos[I].ForcesNextNew := True;
+        TempLine := Copy(TempLine, 1, K - 4); 
+        LenLine := Length(TempLine);
+     End;
+
+     // Parse Statements
+     J := 1;
+     InString := False;
+     CurrentStmt := '';
+     
+     While J <= LenLine Do Begin
+        If TempLine[J] = '"' Then InString := Not InString;
+        
+        If (Not InString) And (TempLine[J] = ':') Then Begin
+           CurrentStmt := UpperCase(CurrentStmt);
+           
+           if (FindKeyword(CurrentStmt, 'IF') > 0) or 
+              (FindKeyword(CurrentStmt, 'STOP') > 0) or 
+              (FindKeyword(CurrentStmt, 'RETURN') > 0) then 
+              LineInfos[I].ForcesNextNew := True;
+
+           if SkipDATA and (FindKeyword(CurrentStmt, 'DATA') > 0) then Begin
+               LineInfos[I].ForcesNextNew := True;
+               LineInfos[I].MustStartNew := True;
+           End;
+
+           K := FindKeyword(CurrentStmt, 'GOTO');
+           if K = 0 then K := FindKeyword(CurrentStmt, 'GO TO');
+           if K > 0 then Begin
+              TargetLine := GetNumberAt(CurrentStmt, K);
+              if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+           End;
+
+           K := FindKeyword(CurrentStmt, 'GOSUB');
+           if K = 0 then K := FindKeyword(CurrentStmt, 'GO SUB');
+           if K > 0 then Begin
+              TargetLine := GetNumberAt(CurrentStmt, K);
+              if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+           End;
+           
+           K := FindKeyword(CurrentStmt, 'RESTORE');
+           if K > 0 then Begin
+              TargetLine := GetNumberAt(CurrentStmt, K);
+              if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+           End;
+
+           K := FindKeyword(CurrentStmt, 'RUN');
+           if K > 0 then Begin
+              TargetLine := GetNumberAt(CurrentStmt, K);
+              if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+           End;
+
+           K := FindKeyword(CurrentStmt, 'THEN');
+           if K > 0 then Begin
+              TargetLine := GetNumberAt(CurrentStmt, K);
+              if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+           End;
+
+           CurrentStmt := '';
+        End Else Begin
+           CurrentStmt := CurrentStmt + TempLine[J];
+        End;
+        Inc(J);
+     End;
+     
+     // Final statement check
+     if CurrentStmt <> '' then Begin
+        CurrentStmt := UpperCase(CurrentStmt);
+        
+        if (FindKeyword(CurrentStmt, 'IF') > 0) or 
+           (FindKeyword(CurrentStmt, 'STOP') > 0) or 
+           (FindKeyword(CurrentStmt, 'RETURN') > 0) then 
+           LineInfos[I].ForcesNextNew := True;
+
+        if SkipDATA and (FindKeyword(CurrentStmt, 'DATA') > 0) then Begin
+             LineInfos[I].ForcesNextNew := True;
+             LineInfos[I].MustStartNew := True;
+        End;
+
+        K := FindKeyword(CurrentStmt, 'GOTO');
+        if K = 0 then K := FindKeyword(CurrentStmt, 'GO TO');
+        if K > 0 then Begin
+           TargetLine := GetNumberAt(CurrentStmt, K);
+           if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+        End;
+
+        K := FindKeyword(CurrentStmt, 'GOSUB');
+        if K = 0 then K := FindKeyword(CurrentStmt, 'GO SUB');
+        if K > 0 then Begin
+           TargetLine := GetNumberAt(CurrentStmt, K);
+           if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+        End;
+        
+        K := FindKeyword(CurrentStmt, 'RESTORE');
+        if K > 0 then Begin
+           TargetLine := GetNumberAt(CurrentStmt, K);
+           if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+        End;
+
+        K := FindKeyword(CurrentStmt, 'RUN');
+        if K > 0 then Begin
+           TargetLine := GetNumberAt(CurrentStmt, K);
+           if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+        End;
+
+        K := FindKeyword(CurrentStmt, 'THEN');
+        if K > 0 then Begin
+           TargetLine := GetNumberAt(CurrentStmt, K);
+           if (TargetLine > 0) and (TargetLine <= 9999) then LineInfos[TargetLine].MustStartNew := True;
+        End;
+     End;
+  End;
+
+  // 5. Merge Lines
+  BASinOutput.BASICMem := '';
+  BASinOutput.LastLineBuffer := '';
+  LineStr := '';
+  LastActiveLine := -1;
+
+  For I := 0 To 9999 Do Begin
+     If Not LineInfos[I].Exists Then Continue;
+
+     // Range Checks
+     IsInRange := (I >= StartLine) And (I <= EndLine);
+     PrevLineInRange := (LastActiveLine <> -1) And (LastActiveLine >= StartLine) And (LastActiveLine <= EndLine);
+
+     // Decision: Start a new line or merge?
+     If (LineStr = '') Or 
+        (Not IsInRange) Or              
+        (Not PrevLineInRange) Or        
+        (LineInfos[I].MustStartNew) Or 
+        ((LastActiveLine <> -1) And LineInfos[LastActiveLine].ForcesNextNew) Then 
+     Begin
+        // Flush buffer
+        If LineStr <> '' Then BASinOutput.BASICMem := BASinOutput.BASICMem + LineStr + #13;
+        
+        // Start new line
+        LineStr := IntToStr(I) + ' ' + LineInfos[I].Content;
+        LastActiveLine := I;
+     End Else Begin
+        // Attempt Merge
+        Separator := ' : ';
+        ContentToAdd := LineInfos[I].Content;
+        
+        // Apply Optimization only if JoinSame is True
+        If JoinSame Then Begin
+           LastStmtStart := GetLastStatementPos(LineStr);
+           LastKeyword := GetKeywordAt(LineStr, LastStmtStart);
+           NewKeyword := GetKeywordAt(LineInfos[I].Content, 1);
+           
+           // Optimize DATA (only if SkipDATA is False)
+           if (Not SkipDATA) and (LastKeyword = 'DATA') and (NewKeyword = 'DATA') then Begin
+              Separator := ',';
+              ContentToAdd := StripKeyword(LineInfos[I].Content, 'DATA');
+           End
+           // Optimize PRINT (Always applicable if JoinSame is True)
+           else if (LastKeyword = 'PRINT') and (NewKeyword = 'PRINT') then Begin
+              ContentToAdd := StripKeyword(LineInfos[I].Content, 'PRINT');
+              LastChar := LineStr[Length(LineStr)];
+              
+              if LastChar In [';', ',', #39] then 
+                 Separator := ''
+              else
+                 Separator := #39; // '
+           End;
+        End;
+
+        TempLine := Separator + ContentToAdd;
+        
+        If Length(LineStr) + Length(TempLine) > MaxLineLength Then Begin
+           BASinOutput.BASICMem := BASinOutput.BASICMem + LineStr + #13;
+           LineStr := IntToStr(I) + ' ' + LineInfos[I].Content;
+           LastActiveLine := I;
+        End Else Begin
+           LineStr := LineStr + TempLine;
+           if LineInfos[I].ForcesNextNew then LastActiveLine := I;
+        End;
+     End;
+  End;
+
+  If LineStr <> '' Then BASinOutput.BASICMem := BASinOutput.BASICMem + LineStr + #13;
+  BASinOutput.BASICMem := BASinOutput.BASICMem + #13;
+
+  BASICList.Free;
+  
+  // 6. Finalize
+  BASinOutput.BASICChanged := True;
+  BASinOutput.TokeniseEditText(False);
+  PostMessage(BASinOutput.Handle, WM_UPDATEPROGRAM, 0, 0);
+  BASinOutput.RepaintBASIC(True);
+End;
+
+
+    //  PostMessage(BASinOutput.Handle, WM_UPDATEPROGRAM, 0, 0);
+// end
+
+
+
+
+
+
+
+
 Procedure RenumberBASIC(Start, Step: Word);
 Var
   CommandType: Byte;
@@ -4435,7 +5047,7 @@ End;
 Procedure RenumberBASICEx(RangeStart, RangeEnd, StartLine, Step: Integer);
 Var
   BASICList, LineList, RenumList: TStringlist;
-  LineStr, TempStr, TempStr2, LogError: AnsiString;
+  LineStr, TempStr, TempStr2, TempStr3, LogError: AnsiString;
   LineNum, Pass, Idx, Idx2, NewLineNum, NewLineNumLen, LineIndex, TempValue: Integer;
   InString, RenumErrors, RenumError: Boolean;
   CommandType: Byte;
@@ -4516,8 +5128,8 @@ Begin
                                 While TempStr[TempWord] in ['0'..'9'] Do
                                    TempStr := Copy(TempStr, 1, TempWord -1)+Copy(TempStr, TempWord+1, 999999);
                                 LineIndex := 0;
-
-                                While TempValue > StrToInt(Copy(RENUMList[LineIndex], 1, Pos(' ', RENUMList[LineIndex]) -1)) Do Begin
+                                //1.83 fix  arda
+                                While TempValue > StrToInt(Copy(RENUMList[LineIndex], 1, 4)) Do Begin  //some brutal fix actually, limited to 4 characters may limit future improvements
                                    Inc(lineIndex);
                                    If LineIndex = LineList.Count then Break;
                                 End;
@@ -4537,7 +5149,8 @@ Begin
                           TempValue := StrToInt(Copy(LineList[Idx], 1, 4));
                           If (TempValue >= RangeStart) and (TempValue <= RangeEnd) Then Begin
                              LineIndex := 0;
-                             While TempValue > StrToInt(Copy(RENUMList[LineIndex], 1, Pos(' ', RENUMList[LineIndex]) -1)) Do Begin
+                             //ardafix 1.83
+                             While TempValue > StrToInt(Copy(RENUMList[LineIndex], 1, 4)) Do Begin
                                 Inc(lineIndex);
                                 If LineIndex = LineList.Count then Break;
                              End;

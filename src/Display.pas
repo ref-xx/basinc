@@ -1344,80 +1344,98 @@ begin
      end;
 end;
 
-
 procedure TDisplayWindow.PopupMenuClick(Sender: TObject);
-Var
- TempStr: String;
+var
+  TempStr: String;
+
+  // --- Yardimci Prosedür: Kodu güvenli bir sekilde ekler ---
+  procedure InsertCommand(CmdStr: String);
+  var
+    LineCheck, NewPos: Integer;
+    FinalStr: String;
+  begin
+    // 1. Satir numarasi kontrolü
+    LineCheck := BASinOutput.CreateNewLineNumber;
+    
+    // Eger yeni numara gerekiyorsa (Negatif deger) basina ekle
+    if (LineCheck < 0) and (LineCheck <> 99999) then
+      FinalStr := IntToStr(Abs(LineCheck)) + ' ' + CmdStr
+    else
+      FinalStr := CmdStr;
+
+    // 2. Metni hafizaya ekle
+    BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset - 1) + 
+                            FinalStr + 
+                            Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
+
+    // 3. Imleci güncelle
+    NewPos := BASinOutput.CursOffset + Length(FinalStr);
+    BASinOutput.CursOffset := NewPos;
+    
+    // 4. Editörü bilgilendir ve tazele
+    BASinOutput.BASICChanged := True; // Syntax check için gerekli
+    BASinOutput.RepaintBASIC(True);
+    BASinOutput.UpdateCursorPos(NewPos, False); // Imleci ekranda kaydir
+    BASinOutput.MakeCursorVisible; // Görünür oldugundan emin ol
+  end;
+  // ---------------------------------------------------------
+
 begin
   Case (Sender As TComponent).Tag of
      1:
         Begin // Print AT
             TempStr := 'PRINT AT '+IntToStr(LocateY)+','+IntToStr(LocateX)+';';
-            BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
-            BASinOutput.RepaintBASIC(True);
-          //AddCodeWindow.Memo1.Lines[0] := TempStr;
-          //AddCodeWindow.PasteLines;
-
+            InsertCommand(TempStr);
         End;
      2:
-        Begin  //PLOT
-            if MousePosY<>999 Then Begin
+        Begin  // PLOT
+            if MousePosY <> 999 Then Begin
               TempStr := 'PLOT '+IntToStr(MousePosX)+','+IntToStr(MousePosY)+':';
-              LastPlotX:=MousePosX;
-              LastPlotY:=MousePosY;
-              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
-              BASinOutput.UpdateCursorPos(EditorSelStart + DWord(Length(TempStr)), False);
-              BASinOutput.RepaintBASIC(True);
+              LastPlotX := MousePosX;
+              LastPlotY := MousePosY;
+              InsertCommand(TempStr);
             End;
         End;
      3:
-        Begin  //Draw
-             if MousePosY<>999 Then Begin
+        Begin  // DRAW
+             if MousePosY <> 999 Then Begin
               TempStr := 'DRAW '+IntToStr(MousePosX-LastPlotX)+','+IntToStr(MousePosY-LastPlotY)+':';
-              LastPlotX:=MousePosX;
-              LastPlotY:=MousePosY;
-              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
-              BASinOutput.UpdateCursorPos(EditorSelStart + DWord(Length(TempStr)), False);
-              BASinOutput.RepaintBASIC(True);
+              LastPlotX := MousePosX;
+              LastPlotY := MousePosY;
+              InsertCommand(TempStr);
             End;
         End;
      4:
-        Begin  //Circle
-             if MousePosY<>999 Then Begin
+        Begin  // CIRCLE
+             if MousePosY <> 999 Then Begin
               TempStr := 'CIRCLE '+IntToStr(MousePosX)+','+IntToStr(MousePosY)+',15'+':';
-              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
-              BASinOutput.RepaintBASIC(True);
+              // Circle LastPlot'u etkiler mi? Genelde etkilemez ama Sinclair BASIC mantigina göre degisebilir.
+              // Simdilik dokunmuyoruz.
+              InsertCommand(TempStr);
             End;
         End;
-
      5:
-        Begin  //Rect
-             if MousePosY<>999 Then Begin
+        Begin  // Rect (4 tane DRAW komutu ile dikdörtgen çizer)
+             if MousePosY <> 999 Then Begin
+              // Dikdörtgen çizimi için göreceli koordinatlar
               TempStr := 'DRAW '+IntToStr(MousePosX-LastPlotX)+',0:';
               TempStr := TempStr+'DRAW 0, '+IntToStr(MousePosY-LastPlotY)+':';
               TempStr := TempStr+'DRAW -'+IntToStr(MousePosX-LastPlotX)+',0:';
               TempStr := TempStr+'DRAW 0, -'+IntToStr(MousePosY-LastPlotY)+':';
 
-
-              LastPlotX:=MousePosX;
-              LastPlotY:=MousePosY;
-              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
-              BASinOutput.CursOffset:=BASinOutput.CursOffset+Length(TempStr);
-
-              BASinOutput.RepaintBASIC(True);
+              LastPlotX := MousePosX;
+              LastPlotY := MousePosY;
+              InsertCommand(TempStr);
             End;
         End;
-
-    6:
-        Begin  //Peek
+     6:
+        Begin  // Peek
+              // PEEK tek basina bir ise yaramaz (PRINT PEEK... veya LET a=PEEK... olmali)
+              // ama orijinal kodunuzda böyle oldugu için koruyoruz.
               TempStr := 'PEEK '+IntToStr(LastAddress);
-              BASinOutput.BASICMem := Copy(BASinOutput.BASICMem, 1, BASinOutput.CursOffset -1)+TempStr+Copy(BASinOutput.BASICMem, BASinOutput.CursOffset, 999999);
-              BASinOutput.RepaintBASIC(True);
-
+              InsertCommand(TempStr);
         End;
-
-
-  End; //case
+  end;
 end;
 
 Initialization

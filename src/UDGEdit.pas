@@ -108,6 +108,7 @@ type
     SetupCount1: TMenuItem;
     N9: TMenuItem;
     Save1: TMenuItem;
+    FromMemoryManager1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -169,6 +170,7 @@ type
     procedure ExportCharacter1Click(Sender: TObject);
     procedure SetupCount1Click(Sender: TObject);
     procedure Save1Click(Sender: TObject);
+    procedure FromMemoryManager1Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -246,6 +248,7 @@ type
     Procedure RenderCurrentAnim(NewSet: Boolean);
     Procedure AnimScrollInView(Index: Integer);
     Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles; //arda
+    Procedure ImportRawData(Data: AnsiString; Name: String; StartAddr: Word);
   end;
 
 var
@@ -256,9 +259,68 @@ implementation
 {$R *.DFM}
 
 Uses GridSetup, FastCore, ROMUtils, Filing, InputUtils, Utility, UDGOptions, AnimPreview,
-     AddCode, Evaluate, BasinMain, TokenWindow, GrabParms, BinaryForm, Binaries, ShellAPI;
+     AddCode, Evaluate, BasinMain, TokenWindow, GrabParms, BinaryForm, Binaries, ShellAPI,
+  MemManager;
 
 
+// Bu prosedürü implementation kismina ekleyin
+
+Procedure TUDGWindow.ImportRawData(Data: AnsiString; Name: String; StartAddr: Word);
+Var
+  CodeLength: Integer;
+begin
+  if Length(Data) = 0 then Exit;
+
+  // Editör penceresini öne getir
+  Self.BringToFront;
+
+  // Kullaniciya verinin formatini sor (Open1Click mantigiyla ayni)
+  UDGGrabWindow.WindowType := 2; // Data import modu
+  UDGGrabWindow.Edit3.Text := IntToStr(DataWidth);
+  UDGGrabWindow.Edit4.Text := IntToStr(DataHeight);
+  UDGGrabWindow.FileSpec := Name; // Pencere basliginda isim görünsün
+
+  CentreFormOnForm(UDGGrabWindow, Self);
+  ShowWindow(UDGGrabWindow, True);
+
+  If Not UDGGrabWindow.Cancelled Then Begin
+
+     DataWidth := UDGGrabWindow.Val3;
+     DataHeight := UDGGrabWindow.Val4;
+     Address := StartAddr;
+
+     StoreUndo;
+
+     // Veriyi grid boyutlarina hizala (fazlaliklari kirp)
+     CodeLength := Length(Data);
+     CodeLength := DataWidth * DataHeight * (CodeLength Div (DataWidth * DataHeight));
+
+     // Degiskenleri ayarla
+     NumChars := CodeLength Div (DataWidth * DataHeight);
+     SetLength(ClipChar, DataWidth * DataHeight);
+     CurChar := 1;
+     AssignedChars := #1#0;
+
+     // Veriyi kopyala
+     CurChars := Copy(Data, 1, CodeLength);
+     FirstRun := False;
+
+     
+     // Görünümü güncelle
+     FormResize(nil);
+     SetPaletteSize;
+     //RepaintChars;
+     //GetBigChar(True);
+     UpdateStatusBar;
+      // Dosya adi ve basligi güncelle (Kaydederken yeni dosya gibi davransin)
+     UdgFileName := ''; 
+     UDGWindow.Caption := 'UDG Character Editor - ' + Name;
+     UdgWindow.Show;
+     changed := True;
+
+
+  End;
+end;
 
 
 Procedure TUDGWindow.FileIsDropped(Var Msg: TMessage);
@@ -2615,7 +2677,7 @@ begin
   BinaryWindow.ShowModal;
   Inc(CurObj);
   MouseDown := False;
-  BinaryWindow.Caption := 'Export Graphics to Memory';
+  //BinaryWindow.Caption := 'Export Graphics to Memory';
 
 end;
 
@@ -3053,6 +3115,38 @@ end;
 procedure TUDGWindow.Save1Click(Sender: TObject);
 begin
      SaveAs(UdgFileName);
+end;
+
+
+procedure TUDGWindow.FromMemoryManager1Click(Sender: TObject);
+var
+  ManagerData: TByteArray;
+  DataStr: AnsiString;
+  ManagerName: String;
+  ManagerAddr: Word;
+  i: Integer;
+begin
+  // Check if MemManagerForm is created and has a selection
+  if (MemManagerForm <> nil) and (MemManagerForm.ListView1.Selected <> nil) then 
+  begin
+     ManagerData := MemManagerForm.GetSelectedBlockData;
+     ManagerName := MemManagerForm.GetSelectedBlockName;
+     ManagerAddr := MemManagerForm.GetSelectedBlockAddress;
+
+     // Convert TByteArray to AnsiString (if ImportRawData requires string)
+     SetLength(DataStr, Length(ManagerData));
+     if Length(ManagerData) > 0 then
+     begin
+        for i := 0 to High(ManagerData) do
+           DataStr[i + 1] := AnsiChar(ManagerData[i]);
+     end;
+
+     ImportRawData(DataStr, ManagerName, ManagerAddr);
+  end
+  else
+  begin
+     ShowMessage('Please select a block in Memory Manager first.');
+  end;
 end;
 
 End.

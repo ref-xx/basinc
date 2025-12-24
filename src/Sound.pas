@@ -126,7 +126,7 @@ Begin
 
   SoundAvailable := False;
 
-  If Not Opt_SoundEnabled Then Exit;
+  //If Not Opt_SoundEnabled Then Exit;
 
   DXError := DirectSoundCreate(Nil, DSObject, Nil);
 

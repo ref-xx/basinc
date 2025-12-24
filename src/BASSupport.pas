@@ -1374,9 +1374,14 @@ Begin
         Inc(LPos);
      End;
   End Else Begin
-     // Not an escape character as such, but we have to treat
-     // it as one, so output the next char *only*.
-     BASICLine := BASICLine + CurChar;
+     // ARDA FIX:
+     // reported by mefjak
+     // if it's a known escape code '\' or '@' (zmakebas)then use as escape,
+     // if not (eg: \- ) keep backslash
+     If (CurChar = '\') or (CurChar = '@') Then
+        BASICLine := BASICLine + CurChar
+     Else
+        BASICLine := BASICLine + '\' + CurChar;
   End;
 End;
 

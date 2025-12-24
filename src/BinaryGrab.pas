@@ -26,9 +26,11 @@ type
     { Private declarations }
   public
     { Public declarations }
+
     BlockAddress,
     BlockSize: Integer;
     Cancelled: Boolean;
+    procedure updateBoxes;
   end;
 
 var
@@ -39,6 +41,14 @@ implementation
 {$R *.DFM}
 
 Uses UDGEdit, Evaluate, BASinMain;
+
+
+procedure TBinaryGrabWindow.updateBoxes;
+begin
+    Edit4.Text:= inttostr(BlockAddress);
+    Edit2.Text:= inttostr(BlockSize);
+    
+end;
 
 procedure TBinaryGrabWindow.FormShow(Sender: TObject);
 begin
