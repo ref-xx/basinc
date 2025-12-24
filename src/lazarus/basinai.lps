@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <PathDelim Value="\"/>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="basinai.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="BasinAI"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="112"/>
+        <CursorPos Y="142"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="14">
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="40" Column="160" TopLine="25"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="35" Column="84" TopLine="24"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="93" Column="5" TopLine="63"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="43" Column="16" TopLine="28"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="35" Column="24" TopLine="21"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="66" Column="5" TopLine="36"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="26" Column="93" TopLine="21"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="89" Column="5" TopLine="59"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="49" Column="78" TopLine="38"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="67" TopLine="37"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="31" Column="52" TopLine="22"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="10" Column="45"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="70" Column="40" TopLine="55"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="105" Column="38" TopLine="93"/>
+      </Position>
+      <Position>
+        <Filename Value="basinai.lpr"/>
+        <Caret Line="102" Column="83" TopLine="93"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>
