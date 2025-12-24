@@ -1,7 +1,7 @@
 object RenumberForm: TRenumberForm
   Tag = 1
-  Left = 1016
-  Top = 385
+  Left = 1176
+  Top = 118
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Renumber'

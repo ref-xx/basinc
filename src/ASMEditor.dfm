@@ -156,6 +156,7 @@ object ASMEditorWindow: TASMEditorWindow
       end
       object Assemble1: TMenuItem
         Caption = 'Assemble'
+        OnClick = Assemble1Click
         object UsePasmo1: TMenuItem
           Tag = 24
           Caption = 'Use Pasmo to compile'
@@ -180,6 +181,11 @@ object ASMEditorWindow: TASMEditorWindow
         object ToTapeblocks1: TMenuItem
           Tag = 21
           Caption = 'To Tape blocks'
+          OnClick = MenuItemClick
+        end
+        object oBridge1: TMenuItem
+          Tag = 23
+          Caption = 'To Bridge'
           OnClick = MenuItemClick
         end
       end

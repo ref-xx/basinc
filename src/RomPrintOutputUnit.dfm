@@ -1,10 +1,11 @@
 object RomPrintOutputWindow: TRomPrintOutputWindow
   Left = 1406
   Top = 370
-  Width = 313
-  Height = 489
   BorderIcons = [biSystemMenu]
+  BorderStyle = bsSingle
   Caption = 'Screen Text Capture'
+  ClientHeight = 450
+  ClientWidth = 297
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
