@@ -20,4 +20,4 @@ You will require following 3rd party packages:
 ### Download Binaries for Windows
 
 You may find BasinC release binaries and development blog here:
-https://arda.kisafilm.org/blog/?cat=13&lang=en
+https://basinc.zx.tr
