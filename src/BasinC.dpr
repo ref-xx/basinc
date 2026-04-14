@@ -24,17 +24,26 @@ uses
   Utility in 'utility.pas',
   notes in 'notes.pas' {NotesWindow},
   BlockUnit in 'BlockUnit.pas',
-  CompressorUnit in 'CompressorUnit.pas',
   VarsWindow in 'VarsWindow.pas' {VariablesWindow},
   Options in 'Options.pas' {OptionsWindow},
   Tapes in 'Tapes.pas' {TapeWindow},
   ASMEditor in 'ASMEditor.pas' {ASMEditorWindow},
   HexEdit in 'HexEdit.pas' {HexWindow},
   zx0packer in 'zx0packer.pas',
-  RomPrintOutputUnit in 'RomPrintOutputUnit.pas' {RomPrintOutputWindow};
+  RomPrintOutputUnit in 'RomPrintOutputUnit.pas' {RomPrintOutputWindow},
+  BasicMergeWindow in 'BasicMergeWindow.pas' {BasicMergeForm},
+  BasinCTips in 'BasinCTips.pas' {FormBasinCTips},
+  FastCore in 'FastCore.pas',
+  Filing in 'Filing.pas',
+  BasincCompiler1 in 'BasincCompiler1.pas' {FormCompiler1},
+  ROMUtils in 'ROMUtils.pas',
+  SysVars in 'SysVars.pas' {SysVarsWindow},
+  ProfilingForm in 'ProfilingForm.pas' {ProfileForm},
+  TokenWindow in 'TokenWindow.pas' {TokenForm},
+  UDGEdit in 'UDGEdit.pas' {UDGWindow};
 
 {$R *.RES}
-//{$R WindowsXP.RES}
+{$R WindowsXP.RES}
 {$Z4}
 
 var
@@ -94,11 +103,17 @@ begin
   Application.CreateForm(TScrPreviewForm, ScrPreviewForm);
   Application.CreateForm(TNotesWindow, NotesWindow);
   Application.CreateForm(TVariablesWindow, VariablesWindow);
-  Application.CreateForm(TOptionsWindow, OptionsWindow);
   Application.CreateForm(TTapeWindow, TapeWindow);
   Application.CreateForm(TASMEditorWindow, ASMEditorWindow);
   Application.CreateForm(THexWindow, HexWindow);
   Application.CreateForm(TRomPrintOutputWindow, RomPrintOutputWindow);
+  Application.CreateForm(TBasicMergeForm, BasicMergeForm);
+  Application.CreateForm(TFormBasinCTips, FormBasinCTips);
+  Application.CreateForm(TFormCompiler1, FormCompiler1);
+  Application.CreateForm(TSysVarsWindow, SysVarsWindow);
+  Application.CreateForm(TProfileForm, ProfileForm);
+  Application.CreateForm(TTokenForm, TokenForm);
+  Application.CreateForm(TUDGWindow, UDGWindow);
   Application.Run;
   if Mutex <> 0 then CloseHandle(Mutex);
 

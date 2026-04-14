@@ -1,7 +1,7 @@
 object BlockProperties: TBlockProperties
   Tag = 1
-  Left = 1673
-  Top = 348
+  Left = 796
+  Top = 338
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Tape Block Properties'

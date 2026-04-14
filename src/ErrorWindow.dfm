@@ -17,6 +17,9 @@ object ErrorForm: TErrorForm
   OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
+  DesignSize = (
+    295
+    183)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel

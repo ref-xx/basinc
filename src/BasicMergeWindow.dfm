@@ -1,6 +1,6 @@
 object BasicMergeForm: TBasicMergeForm
-  Left = 1477
-  Top = 560
+  Left = 1253
+  Top = 316
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Clean Code'
@@ -25,21 +25,21 @@ object BasicMergeForm: TBasicMergeForm
     TabOrder = 0
     object Label1: TLabel
       Left = 56
-      Top = 152
+      Top = 176
       Width = 48
       Height = 13
       Caption = 'Start Line:'
     end
     object Label2: TLabel
       Left = 136
-      Top = 152
+      Top = 176
       Width = 45
       Height = 13
       Caption = 'End Line:'
     end
     object Label3: TLabel
       Left = 16
-      Top = 124
+      Top = 148
       Width = 170
       Height = 13
       Caption = 'Max Chars per Line (Standard=249):'
@@ -50,8 +50,6 @@ object BasicMergeForm: TBasicMergeForm
       Width = 137
       Height = 17
       Caption = 'Join DATA Statements'
-      Checked = True
-      State = cbChecked
       TabOrder = 0
     end
     object CheckBox2: TCheckBox
@@ -60,8 +58,6 @@ object BasicMergeForm: TBasicMergeForm
       Width = 225
       Height = 17
       Caption = 'Further process PRINT and DATA'
-      Checked = True
-      State = cbChecked
       TabOrder = 1
     end
     object CheckBox3: TCheckBox
@@ -76,7 +72,7 @@ object BasicMergeForm: TBasicMergeForm
     end
     object Edit1: TEdit
       Left = 56
-      Top = 168
+      Top = 192
       Width = 57
       Height = 21
       TabOrder = 3
@@ -84,7 +80,7 @@ object BasicMergeForm: TBasicMergeForm
     end
     object Edit2: TEdit
       Left = 136
-      Top = 168
+      Top = 192
       Width = 57
       Height = 21
       TabOrder = 4
@@ -92,10 +88,10 @@ object BasicMergeForm: TBasicMergeForm
     end
     object CheckBox4: TCheckBox
       Left = 16
-      Top = 200
+      Top = 120
       Width = 225
       Height = 17
-      Caption = 'I know not all programs can be minified'
+      Caption = 'Merge lines and Minify Basic'
       Checked = True
       State = cbChecked
       TabOrder = 5
@@ -112,7 +108,7 @@ object BasicMergeForm: TBasicMergeForm
     end
     object Edit3: TEdit
       Left = 200
-      Top = 120
+      Top = 144
       Width = 41
       Height = 21
       TabOrder = 7

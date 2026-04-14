@@ -1,6 +1,6 @@
 object FormBasinCTips: TFormBasinCTips
-  Left = 806
-  Top = 312
+  Left = 1139
+  Top = 323
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'BasinC Tips'

@@ -1,7 +1,7 @@
 object FindForm: TFindForm
   Tag = 1
-  Left = 55
-  Top = 147
+  Left = 667
+  Top = 254
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Find...'
@@ -17,6 +17,9 @@ object FindForm: TFindForm
   Scaled = False
   OnCreate = FormCreate
   OnShow = FormShow
+  DesignSize = (
+    278
+    223)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel

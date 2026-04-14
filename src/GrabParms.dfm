@@ -1,6 +1,6 @@
 object UDGGrabWindow: TUDGGrabWindow
-  Left = 11
-  Top = 354
+  Left = 647
+  Top = 343
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Sprite/Graphic Editor'
