@@ -128,7 +128,7 @@ Var
   ReleaseName:            String = 'BasinC'; //is now set from the Project Options > Version Info.
   iniReleaseName:         String = '';
   ReleaseBuild:           String = 'Private Build';
-  ReleaseDate:            String = 'Mar,24 2025';
+  ReleaseDate:            String = 'April 14, 2026';
   DefaultProjectName:     String = 'My Basic';
   CurProjectName:         String = 'My Basic';
   CurProjectFilename:     String = 'My Basic';
@@ -153,18 +153,23 @@ Var
 
   Opt_ConsoleAddon:       Boolean = True;               // Console Output Window  arda
   Opt_CheckUpdates:       Boolean = False;               // Alert when update available
+  Opt_ShowBaseSnips:      Boolean = True;
 
   Opt_Indenting:          Boolean = False;              // Text indenting of special loop keywords: FOR..NEXT & IF  arda
   Opt_IndentSize:         Integer = 4;                  // Indent size
   Opt_ShowNotes:          Boolean = True;
-  Opt_EnableAI:           Boolean = False;
+  Opt_EnableAI:           Boolean = False;              //not saved with the session
   Opt_SelectedAIModel:    String = '';
   Opt_BYOK_APIKEY:        String = '';
+  Opt_ShareURL:           String='';                    // default zx.tr will be set after using first share option
+  Opt_AIMode:             String='';                    // Gemini or Ollama
+  Opt_AILocalUrl:         String='http://localhost:11434/';
 
   SpeedBackup:            Integer = 69888;              // to store original speed of emulation temporarily
+  Opt_CpuCustomSpeed:     Integer = 69888;              // Startup CPU speed remembered from Options
   Opt_CPUSpeed:           Integer = 69888;              // The speed (in TStates) of the CPU - Ts/Frame
   Opt_EmulationSpeed:     Integer = 19;                  // adjust sleep duration while silent emulation
-  Opt_64Colours:          Boolean = True;               // Use the new 64 colour ULA?
+  Opt_64Colours:          Boolean = False;               // Use the new 64 colour ULA?
   Opt_AllowMultipleInstances: Boolean = True;           // Allow running multiple instances of basin
   Opt_CheqEditAvailable:  Boolean = False;              // checks for cheq_edit.exe
   Opt_KMouse:             Boolean = True;               // Use Kempston Mouse
@@ -198,6 +203,7 @@ Var
   Opt_AutoCollectSubs:    Boolean = True;               // Enable detecting GO SUB commands and add it to Sub-Combo.
   Opt_AutoCollectJumps:   Boolean = True;               // Enable detecting GO TO targets
   Opt_ShowJumpOrigins:    Boolean = True;               // Enable origin previews
+  Opt_OnlyAddMultipleJumps: Boolean = False;            // Only show multi-origin jump targets
   Opt_ShowStatusBar:      Boolean = True;               // Display the status bar?
   Opt_ShowToolBar:        Boolean = True;               // Display the Toolbar?
   Opt_ShowAscii:          Boolean = True;               // Display non-alphanumeric/symbol chars (ie, colour changes) as special glyphs?
@@ -259,7 +265,7 @@ Var
 
   Opt_OnlineHelp:         Boolean = True;               //use web help
   Opt_AutoBackup:         Boolean = True;               //Automatically save backup files as BAS
-  Opt_AutoBackInterval:   Integer = 3;                  //10 minutes by default
+  Opt_AutoBackInterval:   Integer = 3;                  //3=10 minutes by default
   Opt_AutoLoadSession:    Boolean = False;              // Load the previous session on startup?
   Opt_LoadAutoStart:      Boolean = False;               // Allow BAS files to autostart on loading?
   Opt_AutoStart:          Boolean = False;               // Automatically save programs with Autostart?
@@ -267,7 +273,7 @@ Var
   Opt_z80Version:         DWord = 2;                    // Saves .z80 snapshots as V1.45, V2.01 or V3.5 snaps
   Opt_Always128k:         Integer = 0;                     // Saves snaps as which hardware?   default=always 48
   Opt_SavePretty:         Boolean = False;              // Saves .bas files nicely by splitting up multistatement lines.
-  Opt_TapeRewind:         Boolean = True;               // Automatically rewind TZX/TAP tapes when the reach the end.
+  Opt_TapeRewind:         Boolean = False;               // Automatically rewind TZX/TAP tapes when the reach the end.
 
   Opt_DisplaySnap:        Boolean = False;              // snap display to editor window v1.795
   Opt_DisplayOnTop:       Boolean = False;              // make Display window on top
@@ -276,7 +282,7 @@ Var
   Opt_SavePrinting:       Boolean = True;               // Store the printed output between sessions?
 
   Opt_SoundEnabled:       Boolean = True;               // Do we want sounds at all in the Emulation?
-  Opt_SoundVolume:        Word = 30000;                 // Volume modifier for sound volume.
+  Opt_SoundVolume:        Word = 20000;                 // Volume modifier for sound volume.
   Opt_SoundFrequency:     DWord = 44100;                // Sample frequency in Hz
   Opt_SoundBits:          DWord = 16;                   // 16/8 Bit?
   Opt_SoundStereo:        DWord = 1;                    // 0 = Mono, 1 = Stereo (expansion for ABC/ACB etc later).
@@ -482,7 +488,7 @@ Const
 
 implementation
 
-Uses BasinMain, Filing, ROMUtils, RLEUnit, Display, VarsWindow, CPUDisplay, TokenWindow, PaintBox;
+Uses BasinMain, ComCtrls, Filing, ROMUtils, RLEUnit, Display, VarsWindow, CPUDisplay, TokenWindow, PaintBox;
 
 
 Procedure TWorkerThread.Execute;
@@ -849,6 +855,8 @@ Begin
   CurProjectFullPathFile:=ExtractFilename(Name);
   CurProjectName := TrimExtension(CurProjectFullPathFile);
   CurProjectFilename := Name;
+  If ExtractFilePath(Name) <> '' Then
+     SessionProjectFileName := Name;
   ProjectSaved := True;
   BASinOutput.Label1.Caption := 'Project ' + CurProjectName ;
   BASinOutput.SetCaption;
@@ -909,17 +917,31 @@ End;
 Procedure LoadOptions;
 Var
   Vs, Idx, Lt, Tp, Wd, Ht: Integer;
+  ToolbarIdx, BandIdx, SavedIndex, SavedWidth: Integer;
   Value, NewEntry: String;
+  ToolbarControls: Array[0..7] Of TControl;
+  ToolbarNames: Array[0..7] Of String;
+  Function FindCoolBarBandIndex(ACoolBar: TCoolBar; AControl: TControl): Integer;
+  Var
+    Idx: Integer;
+  Begin
+    Result := -1;
+    If (ACoolBar = nil) or (AControl = nil) Then
+       Exit;
+
+    For Idx := 0 To ACoolBar.Bands.Count -1 Do
+       If ACoolBar.Bands[Idx].Control = AControl Then Begin
+          Result := Idx;
+          Exit;
+       End;
+  End;
 Begin
 
-
-
-  INI := TStringlist.Create;
+  INI := TStringlist.Create;
   If FileExists(BASinDIR+'\basinC.ini') Then
      INI.LoadFromFile(BASinDIR+'\basinC.ini');
 
   // Resume
-
   Value :=                   INIRead('LastSession', 'LastProjectName', '');
   Opt_AutoLoadSession :=     INIRead('LastSession', 'Opt_AutoLoadSession', Opt_AutoLoadSession);
   BASICCheckSum :=           INIRead('LastSession', 'Checksum', Integer(0));
@@ -945,6 +967,7 @@ Begin
   Opt_AutoCollectSubs:=      INIRead('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs);   //1.8
   Opt_AutoCollectJumps:=     INIRead('Programming', 'Opt_AutoCollectJumps', Opt_AutoCollectJumps);   //1.83
   Opt_ShowJumpOrigins:=      INIRead('Programming', 'Opt_ShowJumpOrigins', Opt_ShowJumpOrigins);   //1.83
+  Opt_OnlyAddMultipleJumps:= INIRead('Programming', 'Opt_OnlyAddMultipleJumps', Opt_OnlyAddMultipleJumps);
   Opt_ShowAscii :=           INIRead('Programming', 'Opt_ShowASCII', Opt_ShowAscii);
   Opt_Predictive :=          INIRead('Programming', 'Opt_Predictive', Opt_Predictive);
   Opt_OverwriteProtect :=    INIRead('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
@@ -953,10 +976,71 @@ Begin
   Opt_ShowRemCommands :=     INIRead('Programming', 'Opt_ShowRemCommands', Opt_ShowRemCommands);
   Opt_EnableBasincTips :=    INIRead('Programming', 'Opt_EnableBasincTips', Opt_EnableBasincTips);
 
+  // CPU Speed options
+
+  Opt_CpuCustomSpeed :=      INIRead('Emulation', 'Opt_CpuCustomSpeed', Opt_CpuCustomSpeed);
+  If (Opt_CpuCustomSpeed < 4) or (Opt_CpuCustomSpeed > 1118208) Then
+     Opt_CpuCustomSpeed := 69888;
+  Opt_CPUSpeed :=            Opt_CpuCustomSpeed;
+  SpeedBackup :=             Opt_CPUSpeed;
+
+  // Toolbar layout and visibility
+  If Assigned(BASinOutput) Then Begin
+     BASinOutput.ToolbarShowFilingIcons := INIRead('Toolbar', 'ShowFilingIcons', True);
+     BASinOutput.ToolbarShowEvaluators := INIRead('Toolbar', 'ShowEvaluators', Opt_Controlicons);
+     BASinOutput.ToolbarShowQuickTools := INIRead('Toolbar', 'ShowQuickTools', False);
+     BASinOutput.ToolbarShowEditorIcons := INIRead('Toolbar', 'ShowEditorIcons', False);
+     if BASinOutput.MultiRowToolbar1 <> nil then
+        BASinOutput.MultiRowToolbar1.Checked := INIRead('Toolbar', 'UseMultiRow', False);
+
+     If BASinOutput.CoolBar1 <> nil Then Begin
+        ToolbarControls[0] := BASinOutput.PanelToolbarBand0;
+        ToolbarControls[1] := BASinOutput.PanelToolbarBand1;
+        ToolbarControls[2] := BASinOutput.PanelToolbarBand2;
+        ToolbarControls[3] := BASinOutput.PanelToolbarBand3;
+        ToolbarControls[4] := BASinOutput.PanelToolbarBand4;
+        ToolbarControls[5] := BASinOutput.PanelToolbarBand5;
+        ToolbarControls[6] := BASinOutput.Panel3;
+        ToolbarControls[7] := BASinOutput.PanelToolbarInfo;
+
+        ToolbarNames[0] := 'PanelToolbarBand0';
+        ToolbarNames[1] := 'PanelToolbarBand1';
+        ToolbarNames[2] := 'PanelToolbarBand2';
+        ToolbarNames[3] := 'PanelToolbarBand3';
+        ToolbarNames[4] := 'PanelToolbarBand4';
+        ToolbarNames[5] := 'PanelToolbarBand5';
+        ToolbarNames[6] := 'Panel3';
+        ToolbarNames[7] := 'PanelToolbarInfo';
+
+        For ToolbarIdx := 0 To 7 Do Begin
+           BandIdx := FindCoolBarBandIndex(BASinOutput.CoolBar1, ToolbarControls[ToolbarIdx]);
+           If BandIdx = -1 Then
+              Continue;
+           SavedIndex := INIRead('Toolbar', ToolbarNames[ToolbarIdx]+'.Index', BASinOutput.CoolBar1.Bands[BandIdx].Index);
+           If (SavedIndex >= 0) and (SavedIndex < BASinOutput.CoolBar1.Bands.Count) Then
+              BASinOutput.CoolBar1.Bands[BandIdx].Index := SavedIndex;
+        End;
+
+        For ToolbarIdx := 0 To 7 Do Begin
+           BandIdx := FindCoolBarBandIndex(BASinOutput.CoolBar1, ToolbarControls[ToolbarIdx]);
+           If BandIdx = -1 Then
+              Continue;
+           SavedWidth := INIRead('Toolbar', ToolbarNames[ToolbarIdx]+'.Width', BASinOutput.CoolBar1.Bands[BandIdx].Width);
+           If SavedWidth > 0 Then
+              BASinOutput.CoolBar1.Bands[BandIdx].Width := SavedWidth;
+           BASinOutput.CoolBar1.Bands[BandIdx].Visible := INIRead('Toolbar', ToolbarNames[ToolbarIdx]+'.Visible', BASinOutput.CoolBar1.Bands[BandIdx].Visible);
+           BASinOutput.CoolBar1.Bands[BandIdx].Break := INIRead('Toolbar', ToolbarNames[ToolbarIdx]+'.Break', BASinOutput.CoolBar1.Bands[BandIdx].Break);
+        End;
+     End;
+  End;
+
   // AI Options
 
   Opt_SelectedAIModel :=     INIRead('AI', 'Opt_SelectedAIModel', Opt_SelectedAIModel);
   Opt_BYOK_APIKEY :=         INIRead('AI', 'Opt_BYOK_APIKEY', Opt_BYOK_APIKEY);
+  Opt_AIMode :=              INIRead('AI', 'Opt_AIMode', Opt_AIMode);
+  Opt_AILocalUrl :=          INIRead('AI', 'Opt_AILocalUrl', Opt_AILocalUrl);
+  
 
   // Syntax Highlight Options
 
@@ -1043,7 +1127,7 @@ Begin
   Opt_CursorColor2:=   INIRead('CursorColor2', 'Opt_CursorColor2', Opt_CursorColor2);
 
   Opt_CursorBlinking:=    INIRead('CustomColours', 'Opt_CursorBlinking', Opt_CursorBlinking);
-  BasinOutput.Timer1.Enabled:=Opt_CursorBlinking;
+
 
   BuildPalette([TFSpecBlack, TFSpecBlue,  TFSpecRed,  TFSpecMagenta,  TFSpecGreen,  TFSpecCyan,  TFSpecYellow,  TFSpecWhite,
                 TFSpecBlack, TFSpecBlueB, TFSpecRedB, TFSpecMagentaB, TFSpecGreenB, TFSpecCyanB, TFSpecYellowB, TFSpecWhiteB,
@@ -1087,11 +1171,14 @@ Begin
 
    // Basinet
   Opt_CheckUpdates:=         INIRead('Basinet', 'Opt_CheckUpdates', Opt_CheckUpdates);
+  Opt_ShowBaseSnips:=        INIRead('Basinet', 'Opt_ShowBaseSnips', Opt_ShowBaseSnips);
 
   // Display Options
 
   Opt_DisplayOnTop:=   INIRead('DisplayOnTop', 'Opt_DisplayOnTop', Opt_DisplayOnTop);
   Opt_DisplaySnap :=   INIRead('DisplaySnap', 'Opt_DisplaySnap', Opt_DisplaySnap);
+  if Assigned(BASinOutput) and Assigned(BASinOutput.AlwaysOnTopTools1) then
+     BASinOutput.AlwaysOnTopTools1.Checked := INIRead('ToolWindows', 'AlwaysOnTop', BASinOutput.AlwaysOnTopTools1.Checked);
   
   // Scaling Options
 
@@ -1139,6 +1226,11 @@ Begin
   Opt_AutoBackup :=          INIRead('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
   Opt_AutoBackInterval:=     INIRead('BASFiles', 'Opt_AutoBackInterval', Opt_AutoBackInterval);
   Opt_ShowNotes :=           INIRead('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
+
+  //basincNet
+
+  Opt_ShareURL:=             INIRead('BasincNet', 'Opt_ShareURL', Opt_ShareURL);
+
 
   // Tape Images
 
@@ -1217,9 +1309,28 @@ End;
 Procedure SaveOptions;
 Var
   Idx, Vs, Lt, Tp, Wd, Ht: Integer;
+  ToolbarIdx, BandIdx: Integer;
+  ToolbarControls: Array[0..7] Of TControl;
+  ToolbarNames: Array[0..7] Of String;
+  Function FindCoolBarBandIndex(ACoolBar: TCoolBar; AControl: TControl): Integer;
+  Var
+    Idx: Integer;
+  Begin
+    Result := -1;
+    If (ACoolBar = nil) or (AControl = nil) Then
+       Exit;
+
+    For Idx := 0 To ACoolBar.Bands.Count -1 Do
+       If ACoolBar.Bands[Idx].Control = AControl Then Begin
+          Result := Idx;
+          Exit;
+       End;
+  End;
 Begin
 
   INI := TStringlist.Create;
+  If FileExists(BASinDIR+'\basinC.ini') Then
+     INI.LoadFromFile(BASinDIR+'\basinC.ini');
 
   // Version
 
@@ -1231,7 +1342,9 @@ Begin
   INIWrite('LastSession', 'Opt_AutoLoadSession', Opt_AutoLoadSession);
   INIWrite('LastSession', 'Checksum', BASICCheckSum);
   INIWrite('LastSession', 'SessionProjectName', CurProjectName);
-  INIWrite('LastSession', 'SessionProjectFileName', CurProjectFileName);
+  If ExtractFilePath(CurProjectFileName) <> '' Then
+     SessionProjectFileName := CurProjectFileName;
+  INIWrite('LastSession', 'SessionProjectFileName', SessionProjectFileName);
   INIWrite('LastSession', 'LastFileOpened', CurProjectFullPathFile);
   If (Length(SessionID)<7) Then Begin
         SessionID := inttostr(Round((Now() - 25569.0 ) * 86400));
@@ -1255,6 +1368,7 @@ Begin
   INIWrite('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs); //1.8
   INIWrite('Programming', 'Opt_AutoCollectJumps', Opt_AutoCollectJumps); //1.83
   INIWrite('Programming', 'Opt_ShowJumpOrigins', Opt_ShowJumpOrigins); //1.83
+  INIWrite('Programming', 'Opt_OnlyAddMultipleJumps', Opt_OnlyAddMultipleJumps);
   INIWrite('Programming', 'Opt_ShowASCII', Opt_ShowAscii);
   INIWrite('Programming', 'Opt_Predictive', Opt_Predictive);
   INIWrite('Programming', 'Opt_OverwriteProtect', Opt_OverwriteProtect);
@@ -1264,10 +1378,52 @@ Begin
   INIWrite('Programming', 'Opt_ShowRemCommands', Opt_ShowRemCommands); //1.81
   INIWrite('Programming', 'Opt_EnableBasincTips', Opt_EnableBasincTips);
 
+  // Toolbar layout and visibility
+  If Assigned(BASinOutput) Then Begin
+     INIWrite('Toolbar', 'ShowFilingIcons', BASinOutput.ToolbarShowFilingIcons);
+     INIWrite('Toolbar', 'ShowEvaluators', BASinOutput.ToolbarShowEvaluators);
+     INIWrite('Toolbar', 'ShowQuickTools', BASinOutput.ToolbarShowQuickTools);
+     INIWrite('Toolbar', 'ShowEditorIcons', BASinOutput.ToolbarShowEditorIcons);
+     if BASinOutput.MultiRowToolbar1 <> nil then
+        INIWrite('Toolbar', 'UseMultiRow', BASinOutput.MultiRowToolbar1.Checked);
+
+     If BASinOutput.CoolBar1 <> nil Then Begin
+        ToolbarControls[0] := BASinOutput.PanelToolbarBand0;
+        ToolbarControls[1] := BASinOutput.PanelToolbarBand1;
+        ToolbarControls[2] := BASinOutput.PanelToolbarBand2;
+        ToolbarControls[3] := BASinOutput.PanelToolbarBand3;
+        ToolbarControls[4] := BASinOutput.PanelToolbarBand4;
+        ToolbarControls[5] := BASinOutput.PanelToolbarBand5;
+        ToolbarControls[6] := BASinOutput.Panel3;
+        ToolbarControls[7] := BASinOutput.PanelToolbarInfo;
+
+        ToolbarNames[0] := 'PanelToolbarBand0';
+        ToolbarNames[1] := 'PanelToolbarBand1';
+        ToolbarNames[2] := 'PanelToolbarBand2';
+        ToolbarNames[3] := 'PanelToolbarBand3';
+        ToolbarNames[4] := 'PanelToolbarBand4';
+        ToolbarNames[5] := 'PanelToolbarBand5';
+        ToolbarNames[6] := 'Panel3';
+        ToolbarNames[7] := 'PanelToolbarInfo';
+
+        For ToolbarIdx := 0 To 7 Do Begin
+           BandIdx := FindCoolBarBandIndex(BASinOutput.CoolBar1, ToolbarControls[ToolbarIdx]);
+           If BandIdx = -1 Then
+              Continue;
+           INIWrite('Toolbar', ToolbarNames[ToolbarIdx]+'.Index', BASinOutput.CoolBar1.Bands[BandIdx].Index);
+           INIWrite('Toolbar', ToolbarNames[ToolbarIdx]+'.Visible', BASinOutput.CoolBar1.Bands[BandIdx].Visible);
+           INIWrite('Toolbar', ToolbarNames[ToolbarIdx]+'.Width', BASinOutput.CoolBar1.Bands[BandIdx].Width);
+           INIWrite('Toolbar', ToolbarNames[ToolbarIdx]+'.Break', BASinOutput.CoolBar1.Bands[BandIdx].Break);
+        End;
+     End;
+  End;
+
   // AI Options
 
   INIWrite('AI', 'Opt_SelectedAIModel', Opt_SelectedAIModel);
   INIWrite('AI', 'Opt_BYOK_APIKEY', Opt_BYOK_APIKEY);
+  INIWrite('AI', 'Opt_AIMode', Opt_AIMode);
+  INIWrite('AI', 'Opt_AILocalUrl', Opt_AILocalUrl);
 
   // Syntax Highlight and Colour Options
 
@@ -1387,10 +1543,13 @@ Begin
 
     //Basinet
    INIWrite('Basinet', 'Opt_CheckUpdates', Opt_CheckUpdates);
+   INIWrite('Basinet', 'Opt_ShowBaseSnips', Opt_ShowBaseSnips);
 
    // Display window options
    INIWrite('DisplaySnap', 'Opt_DisplaySnap', Opt_DisplaySnap);
    INIWrite('DisplayOnTop', 'Opt_DisplayOnTop', Opt_DisplayOnTop);
+   if Assigned(BASinOutput) and Assigned(BASinOutput.AlwaysOnTopTools1) then
+      INIWrite('ToolWindows', 'AlwaysOnTop', BASinOutput.AlwaysOnTopTools1.Checked);
 
 
   // Scaling Options
@@ -1439,7 +1598,10 @@ Begin
   INIWrite('BASFiles', 'Opt_Autostart', Opt_Autostart);
   INIWrite('BASFiles', 'Opt_AutoBackup', Opt_AutoBackup);
   INIWrite('BASFiles', 'Opt_AutoBackInterval', Opt_AutoBackInterval);
-  INIWrite('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);
+  INIWrite('BASFiles', 'Opt_ShowNotes', Opt_ShowNotes);  //notes will be included in bas files
+
+  //BasincNet
+  INIWrite('BasincNet', 'Opt_ShareURL', Opt_ShareURL);
 
 
   // Tape Images
@@ -1621,9 +1783,9 @@ Var
 Begin
   EntryPos := INIFindEntry(Section, Entry);
   If Value Then
-    INI[EntryPos] := INI[EntryPos] + '1'
+    INI[EntryPos] := Entry + '=1'
   Else
-    INI[EntryPos] := INI[EntryPos] + '0';
+    INI[EntryPos] := Entry + '=0';
 End;
 
 Procedure INIWrite(Section, Entry: String; Value: String);
@@ -1631,7 +1793,7 @@ Var
   EntryPos: Integer;
 Begin
   EntryPos := INIFindEntry(Section, Entry);
-  INI[EntryPos] := INI[EntryPos] + Value;
+  INI[EntryPos] := Entry + '=' + Value;
 End;
 
 Procedure INIWrite(Section, Entry: String; Value: Integer);
@@ -1639,7 +1801,7 @@ Var
   EntryPos: Integer;
 Begin
   EntryPos := INIFindEntry(Section, Entry);
-  INI[EntryPos] := INI[EntryPos] + IntToStr(Value);
+  INI[EntryPos] := Entry + '=' + IntToStr(Value);
 End;
 
 Procedure INIWrite(Section, Entry: String; Value: DWord);
@@ -1647,7 +1809,7 @@ Var
   EntryPos: Integer;
 Begin
   EntryPos := INIFindEntry(Section, Entry);
-  INI[EntryPos] := INI[EntryPos] + IntToStr(Value);
+  INI[EntryPos] := Entry + '=' + IntToStr(Value);
 End;
 
 Procedure INIWrite(Section, Entry: String; Value: Word);
@@ -1655,7 +1817,7 @@ Var
   EntryPos: Integer;
 Begin
   EntryPos := INIFindEntry(Section, Entry);
-  INI[EntryPos] := INI[EntryPos] + IntToStr(Value);
+  INI[EntryPos] := Entry + '=' + IntToStr(Value);
 End;
 
 Procedure INIWrite(Section, Entry: String; Value: Extended);
@@ -1663,7 +1825,7 @@ Var
   EntryPos: Integer;
 Begin
   EntryPos := INIFindEntry(Section, Entry);
-  INI[EntryPos] := INI[EntryPos] + FloatToStrEx(Value);
+  INI[EntryPos] := Entry + '=' + FloatToStrEx(Value);
 End;
 
 // CPU Detection
@@ -2332,9 +2494,9 @@ begin
   GetBuildInfo(V1, V2, V3, V4);
   If (BuildIncluded) Then Begin
     If (V3>0) Then Begin
-        Result := IntToStr(V1) + '.' + IntToStr(V2) + ' Iteration ' +IntToStr(V3) + ' Build ' + IntToStr(V4);
+        Result := IntToStr(V1) + '.' + IntToStr(V2) + '.r'+ IntToStr(V3) + '.b' + IntToStr(V4);
     End Else Begin
-        Result := IntToStr(V1) + '.' + IntToStr(V2) + ' Build' + IntToStr(V4);
+        Result := IntToStr(V1) + '.' + IntToStr(V2) + '.b' + IntToStr(V4);
     End;
   End Else Begin
     If (V3>0) Then Begin

@@ -55,9 +55,9 @@ type
     Label7: TLabel;
     Edit4: TEdit;
     Button4: TButton;
-    Label8: TLabel;
     Button5: TButton;
     Splitter1: TSplitter;
+    CheckBox3: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure BtnCloseClick(Sender: TObject);
     procedure BtnSaveClick(Sender: TObject);
@@ -71,9 +71,12 @@ type
     procedure Button1Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure FormHide(Sender: TObject);
     procedure Button5Click(Sender: TObject);
+    procedure CheckBox3Click(Sender: TObject);
   private
     { Private declarations }
+    function IsBaseItem(Item: TListItem): Boolean;
   public
     { Public declarations }
     LatestVersionAvailable: String;
@@ -85,7 +88,7 @@ type
     Procedure PopulateList;
     Procedure SaveList;
     function MergeStrings(Dest, Source: TStringlist): TStringlist;
-    function FindSnip(ID: String):Integer;
+    function FindSnip(Snips: TStringList; ID: String):Integer;
     Procedure DisableAll;
     Procedure RenumberSnippet;
     Procedure FetchSnippet;
@@ -100,6 +103,7 @@ var
   //idttp: TIdHTTP;
   BasinetWindow: TBasinetWindow;
   SNIPS: TStringList;
+  BASE_SNIPS: TStringList;
   SelectedID: String;
 
   const
@@ -116,38 +120,74 @@ uses BasinMain, Sound, Utility, LogWind, FastCore, BASSupport,AddCode;
 
 Procedure TBasinetWindow.PopulateList;
 Var
-  F, Result: Integer;
+  F, SnipIdx: Integer;
   LI: TListItem;
-
+  UserIds: TStringList;
+  procedure AddSnipsToListView(Snips: TStringList; const Owner, State: String; IsBase: Boolean; ExcludeIds: TStringList);
+  begin
+    if Snips = nil then Exit;
+    SnipIdx := 0;
+    while (SnipIdx < Snips.Count-2) do begin
+      while (SnipIdx < Snips.Count-2) and (Snips[SnipIdx] <> '[SNIP]') do Inc(SnipIdx);
+      if (SnipIdx < Snips.Count-2) then begin
+        if (ExcludeIds <> nil) and (ExcludeIds.IndexOf(Snips[SnipIdx+1]) <> -1) then begin
+          SnipIdx := SnipIdx + 4;
+          Continue;
+        end;
+        ListView1.Items.BeginUpdate;
+        LI := ListView1.Items.Add;
+        LI.Caption := IntToStr(F);
+        LI.SubItems.Add(Snips[SnipIdx+2]);
+        LI.SubItems.Add(Snips[SnipIdx+3]);
+        LI.SubItems.Add(Owner);
+        LI.SubItems.Add(State);
+        LI.SubItems.Add(Snips[SnipIdx+1]);
+        if IsBase then
+          LI.Data := Pointer(1)
+        else
+          LI.Data := Pointer(0);
+        Inc(F);
+        SnipIdx := SnipIdx + 4;
+        ListView1.Items.EndUpdate;
+      end;
+    end;
+  end;
 
 Begin
 
   ListView1.Items.Clear;
 
+  if SNIPS <> nil then SNIPS.Free;
   SNIPS := TStringlist.Create;
   If FileExists(BASinDIR+'\BasinCSnips.dat') Then
      SNIPS.LoadFromFile(BASinDIR+'\BasinCSnips.dat');
 
-  Result := 0;
-  F := 1;
-  ListView1.Items.Clear;
-  While (Result < SNIPS.Count-2) Do Begin
-        While (Result < SNIPS.Count-2) and (SNIPS[Result] <> '[SNIP]') Do Inc(Result);
-         if (Result < SNIPS.Count-2) Then Begin
-             ListView1.Items.BeginUpdate;
+  if BASE_SNIPS <> nil then BASE_SNIPS.Free;
+  BASE_SNIPS := nil;
 
-             LI := ListView1.Items.Add;
-             LI.Caption := inttostr(F);
-             LI.SubItems.Add(SNIPS[Result+2]);
-             LI.SubItems.Add(SNIPS[Result+3]);
-             LI.SubItems.Add('You');
-             LI.SubItems.Add('Local');
-             LI.SubItems.Add(SNIPS[Result+1]);
-             Inc(F);
-             Result := Result +4;
-             ListView1.Items.EndUpdate;
-         End;
-  End;
+  F := 1;
+  AddSnipsToListView(SNIPS, 'You', 'Local', False, nil);
+
+  if Opt_ShowBaseSnips then begin
+    BASE_SNIPS := TStringList.Create;
+    if FileExists(BASinDIR+'\BasincSnipsBase.dat') then
+      BASE_SNIPS.LoadFromFile(BASinDIR+'\BasincSnipsBase.dat');
+    UserIds := TStringList.Create;
+    try
+      SnipIdx := 0;
+      while (SnipIdx < SNIPS.Count-2) do begin
+        while (SnipIdx < SNIPS.Count-2) and (SNIPS[SnipIdx] <> '[SNIP]') do Inc(SnipIdx);
+        if (SnipIdx < SNIPS.Count-2) then begin
+          if UserIds.IndexOf(SNIPS[SnipIdx+1]) = -1 then
+            UserIds.Add(SNIPS[SnipIdx+1]);
+          SnipIdx := SnipIdx + 4;
+        end;
+      end;
+      AddSnipsToListView(BASE_SNIPS, 'Base', 'locked', True, UserIds);
+    finally
+      UserIds.Free;
+    end;
+  end;
 
 End;
 
@@ -272,11 +312,11 @@ if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
 
 DisableAll;
 
-
-
+CheckBox3.Checked := Opt_ShowBaseSnips;
 PopulateList;
 if Visible Then TxtSnipName.SetFocus;
 SelectedID := '0';
+OnHide := FormHide;
 end;
 
 Procedure TBasinetWindow.DisableAll;
@@ -294,6 +334,11 @@ TxtSnipName.Enabled:=False;
 TxtSnipDesc.Enabled:=False;
 
 End;
+
+function TBasinetWindow.IsBaseItem(Item: TListItem): Boolean;
+begin
+  Result := (Item <> nil) and (Item.Data = Pointer(1));
+end;
 
 
 
@@ -335,20 +380,28 @@ Idx: Integer;
 TempStr: String;
 NewLines: TStringList;
 BASIC: String;
+SnipList: TStringList;
+IsBase: Boolean;
 begin
         If ListView1.Selected <> nil Then Begin
+                 IsBase := IsBaseItem(ListView1.Selected);
+                 if IsBase then
+                    SnipList := BASE_SNIPS
+                 else
+                    SnipList := SNIPS;
+
                  TxtSnipName.Text := ListView1.Selected.SubItems[0];
                  TxtSnipDesc.Text := ListView1.Selected.SubItems[1];
                  SelectedID := ListView1.Selected.SubItems[4];
-                 BtnDelete.Enabled := True;
+                 BtnDelete.Enabled := not IsBase;
 
-                 Idx:=FindSnip(SelectedID);
+                 Idx:=FindSnip(SnipList, SelectedID);
                  If (Idx<>-1) Then Begin
                         //Found the entry
                         While(True) Do Begin
-                                if (SNIPS[Idx]='[CODE]') Then Begin
+                                if (SnipList[Idx]='[CODE]') Then Begin
                                         Inc(Idx);
-                                        TempStr := FormatEscapes(SNIPS[Idx]);
+                                        TempStr := FormatEscapes(SnipList[Idx]);
                                         NewLines := TStringlist.Create;
 	                                Repeat
 	                                	BASIC := Copy(TempStr, 1, Pos(#13, TempStr)-1);
@@ -369,7 +422,7 @@ begin
                                                 CheckBox1.Enabled:=True;
  						CheckBox2.Enabled:=True;
 						BtnPaste.Enabled:=True;
-						BtnDelete.Enabled:=True;
+						BtnDelete.Enabled:=not IsBase;
 						Edit1.Enabled:=True;
 						Edit2.Enabled:=True;
                                                 TxtSnipName.Enabled:=True;
@@ -394,6 +447,14 @@ End;
 
 
 
+procedure TBasinetWindow.CheckBox3Click(Sender: TObject);
+begin
+  Opt_ShowBaseSnips := CheckBox3.Checked;
+  PopulateList;
+  DisableAll;
+  ClearSnippet;
+end;
+
 procedure TBasinetWindow.TxtSnipNameChange(Sender: TObject);
 begin
 //DisableAll;
@@ -416,8 +477,9 @@ procedure TBasinetWindow.BtnDeleteClick(Sender: TObject);
 var
  Idx: Integer;
 begin
+If IsBaseItem(ListView1.Selected) Then Exit;
 If (SelectedID<>'0') Then Begin
-        Idx:=FindSnip(SelectedID);
+        Idx:=FindSnip(SNIPS, SelectedID);
         If (Idx<>-1) Then Begin
           //Found the entry
           While(True) Do Begin
@@ -431,17 +493,21 @@ End;
 
 end;
 
-function TBasinetWindow.FindSnip(ID: String): Integer;
+function TBasinetWindow.FindSnip(Snips: TStringList; ID: String): Integer;
 var
 LastSnip: Integer;
 Begin
      Result:=0;
      LastSnip:=-1;
-     While (Result < SNIPS.Count-2) Do Begin
-        If (SNIPS[Result]='[SNIP]') Then Begin
+     if Snips = nil then begin
+        Result := -1;
+        Exit;
+     end;
+     While (Result < Snips.Count-2) Do Begin
+        If (Snips[Result]='[SNIP]') Then Begin
             LastSnip:=Result;
         End Else Begin
-            If (SNIPS[Result]=ID) Then Begin
+            If (Snips[Result]=ID) Then Begin
                 Result:= LastSnip;
                 Exit;
             End;
@@ -562,9 +628,17 @@ end;
 
 procedure TBasinetWindow.FormShow(Sender: TObject);
 begin
+if Assigned(BASinOutput) Then
+   BASinOutput.SpeedButtonEditorSnippet.Down := True;
 if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
 if Opt_ToolFontSize>0 Then Memo_Snippet.Font.Size:=Opt_ToolFontSize;
 Edit3.Text:= SessionID;
+end;
+
+procedure TBasinetWindow.FormHide(Sender: TObject);
+begin
+if Assigned(BASinOutput) Then
+   BASinOutput.SpeedButtonEditorSnippet.Down := False;
 end;
 
 procedure TBasinetWindow.Button5Click(Sender: TObject);

@@ -183,6 +183,10 @@ type
     btnAImodelFetch: TButton;
     TrackBar8: TTrackBar;
     Button6: TButton;
+    Label44: TLabel;
+    Button7: TButton;
+    Button8: TButton;
+    CheckBox35: TCheckBox;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -221,11 +225,18 @@ type
     procedure btnAImodelFetchClick(Sender: TObject);
     procedure TrackBar8Change(Sender: TObject);
     procedure Button6Click(Sender: TObject);
+    procedure RadioAI1Click(Sender: TObject);
+    procedure Button7Click(Sender: TObject);
+    procedure Button8Click(Sender: TObject);
   private
     { Private declarations }
     ComboBoxL: TListLessComboBox;
     SizingTree: Boolean;
+    FontsLoaded: Boolean;
+    LoadingAIOptions: Boolean;
     Function  GetTreeNodeHeight(Node: TTreeNode): Integer;
+    procedure ResetFontTree;
+    procedure SyncFontSelectionText;
 
   public
     { Public declarations }
@@ -281,6 +292,7 @@ Uses ShellAPI,FastCore, Filing, ROMUtils, BasinMain, Display, ColoursWind, Sound
 
 function AskGemini(TargetUrl, ApiKey, UserPrompt, SystemPrompt: PChar): PChar; stdcall; external 'BasinAI.dll';
 function GetModelList(ApiKey: PChar): PChar; stdcall; external 'BasinAI.dll';
+function GetLocalModels(BaseUrl: PChar): PChar; stdcall; external 'BasinAI.dll';
 
 Procedure TListLessComboBox.DropDown;
 Begin
@@ -328,7 +340,6 @@ begin
   CheckBox28.Checked  := Opt_KMouse;
   CheckBox29.Checked  := Opt_ConsoleAddon;
   CheckBox31.Checked  := Opt_AllowMultipleInstances;
-  //CheckBox35.Checked  := Opt_CheckUpdates;
   chkOpt_OnlineHelp.Checked:=Opt_OnlineHelp;
   CheckBox34.Checked:= Opt_ShowRemCommands;
   
@@ -343,7 +354,8 @@ begin
   // Error Notification
 
   For Idx := 0 To 43 Do
-     CheckListBox1.Checked[Idx] := ErrorAddresses[Idx].Notify;
+     if Idx < CheckListBox1.Items.Count then
+        CheckListBox1.Checked[Idx] := ErrorAddresses[Idx].Notify;
 
   CheckBox10.Checked := Opt_CursorToError;
 
@@ -355,6 +367,7 @@ begin
     // CPU Speed setting
 
   Trackbar4.Position := Opt_CPUSpeed;
+  CheckBox35.Checked := Opt_CpuCustomSpeed <> 69888;
 
   // Scaling Options
 
@@ -413,7 +426,7 @@ begin
   if Opt_Language ='English'  then Combobox11.Itemindex:=0;
   if Opt_Language ='Türkçe' then   Combobox11.Itemindex:=1;
   if Opt_Language ='Spanish' then   Combobox11.Itemindex:=2;
-
+  if Opt_Language ='Deutsch' then   Combobox11.Itemindex:=3;
   // Sound Settings
 
   Case Opt_SoundFrequency of
@@ -445,18 +458,53 @@ begin
 
   EditAPIKEY.Text := Opt_BYOK_APIKEY;
   cbAIModelSelect.Text := Opt_SelectedAIModel;
+  EditAIQueryURL.Text := Opt_AILocalUrl;
+  LoadingAIOptions := True;
+  try
+    if SameText(Opt_AIMode, 'Ollama') then
+      RadioAI2.Checked := True
+    else
+      RadioAI1.Checked := True;
+    if RadioAI2.Checked then
+      RadioAI1Click(RadioAI2)
+    else
+      RadioAI1Click(RadioAI1);
+  finally
+    LoadingAIOptions := False;
+  end;
 
   Edit2.Text:= Opt_ExternalExec;
 
   Edit1.Text := Opt_EditorFontFolder;
   FontFilename := Opt_EditorFontFilename;
   FontEnabled := Opt_EditorCustomFont;
-  GatherFonts;
+  ResetFontTree;
+  SyncFontSelectionText;
 
   RenderFontPreview;
 
   if FileExists(ExtractFilePath(Application.ExeName) + 'pasmo.exe') then Opt_AsmPasmoAvailable:= True;
   if Opt_AsmPasmoAvailable then Edit4.Text:=ExtractFilePath(Application.ExeName) + 'pasmo.exe' Else Edit4.Text:='<pasmo.exe is not found>';
+
+end;
+
+procedure TOptionsWindow.ResetFontTree;
+begin
+
+  TreeView1.Hide;
+  TreeView1.Items.Clear;
+  InternalFontList.Clear;
+  FontsLoaded := False;
+
+end;
+
+procedure TOptionsWindow.SyncFontSelectionText;
+begin
+
+  if FontEnabled and (FontFilename <> '') then
+     ComboBoxL.Text := ExtractFileName(FontFilename)
+  else
+     ComboBoxL.Text := 'Default Sinclair';
 
 end;
 
@@ -469,7 +517,7 @@ begin
 
   ComboBoxL := TListLessComboBox.Create(TabSheet7);
   ComboBoxL.Parent := TabSheet7;
-  ComboBoxL.SetBounds(Edit1.Left, Label37.Top + 16, Edit1.Width + SpeedButton1.Width + 4, Edit1.Height);
+  ComboBoxL.SetBounds(Label37.Left, Label37.Top + 16, ComboBoxL.Width , Edit1.Height);
   ComboBoxL.OnDropDown := Button4Click;
   ComboBoxL.OnKeyDown := ComboBox4KeyDown;
   ComboBoxL.BringToFront;
@@ -477,7 +525,7 @@ begin
   ComboBoxL.Show;
 
   Combobox11.Items.Add( 'English' );
-  Combobox11.Items.Add( 'Tï¿½rkï¿½e');
+  Combobox11.Items.Add( 'Türkçe');
    Combobox11.Items.Add( 'Spanish');
     Combobox11.Items.Add( 'Deutsch');
 
@@ -533,13 +581,12 @@ begin
 
     Opt_AllowMultipleInstances := CheckBox31.Checked;  //arda
     Opt_ConsoleAddon := CheckBox29.Checked;    //arda
-    if (not Opt_ConsoleAddon)then ConsoleOutForm.Close;
+    if (not Opt_ConsoleAddon) and Assigned(ConsoleOutForm) then ConsoleOutForm.Close;
     Opt_Indenting:=  CheckBox30.Checked; // arda flist
     Opt_IndentSize:= TrackBar6.Position; //arda
     Opt_FastResets := CheckBox25.Checked; //arda
     Opt_KMouse := CheckBox28.Checked;     //arda
     Opt_ShowNotes := CheckBox33.Checked; //arda
-    //Opt_CheckUpdates := CheckBox35.Checked;   //arda --removed 1.8
     Opt_ShowRemCommands:= CheckBox34.Checked; //arda 1.81
 
   Opt_BYOK_APIKEY := Trim(EditAPIKEY.Text);
@@ -547,11 +594,36 @@ begin
     Opt_SelectedAIModel := cbAIModelSelect.Items[cbAIModelSelect.ItemIndex]
   else
     Opt_SelectedAIModel := Trim(cbAIModelSelect.Text);
+  if RadioAI2.Checked then
+    Opt_AIMode := 'Ollama'
+  else
+    Opt_AIMode := 'Gemini';
+  Opt_AILocalUrl := Trim(EditAIQueryURL.Text);
     
   // CPU Speed options
 
   Opt_CPUSpeed := TrackBar4.Position;
   SpeedBackup := Opt_CPUSpeed; //used for returning back to this value after Rem Speed x execution
+  If CheckBox35.Checked Then
+     Opt_CpuCustomSpeed := TrackBar4.Position
+  Else
+     Opt_CpuCustomSpeed := 69888;
+
+  INI := TStringList.Create;
+  try
+    If FileExists(BASinDIR+'\basinC.ini') Then
+       INI.LoadFromFile(BASinDIR+'\basinC.ini');
+    INIWrite('Emulation', 'Opt_CpuCustomSpeed', Opt_CpuCustomSpeed);
+    try
+      INI.SaveToFile(BASinDIR+'\basinC.ini');
+    Except
+      On EFCreateError Do
+         MessageBox(Handle, PChar('Could not save BasinC'#39's settings.'#13'The file may be in use by another process,'#13'or you might not have sufficient permissions to perform this operation.'), PChar('Save error'), MB_OK or MB_ICONWARNING);
+    End;
+  finally
+    FreeAndNil(INI);
+  end;
+
   Opt_EmulationSpeed := CFrameTimeMs[TrackBar7.Position];
 
 
@@ -573,7 +645,8 @@ begin
   // Error Notification
 
   For Idx := 0 To 43 Do
-     ErrorAddresses[Idx].Notify := CheckListBox1.Checked[Idx];
+     if Idx < CheckListBox1.Items.Count then
+        ErrorAddresses[Idx].Notify := CheckListBox1.Checked[Idx];
 
   Opt_CursorToError := CheckBox10.Checked;
 
@@ -621,8 +694,10 @@ begin
   Opt_AutoBackup := CheckBox32.Checked;
   Opt_AutoBackInterval:=trackbar8.Position;
 
-  basinoutput.Timer3.Interval:=(1+(Opt_AutoBackInterval*3))*60000;
-  basinoutput.Timer3.enabled:= Opt_AutoBackup;
+  if Assigned(basinoutput) then begin
+     basinoutput.Timer3.Interval:=(1+(Opt_AutoBackInterval*3))*60000;
+     basinoutput.Timer3.enabled:= Opt_AutoBackup;
+  end;
 
   // Sound Settings
 
@@ -633,8 +708,10 @@ begin
   End;
 
   //Languages
-  Opt_Language:=ComboBox11.items[ ComboBox11.ItemIndex];
-  SetLanguage(Opt_Language);
+  if ComboBox11.ItemIndex >= 0 then begin
+     Opt_Language:=ComboBox11.items[ ComboBox11.ItemIndex];
+     SetLanguage(Opt_Language);
+  end;
 
   //multiple instances    arda 1.69+
 
@@ -674,7 +751,7 @@ begin
   Opt_EditorSounds := CheckBox16.Checked;
 
   Opt_EditorFontFilename := FontFilename;
-  Opt_EditorCustomFont := Integer(Treeview1.Selected.Data) <> 0;
+  Opt_EditorCustomFont := FontEnabled;
   Opt_EditorFontFolder := Edit1.Text;
   Opt_ExternalExec:=Edit2.Text;
 
@@ -771,28 +848,31 @@ begin
   FolderBrowser1.Folder := Edit1.Text;
   If FolderBrowser1.Execute Then Begin
      Edit1.Text := FolderBrowser1.Folder;
-     GatherFonts;
+     ResetFontTree;
+     SyncFontSelectionText;
   End;
 
 end;
+
 
 Procedure TOptionsWindow.GatherFonts;
 Begin
 
   TreeView1.Items.BeginUpdate;
+  try
+    TreeView1.Items.Clear;
+    InternalFontList.Clear;
 
-  TreeView1.Items.Clear;
-  InternalFontList.Clear;
-
-  TreeView1.Items.Add(Nil, 'Default Sinclair');
-  TreeView1.Items[0].Data := 0;
-  InternalFontList.Add('Default Sinclair');
-  FileLook(Edit1.Text + '\' + '*.*', nil);
-  If (ComboBoxL.Text = '') or (ComboBoxL.Text = 'Default Sinclair') Then Begin
-     ComboBoxL.Text := 'Default Sinclair';
-     TreeView1.Selected := TreeView1.Items[0];
-  End;
-  TreeView1.Items.EndUpdate;
+    TreeView1.Items.Add(Nil, 'Default Sinclair');
+    TreeView1.Items[0].Data := 0;
+    TreeView1.Selected := TreeView1.Items[0];
+    InternalFontList.Add('Default Sinclair');
+    FileLook(Edit1.Text + '\' + '*.*', nil);
+    FontsLoaded := True;
+    SyncFontSelectionText;
+  finally
+    TreeView1.Items.EndUpdate;
+  end;
   RenderFontPreview;
 
 End;
@@ -922,7 +1002,8 @@ begin
      If TreeView1.Selected <> nil Then
         If Not TreeView1.Selected.HasChildren Then Begin
            FontFilename := InternalFontList[Integer(TreeView1.Selected.Data)];
-           LoadEditorFont(Handle, FontFilename, Integer(TreeView1.Selected.Data) <> 0);
+           FontEnabled := Integer(TreeView1.Selected.Data) <> 0;
+           LoadEditorFont(Handle, FontFilename, FontEnabled);
            ComboBoxL.Text := TreeView1.Selected.Text;
            RenderFontPreview;
            TreeView1.Hide;
@@ -938,6 +1019,9 @@ Var
   Idx, Ht: Integer;
   Rct: TRect;
 begin
+
+  if not FontsLoaded then
+     Exit;
 
   Ht := TreeView1.Height - TreeView1.ClientHeight;
   For Idx := 0 To TreeView1.Items.Count -1 Do
@@ -1023,6 +1107,8 @@ end;
 
 procedure TOptionsWindow.ComboBox4KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  if not FontsLoaded then
+     Exit;
   PostMessage(TreeView1.Handle, WM_KEYDOWN, Key, 0);
   ComboBox10Click(nil);
 end;
@@ -1034,10 +1120,11 @@ begin
      0: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_basin.html'), HH_DISPLAY_TOPIC, 0);
      1: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_editor_fonts.html'), HH_DISPLAY_TOPIC, 0);
      2: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_error_reporting.html'), HH_DISPLAY_TOPIC, 0);
-     3: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_emulation.html'), HH_DISPLAY_TOPIC, 0);
-     4: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_display.html'), HH_DISPLAY_TOPIC, 0);
-     5: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_sound.html'), HH_DISPLAY_TOPIC, 0);
-     6: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_files.html'), HH_DISPLAY_TOPIC, 0);
+     4: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_emulation.html'), HH_DISPLAY_TOPIC, 0);
+     3: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options.html'), HH_DISPLAY_TOPIC, 0);
+     5: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_display.html'), HH_DISPLAY_TOPIC, 0);
+     6: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_sound.html'), HH_DISPLAY_TOPIC, 0);
+     7: BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/options_files.html'), HH_DISPLAY_TOPIC, 0);
   End;
 
 
@@ -1056,8 +1143,13 @@ begin
 end;
 
 procedure TOptionsWindow.Button5Click(Sender: TObject);
+var spd: integer;
 begin
-TrackBar4.Position := 69888*2;
+
+spd := TrackBar4.Position*2;
+if spd > Trackbar4.Max Then spd:=trackbar4.Max;
+trackbar4.position:=spd;
+
 end;
 
 procedure TOptionsWindow.SpeedButton2Click(Sender: TObject);
@@ -1120,7 +1212,7 @@ var
   TempList: TStringList;
 begin
   ApiKey := Trim(EditAPIKEY.Text);
-  if ApiKey = '' then
+  if RadioAI1.Checked and (ApiKey = '') then
   begin
     ShowMessage('Please enter your API key.');
     Exit;
@@ -1131,7 +1223,10 @@ begin
   Application.ProcessMessages;
 
   try
-    RawList := GetModelList(PChar(ApiKey));
+    if RadioAI2.Checked then
+      RawList := GetLocalModels(PChar(Trim(EditAIQueryURL.Text)))
+    else
+      RawList := GetModelList(PChar(ApiKey));
 
     if RawList = nil then
       ListStr := 'Error: No answer'
@@ -1182,6 +1277,46 @@ end;
 
 
 
+procedure TOptionsWindow.RadioAI1Click(Sender: TObject);
+begin
+       if not LoadingAIOptions then
+       begin
+         cbAIModelSelect.Clear;
+         cbAIModelSelect.Text := '';
+       end;
+       Case (Sender As TComponent).Tag Of
+        410: Begin
+                  EditAPIKEY.enabled:=True;
+                  EditAIQueryUrl.enabled:=False;
+                  EditAIQueryUrl.ReadOnly:=True;
+             End;
+        411: Begin
+             EditAPIKEY.enabled:=False;
+             EditAIQueryUrl.enabled:=True;
+             EditAIQueryUrl.ReadOnly:=False;
+             End;
+       End;
+       
+end;
+
+procedure TOptionsWindow.Button7Click(Sender: TObject);
+
+var spd: integer;
+begin
+
+spd := TrackBar4.Position div 2;
+if spd < Trackbar4.min Then spd:=trackbar4.Min;
+trackbar4.position:=spd;
+
+end;
+
+procedure TOptionsWindow.Button8Click(Sender: TObject);
+begin
+
+  GatherFonts;
+
+end;
+
 Initialization
 
   InternalFontList := TStringlist.Create;
@@ -1191,4 +1326,7 @@ Finalization
   InternalFontList.Free;
 
 end.
+
+
+
 

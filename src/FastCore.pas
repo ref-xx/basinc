@@ -16003,17 +16003,17 @@ Begin
            If Port = $FF3B Then Begin
               If Last64Port and 64 = 0 Then
                  SetPalette64Entry(Last64Port And 63, Value)
-              Else Begin
-                 If Value And 1 = 0 Then
-                    Active64Colours := False
-                 Else
-                    Active64Colours := True;
-                 Activate64Colours(Active64Colours);
-              End;
-           End Else
+                 Else Begin
+                   If Value And 1 = 0 Then
+                      Active64Colours := False
+                    Else
+                      Active64Colours := True;
+                   Activate64Colours(Active64Colours);
+                 End;
+            End Else
               PrinterForm.PrinterOut(Value);
-     End Else
-        PrinterForm.PrinterOut(Value);
+        End Else
+          PrinterForm.PrinterOut(Value);
   End;
 
 
@@ -16448,18 +16448,21 @@ Begin
    ret
 
  @IM2:
+
    xor eax,eax
    xor ebx,ebx
    xor ecx, ecx
    mov ax, [esi+TZ80Registers.&SP]
    mov bx, Word [esi+TZ80Registers.PC]
    sub ax, 2
+   mov Word [esi+TZ80Registers.&SP], ax    //V1.84 fix 
+   
    mov cx, Word [esi+TZ80Registers.R]
    mov [edi+eax], bx
    or  cx, $FF
    mov bx, [edi+ecx]
    mov Word [esi+TZ80Registers.PC], bx
-
+   //mov  StepOperation, True
    popad
 
  end;

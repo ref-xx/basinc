@@ -57,21 +57,23 @@ type
     TapeCreatorHelp1: TMenuItem;
     Button5: TButton;
     Import1: TMenuItem;
+    GrabAll1: TMenuItem;
+    chkViewHeaderless: TCheckBox;
     PopupMenu2: TPopupMenu;
-    DeleteBlock2: TMenuItem;
     Grab1: TMenuItem;
-    Cut1: TMenuItem;
-    Paste1: TMenuItem;
     N6: TMenuItem;
+    Cut1: TMenuItem;
     Copy1: TMenuItem;
+    Paste1: TMenuItem;
+    DeleteBlock2: TMenuItem;
     N7: TMenuItem;
     Properties2: TMenuItem;
-    GrabAll1: TMenuItem;
     procedure Button1Click(Sender: TObject);
     procedure Program1Click(Sender: TObject);
     procedure Screen1Click(Sender: TObject);
     procedure CodeBlock1Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure FormHide(Sender: TObject);
     procedure UpdateTapeList;
     procedure Button3Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -97,10 +99,15 @@ type
     procedure ListView1Click(Sender: TObject);
     procedure ListView1ContextPopup(Sender: TObject; MousePos: TPoint;
       var Handled: Boolean);
+    procedure chkViewHeaderlessClick(Sender: TObject);
 
   private
     { Private declarations }
+    FListViewWindowProc: TWndMethod;
+    procedure CreateWnd; override;
     procedure OnEnterMenuLoop(var Message: TMessage); message WM_ENTERMENULOOP;
+    procedure ListViewWindowProc(var Msg: TMessage);
+    procedure UpdateDropTargets(Accept: Boolean);
   public
     { Public declarations }
     UpdatingList: Boolean;
@@ -138,58 +145,85 @@ implementation
 Uses BlockProps, FastCore, Filing, BASSupport, MemBlockAdd, Utility, QueryForm, ROMUtils,
   BasinMain, ShellAPI;
 
+function IsHeaderlessCodeBlock(const Block: String): Boolean;
+var
+  NameText: String;
+begin
+  Result := False;
+  if Length(Block) < 14 then Exit;
+  if Block[4] <> #3 then Exit;
+  NameText := TrimRight(Copy(Block, 5, 10));
+  Result := SameText(NameText, 'Headerless');
+end;
+
+function ListItemTapeIndex(Item: TListItem): Integer;
+begin
+  if Item = nil then
+    Result := -1
+  else if Item.Data <> nil then
+    Result := NativeInt(Item.Data)
+  else
+    Result := Item.Index;
+end;
+
+procedure SelectVisibleTapeIndex(AListView: TListView; TapeIdx: Integer);
+var
+  I: Integer;
+begin
+  if (AListView = nil) or (TapeIdx < 0) then Exit;
+  for I := 0 to AListView.Items.Count - 1 do
+    if NativeInt(AListView.Items[I].Data) = TapeIdx then
+    begin
+      AListView.Items[I].Selected := True;
+      AListView.ItemIndex := I;
+      Exit;
+    end;
+end;
+
+
 
 procedure TTapeWindow.TapeAllBlocksToBinary;
 var
   i          : Integer;
+  TapeIdx    : Integer;
   Block      : string;
   Name       : string;
   Addr       : Word;
   BinaryType : TBinaryType;
 begin
-  // 1. Binary Window hazirligi (Sadece bir kere yapilir)
-  //BinaryWindow.Caption := 'Import All Tape Blocks...';
   BinaryWindow.ClearBinaries;
 
-  // 2. Tüm bloklar için döngü
-  // ListView1.Items.Count kullaniyoruz ki ekrandaki sayi kadar dönsün
   for i := 0 to ListView1.Items.Count - 1 do
   begin
-     // Güvenlik kontrolü: TapeBlocks listesi ListView ile senkronize mi?
-     if i < TapeBlocks.Count then
+     TapeIdx := ListItemTapeIndex(ListView1.Items[i]);
+     if (TapeIdx >= 0) and (TapeIdx < TapeBlocks.Count) then
      begin
-        Block := TapeBlocks[i];
+        Block := TapeBlocks[TapeIdx];
 
-        // --- Mevcut Mantigin Aynisi ---
         BinaryType := btManager;
-        Addr       := 32768; // Varsayilan adres
+        Addr       := 32768;
 
-        // Header kontrolü ve adres okuma (Byte 4 = Type)
-        // Not: Sadece Header bloklarinda bu bilgi anlamlidir.
         if Length(Block) > 17 then
         begin
            if Block[4] = #3 then
               Addr := GetWord(@Block[17]);
         end;
 
-        // Isim ayiklama
         Name := '';
         if Length(Block) >= 14 then
            Name := TrimRight(Copy(Block, 5, 10));
-           
-        // Eger isim çikmazsa (veya bu bir data bloguysa) generic isim ver
+
         if Name = '' then
            Name := 'Block ' + IntToStr(i + 1);
 
-        // Binary Window'a ekle (Ex fonksiyonu append eder, silmez)
         BinaryWindow.AddBinaryEx(Name, Block, BinaryType, Addr);
      end;
   end;
 
-  // 3. Pencereyi göster
   CentreFormOnForm(BinaryWindow, Self);
   ShowWindow(BinaryWindow, True);
 end;
+
 procedure TTapeWindow.TapeBlockToBinary;
 var
   Block      : string;
@@ -198,50 +232,41 @@ var
   BinaryType : TBinaryType;
   Idx        : Integer;
 begin
-  // No selection, nothing to do
   if ListView1.Selected = nil then
     Exit;
 
-  Idx   := ListView1.Selected.Index;
+  Idx := ListItemTapeIndex(ListView1.Selected);
+  if (Idx < 0) or (Idx >= TapeBlocks.Count) then
+    Exit;
+
   Block := TapeBlocks[Idx];
 
-  // Default type and address
   BinaryType := btMemory;
   Addr       := 32768;
 
-  // If this is a BYTES (CODE) block, read start address from header
-  // Block[4] is the type: #3 = BYTES
   if Block[4] = #3 then
     Addr := GetWord(@Block[17]);
 
-  // Try to use the tape filename as description
   Name := TrimRight(Copy(Block, 5, 10));
   if Name = '' then
     Name := 'Tape Block ' + IntToStr(Idx + 1);
 
-  // Prepare BinaryWindow just like memory grabber does
-  //BinaryWindow.Caption := 'Import Tape Block to ...';
   BinaryWindow.ClearBinaries;
   BinaryWindow.AddBinaryEx(Name, Block, BinaryType, Addr);
   CentreFormOnForm(BinaryWindow, Self);
   ShowWindow(BinaryWindow, True);
 end;
 
-
-
-
-
-
 Procedure TTapeWindow.FileIsDropped(Var Msg: TMessage);
 Var
   hDrop: THandle;
   fName: Array[0..1024] of Char;
-  Name: AnsiString;
+  Name: String;
 begin
   hDrop := Msg.WParam; Name := '';
   DragQueryFile(hDrop,0,fName,254);
   DragFinish(hDrop);
-  DragAcceptFiles(Handle, True);
+  UpdateDropTargets(True);
 
   Name := fName;
 
@@ -265,6 +290,29 @@ begin
   //End;
 
 End;
+
+procedure TTapeWindow.ListViewWindowProc(var Msg: TMessage);
+begin
+  if Msg.Msg = WM_DROPFILES then
+    FileIsDropped(Msg)
+  else if Assigned(FListViewWindowProc) then
+    FListViewWindowProc(Msg);
+end;
+
+procedure TTapeWindow.UpdateDropTargets(Accept: Boolean);
+begin
+  if HandleAllocated then
+    DragAcceptFiles(Handle, Accept);
+
+  if Assigned(ListView1) and ListView1.HandleAllocated then
+    DragAcceptFiles(ListView1.Handle, Accept);
+end;
+
+procedure TTapeWindow.CreateWnd;
+begin
+  inherited;
+  UpdateDropTargets(True);
+end;
 
 procedure TTapeWindow.Button1Click(Sender: TObject);
 Var
@@ -383,6 +431,7 @@ Begin
             Chr(StartAddr And 255)+Chr(StartAddr Shr 8)+
             #0#0;
 
+  
   CheckSum := 0;
   For F := 4 to Length(Header) Do
      CheckSum := CheckSum Xor (Ord(Header[F]));
@@ -483,6 +532,9 @@ End;
 
 procedure TTapeWindow.FormShow(Sender: TObject);
 begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorTape.Down := True;
+
   Constraints.MinWidth := Button4.Left + Button4.Width + 32 + BitBtn1.Width + BitBtn2.Width;
   Button4.Enabled := False;
   Button2.Enabled := False;
@@ -490,6 +542,7 @@ begin
   BitBtn2.Enabled := False;
   if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
   ListView1.Columns[1].Width := Listview1.ClientWidth - ListView1.Columns[0].Width;
+  UpdateDropTargets(True);
 end;
 
 Procedure TTapeWindow.UpdateTapeList;
@@ -503,7 +556,7 @@ Begin
   Listview1.Items.BeginUpdate;
 
      If ListView1.Selected <> Nil Then
-        CurSelected := ListView1.Selected.Index
+        CurSelected := ListItemTapeIndex(ListView1.Selected)
      Else
         CurSelected := -1;
 
@@ -511,11 +564,14 @@ Begin
 
      For F := 0 To TapeBlocks.Count -1 Do Begin
 
+        if (not chkViewHeaderless.Checked) and IsHeaderlessCodeBlock(TapeBlocks[F]) then
+           Continue;
+
         ListItem := ListView1.Items.Add;
+        ListItem.Data := Pointer(NativeInt(F));
         Case TapeBlocks[F][4] Of
            #0:
               Begin
-                 // PROGRAM Block
                  TempStr := Copy(TapeBlocks[F], 5, 10);
                  While Copy(TempStr, Length(TempStr), 1) = ' ' Do
                     TempStr := Copy(TempStr, 1, Length(TempStr) -1);
@@ -523,11 +579,13 @@ Begin
                  TempWord := GetWord(@TapeBlocks[F][17]);
                  If TempWord And $8000 = 0 Then
                     TempStr := TempStr + ' LINE ' + IntToStr(TempWord and $7FFF);
+
+                 TempStr := TempStr + ' (' + IntToStr(GetWord(@TapeBlocks[F][15]))+ ' Bytes)';
+
                  ListItem.SubItems.Add(TempStr);
               End;
            #1:
               Begin
-                 // Num Array
                  TempStr := Copy(TapeBlocks[F], 5, 10);
                  While Copy(TempStr, Length(TempStr), 1) = ' ' Do
                     TempStr := Copy(TempStr, 1, Length(TempStr) -1);
@@ -536,7 +594,6 @@ Begin
               End;
            #2:
               Begin
-                 // Str Array
                  TempStr := Copy(TapeBlocks[F], 5, 10);
                  While Copy(TempStr, Length(TempStr), 1) = ' ' Do
                     TempStr := Copy(TempStr, 1, Length(TempStr) -1);
@@ -545,11 +602,13 @@ Begin
               End;
            #3:
               Begin
-                 // BYTES Block
                  TempStr := Copy(TapeBlocks[F], 5, 10);
                  While Copy(TempStr, Length(TempStr), 1) = ' ' Do
                     TempStr := Copy(TempStr, 1, Length(TempStr) -1);
-                 TempStr := 'Bytes: ' + TempStr + ' CODE ' + IntToStr(GetWord(@TapeBlocks[F][17])) + ',' + IntToStr(GetWord(@TapeBlocks[F][15]));
+                 if TempStr = 'Headerless' then
+                    TempStr := 'Headerless: CODE ' + IntToStr(GetWord(@TapeBlocks[F][17])) + ',' + IntToStr(GetWord(@TapeBlocks[F][15]))
+                 else
+                    TempStr := 'Bytes: ' + TempStr + ' CODE ' + IntToStr(GetWord(@TapeBlocks[F][17])) + ',' + IntToStr(GetWord(@TapeBlocks[F][15]));
                  ListItem.SubItems.Add(TempStr);
               End;
         End;
@@ -579,9 +638,12 @@ Var
   SelIndex: Integer;
 begin
   If ListView1.Selected <> Nil Then Begin
-     SelIndex := ListView1.Selected.Index;
-     ListView1.Items.Delete(SelIndex);
-     TapeBlocks.Delete(SelIndex);
+     SelIndex := ListItemTapeIndex(ListView1.Selected);
+     if (SelIndex >= 0) and (SelIndex < TapeBlocks.Count) then
+     begin
+       TapeBlocks.Delete(SelIndex);
+       UpdateTapeList;
+     end;
   End;
 end;
 
@@ -593,7 +655,7 @@ Var
   BlockLen, TAPLen: DWord;
   Ext, NewFilename, NewBlock, Header, TempStr: String;
   OpenFileStream: TFileStream;
-  F, Offset, LoadLength, CodeAddress, Idx, TZXMajor, TZXMinor: Integer;
+  F, Offset, LoadLength, CodeAddress, Idx, TZXMajor, TZXMinor, HeaderlessAddr: Integer;
 Label
   NewTZXHeader;
 begin
@@ -800,12 +862,22 @@ begin
 
                  // No header, this is DATA. Send it out with a dummy CODE block header.
 
-                 SetLength(NewBlock, 19 + BlockLen);
+                 TAPLen := GetWord(@FileArray[Idx +2]) + 2;
                  DataLen := GetWord(@FileArray[Idx +2]);
-                 StartAddr := 0;
-                 Filename := 'Headerless';
-                 CopyMemory(@Filename[1], @FileArray[Idx +6], 10);
-                 Header := #19+#0+#0+#3+Copy(Filename, 1, 10)+
+                 if DataLen > 1 then
+                    Dec(DataLen, 2)
+                 else
+                    DataLen := 0;
+                 HeaderlessAddr := 65296 - DataLen;
+                 if HeaderlessAddr > 32768 then
+                    StartAddr := 32768
+                 else if HeaderlessAddr < 0 then
+                    StartAddr := 0
+                 else
+                    StartAddr := HeaderlessAddr;
+
+                 NewFilename := 'Headerless';
+                 Header := #19+#0+#0+#3+Copy(NewFilename, 1, 10)+
                     Chr(DataLen And 255)+Chr(DataLen Shr 8)+
                     Chr(StartAddr And 255)+Chr(StartAddr Shr 8)+
                     #0#0;
@@ -815,8 +887,10 @@ begin
                     CheckSum := CheckSum Xor (Ord(Header[F]));
 
                  Header := Header + Chr(CheckSum);
+                 SetLength(NewBlock, 21 + TAPLen);
                  CopyMemory(@NewBlock[1], @Header[1], Length(Header));
-                 CopyMemory(@NewBlock[20], @FileArray[Idx +2], DataLen);
+                 CopyMemory(@NewBlock[22], @FileArray[Idx +2], TAPLen);
+                 TapeBlockAdd(NewBlock);
 
                  Inc(Idx, BlockLen);
 
@@ -838,6 +912,8 @@ begin
      End Else Begin
 
         // TAP Extractor - all blocks are $10 blocks :)
+
+        Idx := 0;
 
         While Idx < Length(FileArray) Do Begin
 
@@ -895,12 +971,22 @@ begin
 
               // No header, this is DATA. Send it out with a dummy CODE block header.
 
-              SetLength(NewBlock, 21 + BlockLen);
+              TAPLen := GetWord(@FileArray[Idx]) + 2;
               DataLen := GetWord(@FileArray[Idx]);
-              StartAddr := 0;
-              Filename := 'Headerless';
-              CopyMemory(@Filename[1], @FileArray[Idx +4], 10);
-              Header := #19+#0+#0+#3+Copy(Filename, 1, 10)+
+              if DataLen > 1 then
+                 Dec(DataLen, 2)
+              else
+                 DataLen := 0;
+              HeaderlessAddr := 65296 - DataLen;
+              if HeaderlessAddr > 32768 then
+                 StartAddr := 32768
+              else if HeaderlessAddr < 0 then
+                 StartAddr := 0
+              else
+                 StartAddr := HeaderlessAddr;
+
+              NewFilename := 'Headerless';
+              Header := #19+#0+#0+#3+Copy(NewFilename, 1, 10)+
                  Chr(DataLen And 255)+Chr(DataLen Shr 8)+
                  Chr(StartAddr And 255)+Chr(StartAddr Shr 8)+
                  #0#0;
@@ -909,8 +995,10 @@ begin
               For F := 4 to Length(Header) Do
                  CheckSum := CheckSum Xor (Ord(Header[F]));
               Header := Header + Chr(CheckSum);
+              SetLength(NewBlock, 21 + TAPLen);
               CopyMemory(@NewBlock[1], @Header[1], Length(Header));
-              CopyMemory(@NewBlock[20], @FileArray[Idx], DataLen +2);
+              CopyMemory(@NewBlock[22], @FileArray[Idx], TAPLen);
+              TapeBlockAdd(NewBlock);
 
               Inc(Idx, BlockLen);
 
@@ -975,35 +1063,33 @@ End;
 procedure TTapeWindow.BitBtn1Click(Sender: TObject);
 Var
   TempStr: String;
+  SelIndex: Integer;
 begin
   If ListView1.Selected <> Nil Then Begin
-     If ListView1.Selected.Index > 0 Then Begin
-        TempStr := TapeBlocks[ListView1.Selected.Index];
-        TapeBlocks.Delete(ListView1.Selected.Index);
-        TapeBlocks.Insert(ListView1.Selected.Index -1, TempStr);
-        ListView1.Items[ListView1.Selected.Index-1].Selected := True;
-        BitBtn1.Enabled := True and (ListView1.Selected.Index > 0);
-        BitBtn2.Enabled := True and (ListView1.Selected.Index < ListView1.Items.Count -1);
+     SelIndex := ListItemTapeIndex(ListView1.Selected);
+     If SelIndex > 0 Then Begin
+        TempStr := TapeBlocks[SelIndex];
+        TapeBlocks.Delete(SelIndex);
+        TapeBlocks.Insert(SelIndex -1, TempStr);
         UpdateTapeList;
+        SelectVisibleTapeIndex(ListView1, SelIndex -1);
      End;
   End;
- 
-
 end;
 
 procedure TTapeWindow.BitBtn2Click(Sender: TObject);
 Var
   TempStr: String;
+  SelIndex: Integer;
 begin
   If ListView1.Selected <> Nil Then Begin
-     If ListView1.Selected.Index < ListView1.Items.Count -1 Then Begin
-        TempStr := TapeBlocks[ListView1.Selected.Index];
-        TapeBlocks.Delete(ListView1.Selected.Index);
-        TapeBlocks.Insert(ListView1.Selected.Index +1, TempStr);
-        ListView1.Items[ListView1.Selected.Index+1].Selected := True;
-        BitBtn1.Enabled := True and (ListView1.Selected.Index > 0);
-        BitBtn2.Enabled := True and (ListView1.Selected.Index < ListView1.Items.Count -1);
+     SelIndex := ListItemTapeIndex(ListView1.Selected);
+     If (SelIndex >= 0) and (SelIndex < TapeBlocks.Count -1) Then Begin
+        TempStr := TapeBlocks[SelIndex];
+        TapeBlocks.Delete(SelIndex);
+        TapeBlocks.Insert(SelIndex +1, TempStr);
         UpdateTapeList;
+        SelectVisibleTapeIndex(ListView1, SelIndex +1);
      End;
   End;
 end;
@@ -1223,16 +1309,19 @@ end;
 
 
 procedure TTapeWindow.ListView1SelectItem(Sender: TObject; Item: TListItem; Selected: Boolean);
+var
+  SelTapeIdx: Integer;
 begin
 
   If UpdatingList Then Exit;
 
   If ListView1.Selected <> nil Then Begin
 
+     SelTapeIdx := ListItemTapeIndex(ListView1.Selected);
      Button2.enabled := True;
      Button4.Enabled := True;
-     BitBtn1.Enabled := True and (ListView1.Selected.Index > 0);
-     BitBtn2.Enabled := True and (ListView1.Selected.Index < ListView1.Items.Count -1);
+     BitBtn1.Enabled := (SelTapeIdx > 0);
+     BitBtn2.Enabled := (SelTapeIdx >= 0) and (SelTapeIdx < TapeBlocks.Count -1);
 
   End Else Begin
 
@@ -1248,21 +1337,23 @@ end;
 procedure TTapeWindow.SaveAs1Click(Sender: TObject);
 Var
   Block: String;
+  TapeIdx: Integer;
 begin
-
-  // Saves the current Block depending upon it's type to a file.
 
   If ListView1.Selected <> nil Then Begin
 
-     Block := TapeBlocks[ListView1.Selected.Index];
+     TapeIdx := ListItemTapeIndex(ListView1.Selected);
+     if (TapeIdx < 0) or (TapeIdx >= TapeBlocks.Count) then Exit;
+
+     Block := TapeBlocks[TapeIdx];
      Case Block[4] of
-        #0: // Program, save a .bas file
+        #0:
            TapeToBAS(Block);
-        #1: // Numeric Array, save as a .bsd file
+        #1:
            TapeToBSD(Block);
-        #2: // Character Array, save as a .bsd file also
+        #2:
            TapeToBSD(Block);
-        #3: // Bytes block, save as .bsc/.scr/*.*
+        #3:
            TapeToBSC(Block);
      End;
 
@@ -1271,9 +1362,9 @@ begin
 end;
 
 procedure TTapeWindow.OnEnterMenuLoop(var Message: TMessage);
+Var
+  SelTapeIdx: Integer;
 Begin
-
-  // Set the menu items enabled states depending on selections etc.
 
   SaveImage1.Enabled := False;
   SaveImageAs1.Enabled := False;
@@ -1293,13 +1384,14 @@ Begin
 
      If ListView1.Selected <> nil Then Begin
 
+        SelTapeIdx := ListItemTapeIndex(ListView1.Selected);
         CutBlock1.Enabled := True;
         CopyBlock1.Enabled := True;
         DeleteBlock1.Enabled := True;
         Properties1.Enabled := True;
         SaveAs1.Enabled := True;
-        MoveUp1.Enabled := True and (ListView1.Selected.Index > 0);
-        MoveDown1.Enabled := True and (ListView1.Selected.Index < ListView1.Items.Count -1);
+        MoveUp1.Enabled := (SelTapeIdx > 0);
+        MoveDown1.Enabled := (SelTapeIdx >= 0) and (SelTapeIdx < TapeBlocks.Count -1);
 
      End;
 
@@ -1315,54 +1407,62 @@ End;
 procedure TTapeWindow.TapeMenuItemClick(Sender: TObject);
 var
   NewIndex: Integer;
+  SelTapeIdx: Integer;
 begin
   Case (Sender As TComponent).Tag Of
-     60:         //CUT
+     60:
      Begin
-  TapeClip := TapeBlocks[ListView1.Selected.Index];
-  TapeBlocks.Delete(ListView1.Selected.Index);
-
-  UpdateTapeList;
-      End;
-     61:         //COPY
-     Begin
-       TapeClip := TapeBlocks[ListView1.Selected.Index];
+       SelTapeIdx := ListItemTapeIndex(ListView1.Selected);
+       if (SelTapeIdx < 0) or (SelTapeIdx >= TapeBlocks.Count) then Exit;
+       TapeClip := TapeBlocks[SelTapeIdx];
+       TapeBlocks.Delete(SelTapeIdx);
+       UpdateTapeList;
      End;
-     62: // PASTE
-Begin
-  if TapeClip = '' then Exit; // optional: nothing to paste
+     61:
+     Begin
+       SelTapeIdx := ListItemTapeIndex(ListView1.Selected);
+       if (SelTapeIdx < 0) or (SelTapeIdx >= TapeBlocks.Count) then Exit;
+       TapeClip := TapeBlocks[SelTapeIdx];
+     End;
+     62:
+     Begin
+       if TapeClip = '' then Exit;
 
-  if ListView1.Selected <> nil then
-  begin
-    NewIndex := ListView1.Selected.Index + 1;
-    TapeBlocks.Insert(NewIndex, TapeClip);
-  end
-  else
-  begin
-    TapeBlocks.Add(TapeClip);
-    NewIndex := TapeBlocks.Count - 1;
-  end;
+       if ListView1.Selected <> nil then
+       begin
+         SelTapeIdx := ListItemTapeIndex(ListView1.Selected);
+         if (SelTapeIdx >= 0) and (SelTapeIdx < TapeBlocks.Count) then
+           NewIndex := SelTapeIdx + 1
+         else
+           NewIndex := TapeBlocks.Count;
+         TapeBlocks.Insert(NewIndex, TapeClip);
+       end
+       else
+       begin
+         TapeBlocks.Add(TapeClip);
+         NewIndex := TapeBlocks.Count - 1;
+       end;
 
-  UpdateTapeList;
+       UpdateTapeList;
+       SelectVisibleTapeIndex(ListView1, NewIndex);
+     End;
 
-  if (NewIndex >= 0) and (NewIndex < ListView1.Items.Count) then
-  begin
-    ListView1.Items[NewIndex].Selected := True;
-    ListView1.ItemIndex := NewIndex; // istersen
-  end;
-End;
-
-      70:       //GRAB
+      70:
       Begin
         TapeBlockToBinary;
       End;
-      71:       //GRAB ALL
+      71:
       Begin
         TapeAllBlocksToBinary;
       End;
 
   End;
 
+end;
+
+procedure TTapeWindow.chkViewHeaderlessClick(Sender: TObject);
+begin
+  UpdateTapeList;
 end;
 
 procedure TTapeWindow.RedirectLOADcommands1Click(Sender: TObject);
@@ -1378,15 +1478,25 @@ begin
 end;
 
 procedure TTapeWindow.ListView1DblClick(Sender: TObject);
+var
+  SelTapeIdx: Integer;
 begin
 
-  // Move the tape header position.
-
   If ListView1.Selected <> nil Then Begin
-     TapePosition := ListView1.Selected.Index;
-     UpdateTapeList;
+     SelTapeIdx := ListItemTapeIndex(ListView1.Selected);
+     if SelTapeIdx >= 0 then
+     begin
+       TapePosition := SelTapeIdx;
+       UpdateTapeList;
+     end;
   End;
 
+end;
+
+procedure TTapeWindow.FormHide(Sender: TObject);
+begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorTape.Down := False;
 end;
 
 procedure TTapeWindow.FormCreate(Sender: TObject);
@@ -1403,8 +1513,13 @@ begin
 
   Label1.SetBounds(8, 8, Label1.Width, Label1.Height);
   ListView1.SetBounds(8, Label1.Top + Label1.Height + 8, ClientWidth - 16, ClientHeight - Button3.Height - Label1.Height - 32);
+  chkViewHeaderless.SetBounds(ClientWidth -chkViewHeaderless.Width-8, label1.top,chkViewHeaderless.Width,button1.Height);
+  chkViewHeaderless.OnClick := chkViewHeaderlessClick;
 
-  DragAcceptFiles(Handle, True);
+  OnHide := FormHide;
+  FListViewWindowProc := ListView1.WindowProc;
+  ListView1.WindowProc := ListViewWindowProc;
+  UpdateDropTargets(True);
 end;
 
 procedure TTapeWindow.TapeCreatorHelp1Click(Sender: TObject);
@@ -1469,7 +1584,9 @@ end;
 
 procedure TTapeWindow.FormDestroy(Sender: TObject);
 begin
-    DragAcceptFiles(Handle, False);
+    UpdateDropTargets(False);
+    if Assigned(ListView1) then
+      ListView1.WindowProc := FListViewWindowProc;
 end;
 
 procedure TTapeWindow.Import1Click(Sender: TObject);

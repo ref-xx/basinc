@@ -1832,51 +1832,54 @@ Var
 Begin
 
   NewAsm := OpenAsmFile(Filename);
+  try
+    If NewAsm <> nil Then Begin
 
-  If NewAsm <> nil Then Begin
+       Done := False;
+       For Idx := 0 To FileCount -1 Do Begin
+          If Not HasContent(Idx) Then Begin
+             CurFile := AsmFiles[Idx];
+             CurFile^.CursorState := False;
+             CurFile^.CursorChar := ' ';
+             CurFile^.CodeError := False;
+             CurFile^.Changed := False;
+             CurFile^.ValidFile := False;
+             CurFile^.CursorInString := False;
+             CurFile^.CursorVisible := True;
+             CurFile^.ViewLine := 0;
+             CurFile^.ViewColumn := 0;
+             CurFile^.CursorLine := 1;
+             CurFile^.CursorColumn := 1;
+             CurFile^.EditorSelStart := Point(0, 0);
+             CurFile^.EditorSelEnd := Point(0, 0);
+             CurFile^.MaxLineLen := 0;
+             CurFile^.AsmFilename := Filename;
+             CurFile^.ValidFile := True;
+             TabSet1.Tabs[Idx] := TrimExtension(ExtractFilename(AsmFiles[Idx]^.AsmFilename));
+             TabSet1.TabIndex := Idx;
+             Caption := 'z80 Assembler - '+AsmFiles[Idx]^.AsmFilename;
+             If AsmFiles[Idx]^.Changed Then Caption := Caption + '*';
+             Done := True;
+             Break;
+          End;
+       End;
+       If Not Done Then
+         NewFile(Filename);
 
-     Done := False;
-     For Idx := 0 To FileCount -1 Do Begin
-        If Not HasContent(Idx) Then Begin
-           CurFile := AsmFiles[Idx];
-           CurFile^.CursorState := False;
-           CurFile^.CursorChar := ' ';
-           CurFile^.CodeError := False;
-           CurFile^.Changed := False;
-           CurFile^.ValidFile := False;
-           CurFile^.CursorInString := False;
-           CurFile^.CursorVisible := True;
-           CurFile^.ViewLine := 0;
-           CurFile^.ViewColumn := 0;
-           CurFile^.CursorLine := 1;
-           CurFile^.CursorColumn := 1;
-           CurFile^.EditorSelStart := Point(0, 0);
-           CurFile^.EditorSelEnd := Point(0, 0);
-           CurFile^.MaxLineLen := 0;
-           CurFile^.AsmFilename := Filename;
-           CurFile^.ValidFile := True;
-           TabSet1.Tabs[Idx] := TrimExtension(ExtractFilename(AsmFiles[Idx]^.AsmFilename));
-           TabSet1.TabIndex := Idx;
-           Caption := 'z80 Assembler - '+AsmFiles[Idx]^.AsmFilename;
-           If AsmFiles[Idx]^.Changed Then Caption := Caption + '*';
-           Done := True;
-           Break;
-        End;
-     End;
-     If Not Done Then
-       NewFile(Filename);
+       CurFile^.AsmStrs.Clear;
+       CurFile^.AsmStrs.AddStrings(NewAsm);
 
-     CurFile^.AsmStrs.Clear;
-     CurFile^.AsmStrs.AddStrings(NewAsm);
+       BuildAsmRecords(CurFile^);
+       RepaintASM(True);
 
-     BuildAsmRecords(CurFile^);
-     RepaintASM(True);
+       Caption := 'z80 Assembler - '+CurFile^.AsmFilename;
+       FormResize(nil);
+       If Visible Then Edit2.SetFocus;
 
-     Caption := 'z80 Assembler - '+CurFile^.AsmFilename;
-     FormResize(nil);
-     If Visible Then Edit2.SetFocus;
-
-  End;
+    End;
+  finally
+    NewAsm.Free;
+  end;
 
 End;
 
@@ -1901,6 +1904,7 @@ Var
   Idx, Ps, Count, NumSpaces: Integer;
 Begin
 
+  Result := nil;
   If Filename = '' Then Begin
      Filename := OpenFile(Handle, 'Load Assembly Source', [FTAssembly], '', False, False);
      If Filename = '' Then
@@ -2163,33 +2167,31 @@ End;
 Function  TASMEditorWindow.GetOrg:Integer;
 Var
   Z80Assembler: TZ80Assembler;
-  Line, ErrorType, Idx, Idx2, Idx3, Idx4, OrgAdr,i: Integer;
-  Filename, Text: String;
-  pAsmSymb: pAsmSymbol;
-  OnDisk: Boolean;
-  Flags: DWord;
   AsmMemory: Array[0..65535] of Byte;
-  SrcFile, OutFile, Output, Linex, ErrorText: string;
-  Lines: TStringList;
-  NumBytes: Integer;
 Begin
 
+  Result := -1;
   If CurFile^.AsmStrs.Count = 0 Then Exit;
   Z80Assembler := TZ80Assembler.Create;
-  Z80Assembler.atStartOfPass := AtStartOfPass;
-  Z80Assembler.atEndOfPass := AtEndOfPass;
-  Z80Assembler.AfterLine := AfterLineProc;
-  Z80Assembler.SetMem48(@AsmMemory[16384]);
-  AddSourceFiles(Z80Assembler, TabSet1.TabIndex);
-  Z80Assembler.Assemble(CurFile^.AsmStrs, '', -1, '');
-  If Z80Assembler.OrgAddr < 0 Then Begin
+  try
+    Z80Assembler.atStartOfPass := AtStartOfPass;
+    Z80Assembler.atEndOfPass := AtEndOfPass;
+    Z80Assembler.AfterLine := AfterLineProc;
+    Z80Assembler.SetMem48(@AsmMemory[16384]);
+    AddSourceFiles(Z80Assembler, TabSet1.TabIndex);
+    Z80Assembler.Assemble(CurFile^.AsmStrs, '', -1, '');
 
-     result:=-1;
-     Exit;
-  End;
-  OrgAdr:= Z80Assembler.OrgAddr;
-  Z80Assembler.Free;
-  result:=OrgAdr;
+    // For PASMO .bin output, use the first written address as load address.
+    if (Z80Assembler.DefaultPage <> nil) and
+       (Z80Assembler.DefaultPage.AltLo >= 0) and
+       (Z80Assembler.DefaultPage.AltLo <= 65535) and
+       (Z80Assembler.DefaultPage.AltHi > Z80Assembler.DefaultPage.AltLo) then
+      Result := Z80Assembler.DefaultPage.AltLo
+    else if Z80Assembler.OrgAddr >= 0 then
+      Result := Z80Assembler.OrgAddr;
+  finally
+    Z80Assembler.Free;
+  end;
 End;
 
 Procedure TASMEditorWindow.AssembleWithPasmo;

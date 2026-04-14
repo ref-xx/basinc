@@ -212,6 +212,7 @@ type
     N2: TMenuItem;
     procedure FormResize(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure FormHide(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FastIMG1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -1189,6 +1190,8 @@ procedure TScrPaintForm.FormShow(Sender: TObject);
 Var
   Msg: TMessage; // Dummy message for later on.
 begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorImage.Down := True;
 
   If Length(Screens) = 0 Then NewScreen;
 
@@ -1237,6 +1240,7 @@ begin
   Address:= 16384;
   Startup := True;
   Untitled := 0;
+  OnHide := FormHide;
   Closing := False;
   CentrePen := True;
   SelectionMarquee := True;
@@ -5568,11 +5572,19 @@ End;
 
 procedure TScrPaintForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorImage.Down := False;
 
   Timer1.Enabled := False;
   If TextForm.Showing or TextForm.Visible Then
      TextForm.Close;
 
+end;
+
+procedure TScrPaintForm.FormHide(Sender: TObject);
+begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorImage.Down := False;
 end;
 
 Procedure TScrPaintForm.PaintAttribFlags;

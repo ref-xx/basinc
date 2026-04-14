@@ -76,18 +76,9 @@ type
         ProgramInformation1:       TMenuItem;
         LastError1:                TMenuItem;
         CharacterRuler1:           TMenuItem;
-        DebugWindows1:             TMenuItem;
            SyntaxHelper1:          TMenuItem;
            CommandHistory1:        TMenuItem;
            N15:                    TMenuItem;
-           Variables1:             TMenuItem;
-           SystemVariables1:       TMenuItem;
-           Watches1:               TMenuItem;
-           GOSUBStack1:            TMenuItem;
-           Breakpoints1:           TMenuItem;
-           LogWindow1:             TMenuItem;
-           MemoryViewer1:          TMenuItem;
-           MemoryMap1:             TMenuItem;
      WindowSize1:                  TMenuItem;
         DisplayWindow1:            TMenuItem;
         N100320x2401:              TMenuItem;
@@ -114,11 +105,7 @@ type
         BASinOptions1:             TMenuItem;
         N4:                        TMenuItem;
         TokenTable1:               TMenuItem;
-        BEEPComposer1:             TMenuItem;
-        UDGEditor1:                TMenuItem;
-        ScreenPaintbox1:           TMenuItem;
         Renumber1:                 TMenuItem;
-        TapeCreator1:              TMenuItem;
         Compiler1:                 TMenuItem;
      Help1:                        TMenuItem;
         Contents1:                 TMenuItem;
@@ -145,10 +132,7 @@ type
      FindLine1:                    TMenuItem;
      Tokenise1:                    TMenuItem;
     oggleBreakpoint1: TMenuItem;
-    ProfileResults1: TMenuItem;
     EnableProfiling1: TMenuItem;
-    Assembler1: TMenuItem;
-    CPUWindow1: TMenuItem;
     Wordwrapstring1: TMenuItem;
     Splitat32chars1: TMenuItem;
     Insertspaces1: TMenuItem;
@@ -192,16 +176,17 @@ type
     LoadBasinState1: TMenuItem;
     SaveWorkspace1: TMenuItem;
     simplecon1: TMenuItem;
-    UlaPlusPalette1: TMenuItem;
     ExportTap1: TMenuItem;
-    BasinCNetworkDrive1: TMenuItem;
     SendtoExternalUtiility1: TMenuItem;
     CodeControlIcons1: TMenuItem;
+    Evaluators1: TMenuItem;
+    QuickTools1: TMenuItem;
+    EditorIcons1: TMenuItem;
+    FilingIcons1: TMenuItem;
+    ResetToolbars1: TMenuItem;
     Timer3: TTimer;
-    ProjectNotes1: TMenuItem;
     AddNote1: TMenuItem;
     N20: TMenuItem;
-    N21: TMenuItem;
     N22: TMenuItem;
     AddSnippet1: TMenuItem;
     CheckUpdates1: TMenuItem;
@@ -211,7 +196,14 @@ type
     SmartIndenting1: TMenuItem;
     SaveListingasImage1: TMenuItem;
     Timer4: TTimer;
-    CoolBar1: TPanel;
+    CoolBar1: TCoolBar;
+    PanelToolbarBand0: TPanel;
+    PanelToolbarBand1: TPanel;
+    PanelToolbarBand2: TPanel;
+    PanelToolbarBand3: TPanel;
+    PanelToolbarBand4: TPanel;
+    PanelToolbarBand5: TPanel;
+    PanelToolbarInfo: TPanel;
     Label1: TLabel;
     SubRoutineList1: TMenuItem;
     SpeedButton1: TSpeedButton;
@@ -222,6 +214,15 @@ type
     SpeedButton6: TSpeedButton;
     SpeedButton11: TSpeedButton;
     SpeedButton12: TSpeedButton;
+    SpeedButtonQuickVars: TSpeedButton;
+    SpeedButtonQuickSysVars: TSpeedButton;
+    SpeedButtonQuickProfile: TSpeedButton;
+    SpeedButtonQuickTokenTable: TSpeedButton;
+    SpeedButtonEditorUDG: TSpeedButton;
+    SpeedButtonEditorImage: TSpeedButton;
+    SpeedButtonEditorTape: TSpeedButton;
+    SpeedButtonEditorSnippet: TSpeedButton;
+    SpeedButtonEditorMemory: TSpeedButton;
     SpeedButton10: TSpeedButton;
     SpeedButton8: TSpeedButton;
     SpeedButton7: TSpeedButton;
@@ -250,8 +251,6 @@ type
     PreviewOrigins1: TMenuItem;
     EnableSubList1: TMenuItem;
     N24: TMenuItem;
-    GraphEditor1: TMenuItem;
-    AIChatPanel1: TMenuItem;
     ShowaTip1: TMenuItem;
     N25: TMenuItem;
     BasinCOfficialDiscordServer1: TMenuItem;
@@ -281,6 +280,38 @@ type
     Marker24: TMenuItem;
     Marker14: TMenuItem;
     Marker04: TMenuItem;
+    Share1: TMenuItem;
+    BasinCShare1: TMenuItem;
+    GetPasmo1: TMenuItem;
+    Editors1: TMenuItem;
+    UDGEditor1: TMenuItem;
+    GraphEditor1: TMenuItem;
+    ScreenPaintbox1: TMenuItem;
+    TapeCreator1: TMenuItem;
+    SnippetEditor1: TMenuItem;
+    BEEPComposer1: TMenuItem;
+    ProjectNotesEditor1: TMenuItem;
+    UlaPlusPaletteEditor1: TMenuItem;
+    N27: TMenuItem;
+    HideEntriesWithSingleOrigin1: TMenuItem;
+    Assembler1: TMenuItem;
+    N21: TMenuItem;
+    AIChatPanel1: TMenuItem;
+    SelectAll1: TMenuItem;
+    DebugWindows1: TMenuItem;
+    CPUWindow1: TMenuItem;
+    ProfileResults1: TMenuItem;
+    LogWindow1: TMenuItem;
+    MemoryViewer1: TMenuItem;
+    MemoryMap1: TMenuItem;
+    GOSUBStack1: TMenuItem;
+    Watches1: TMenuItem;
+    Breakpoints1: TMenuItem;
+    SystemVariables1: TMenuItem;
+    Variables1: TMenuItem;
+    N28: TMenuItem;
+    MultiRowToolbar1: TMenuItem;
+    AlwaysOnTopTools1: TMenuItem;
 
 
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
@@ -288,6 +319,7 @@ type
     procedure FormCreate           (Sender: TObject);
     procedure FormShow             (Sender: TObject);
     procedure FormResize           (Sender: TObject);
+    procedure CoolBar1Resize       (Sender: TObject);
     procedure MenuItemClick        (Sender: TObject);
     procedure OnHint               (Sender: TObject);
     procedure OnShowHint           (var HintStr: string; var CanShow: Boolean; var HintInfo: THintInfo);
@@ -308,6 +340,7 @@ type
     procedure ScrollBox1VScroll    (Sender: TObject; Pos: SmallInt; EventType: TVScrollEventType);
     procedure ScrollBox1HScroll    (Sender: TObject; Pos: SmallInt; EventType: THScrollEventType);
     Function  AppKeyDownHook       (var Msg: TMessage): Boolean;
+    function  ShowShareDisclaimerAcceptDecline(AOwner: TComponent): Boolean;
 
 
     procedure OnUpdateProg         (var Message: TMessage); message WM_UPDATEPROGRAM;
@@ -359,11 +392,17 @@ type
     function CreateNewLineNumber: Integer;
     procedure RunOrActivateCheqEdit;
     procedure BasinCOfficialDiscordServer1Click(Sender: TObject);
+    procedure BasinCShare1Click(Sender: TObject);
+    procedure GetPasmo1Click(Sender: TObject);
     //procedure WMAfterShow(var Msg: TMessage); message WM_AFTERSHOW; //causes trouble
 
 
   private
     { Private declarations }
+       FToolbarShowEvaluators: Boolean;
+       FToolbarShowFilingIcons: Boolean;
+       FToolbarShowQuickTools: Boolean;
+       FToolbarShowEditorIcons: Boolean;
                  //AI panel
        PanelAI: TPanel;
        SplitterAI: TSplitter;
@@ -377,6 +416,10 @@ type
     procedure btnPromptSendClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
     procedure btnOverwriteCodeClick(Sender: TObject);
+    function FindToolbarBandIndex(AControl: TControl): Integer;
+    procedure ResetToolbarBands;
+    procedure ApplyAlwaysOnTopToolsSetting;
+    procedure UpdateToolbarInfoBandWidth;
     procedure WMCopyData(var Msg : TWMCopyData); message WM_COPYDATA; //arda
     procedure WMMove(var Msg: TWMMove); message WM_MOVE;
 
@@ -384,7 +427,6 @@ type
 
   public
     { Public declarations }
-
     ScrollBox1:                    TNewScrollBox;
 
     ColourLabel1,
@@ -459,7 +501,8 @@ type
     UndoItem:                      AnsiString;
     UndoList,
     RedoList,
-    BASICList:                     TStringlist;
+    BASICList,
+    FuncList:                      TStringlist;
 
     Abort:                         Boolean;
 
@@ -467,8 +510,12 @@ type
     SourceMarkers:                 Array[0..10] of TSourceMarker;
     FSysVarsBackup:                Array[0..182 - 1] of Byte;
 
+    property ToolbarShowEvaluators: Boolean read FToolbarShowEvaluators write FToolbarShowEvaluators;
+    property ToolbarShowFilingIcons: Boolean read FToolbarShowFilingIcons write FToolbarShowFilingIcons;
+    property ToolbarShowQuickTools: Boolean read FToolbarShowQuickTools write FToolbarShowQuickTools;
+    property ToolbarShowEditorIcons: Boolean read FToolbarShowEditorIcons write FToolbarShowEditorIcons;
+
     Procedure GetBASIC;
-    //Procedure RepaintBASIC         (DoPaint: Boolean);
     Procedure RepaintBASIC           (DoPaint: Boolean;  DoFullRender: Boolean = False);
     Procedure ExtractSubs;
     procedure ExtractGosubs(FindGOSUBs, FindGOTOs, ShowOrigin: Boolean);
@@ -576,9 +623,10 @@ Uses StrUtils,FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
      PrinterOutput, Printing, Profiling, ProfilingForm, ProgInfo, CPUDisplay, AsmEditor,
      BlockProps, AsmForm, GrabParms, GridSetup, BinaryGrab, PaintBox, Binaries,
      MemManager, UlaColours, basinet, notes, ShFolder, RomPrintOutputUnit, BasicMergeWindow,
-     BasinCTips;
+     BasinCTips, BasincCompiler1;
 
 function AskGemini(TargetUrl, ApiKey, UserPrompt, SystemPrompt: PChar): PChar; stdcall; external 'BasinAI.dll';
+function AskLocal(BaseUrl, ModelName, UserPrompt, SystemPrompt: PChar): PChar; stdcall; external 'BasinAI.dll';
 
 
 procedure InitializeCommonControls;  // 1.8 arda -- trying to avoid crashes...
@@ -599,7 +647,7 @@ var
 begin
   // Get user's AppData\Roaming\BASin\autoback path
   SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, path);
-  Result := IncludeTrailingPathDelimiter(path) + 'BASin\autoback';
+  Result := IncludeTrailingPathDelimiter(path) + 'BASinC\autoback';
   ForceDirectories(Result); // Create folders if not exist
 end;
 
@@ -949,8 +997,16 @@ Begin
      If StepOperation Then Begin
         CPUWindow.CPURunning := Registers.EmuRunning;
         Registers.EmuRunning := False;
-        If CPUWindow.Showing Then
+        If CPUWindow.Showing Then Begin
            CPUWindow.FormShow(nil);
+           StepOperation := True;
+           CPUWindow.Button1.Enabled := True;
+           CPUWindow.Button2.Enabled := True;
+             CPUWindow.Button3.Enabled := True;
+             CPUWindow.Button4.Enabled := True;
+             CPUWindow.Button5.Enabled := True;
+             CPUWindow.Button6.Enabled := True;
+        End;
         ShowWindow(CPUWindow, False);
         Exit;
      End;
@@ -971,13 +1027,13 @@ Begin
         End Else
            NeedDisplayUpdate := False;
      End;
-     // Update any info that may have changed
-     If MemMapWindow.Visible Then MemMapWindow.DrawMemoryMap;
+
      Done := False;
   End Else
      // If we're trapped, then this proc should not be called again, to let system
      // messages be processed. If we're emulating, then we need to keep going to maintain
      // smoothness.
+
      Done := True;
 End;
 
@@ -1082,12 +1138,20 @@ begin
   If INITEmulation Then Begin;
 
      LoadOptions;
+     ApplyAlwaysOnTopToolsSetting;
 
      INITSound;
 
      Opt_ShowingSyntax := Not Opt_ShowingSyntax;
      MenuItemClick(SyntaxHelper1);
      SetRuler;
+     if not FileExists(BASinDir+'\basinC.ini') then
+     begin
+        UpdateToolbarInfoBandWidth;
+        CoolBar1.Perform(WM_SIZE, 0, 0);
+        DisplayWindow.SizeForm(200);
+        FormResize(nil);
+     end;
 
      If Opt_AutoLoadSession Then Begin
         RestoreEmulationState(BASinDir+'\Session.bin');
@@ -1129,7 +1193,7 @@ begin
 
      //PostMessage(Handle, WM_AFTERSHOW, 0, 0);
      timer4.Enabled:=true;
-
+     Timer1.Enabled:=Opt_CursorBlinking;
 
   End;
 
@@ -1151,12 +1215,141 @@ Begin
 
 End;
 
+procedure TBASinOutput.ApplyAlwaysOnTopToolsSetting;
+var
+  ToolFormStyle: TFormStyle;
+begin
+  if AlwaysOnTopTools1.Checked then
+    ToolFormStyle := fsStayOnTop
+  else
+    ToolFormStyle := fsNormal;
+
+  if Assigned(ProfileForm) then ProfileForm.FormStyle := ToolFormStyle;
+  if Assigned(SysVarsWindow) then SysVarsWindow.FormStyle := ToolFormStyle;
+  if Assigned(TokenForm) then TokenForm.FormStyle := ToolFormStyle;
+  if Assigned(VariablesWindow) then VariablesWindow.FormStyle := ToolFormStyle;
+  if Assigned(MemManagerForm) then MemManagerForm.FormStyle := ToolFormStyle;
+  if Assigned(TapeWindow) then TapeWindow.FormStyle := ToolFormStyle;
+  if Assigned(BasinetWindow) then BasinetWindow.FormStyle := ToolFormStyle;
+  if Assigned(FormCompiler1) then FormCompiler1.FormStyle := ToolFormStyle;
+  if Assigned(UDGWindow) then UDGWindow.FormStyle := ToolFormStyle;
+  if Assigned(ScrPaintForm) then ScrPaintForm.FormStyle := ToolFormStyle;
+end;
+
 Procedure TBASinOutput.SetToolBarButtons;
 Begin
 
   SpeedButton4.Glyph.Assign(Image2.Picture.Bitmap); // Run
   SpeedButton6.Glyph.Assign(Image3.Picture.Bitmap); // Break
 
+end;
+
+function TBASinOutput.FindToolbarBandIndex(AControl: TControl): Integer;
+var
+  Idx: Integer;
+begin
+  Result := -1;
+  if (CoolBar1 = nil) or (AControl = nil) then
+    Exit;
+
+  for Idx := 0 to CoolBar1.Bands.Count - 1 do
+    if CoolBar1.Bands[Idx].Control = AControl then
+    begin
+      Result := Idx;
+      Exit;
+    end;
+end;
+
+procedure TBASinOutput.ResetToolbarBands;
+var
+  Idx: Integer;
+  Band0, Band1, Band2, Band3, Band4, Band5, BandSub, BandInfo: TCoolBand;
+  function GetBand(AControl: TControl): TCoolBand;
+  var
+    BandIdx: Integer;
+  begin
+    Result := nil;
+    BandIdx := FindToolbarBandIndex(AControl);
+    if BandIdx <> -1 then
+      Result := CoolBar1.Bands[BandIdx];
+  end;
+begin
+  if (CoolBar1 = nil) or (CoolBar1.Bands.Count < 8) then
+    Exit;
+
+  Band0 := GetBand(PanelToolbarBand0);
+  Band1 := GetBand(PanelToolbarBand1);
+  Band2 := GetBand(PanelToolbarBand2);
+  Band3 := GetBand(PanelToolbarBand3);
+  Band4 := GetBand(PanelToolbarBand4);
+  Band5 := GetBand(PanelToolbarBand5);
+  BandSub := GetBand(Panel3);
+  BandInfo := GetBand(PanelToolbarInfo);
+
+  if Assigned(Band0) then Band0.Index := 0;
+  if Assigned(Band1) then Band1.Index := 1;
+  if Assigned(Band2) then Band2.Index := 2;
+  if Assigned(Band3) then Band3.Index := 3;
+  if Assigned(Band4) then Band4.Index := 4;
+  if Assigned(Band5) then Band5.Index := 5;
+  if Assigned(BandSub) then BandSub.Index := 6;
+  if Assigned(BandInfo) then BandInfo.Index := 7;
+
+  if not (Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked) then
+    for Idx := 0 to CoolBar1.Bands.Count - 1 do
+      CoolBar1.Bands[Idx].Break := False;
+
+  Opt_Controlicons := False;
+  Opt_SubRoutines := True;
+  Opt_ViewInfoLine := False;
+  FToolbarShowFilingIcons := True;
+  FToolbarShowEvaluators := False;
+  FToolbarShowQuickTools := False;
+  FToolbarShowEditorIcons := False;
+
+  if Assigned(Band0) then Band0.Visible := True;
+  if Assigned(Band1) then Band1.Visible := True;
+  if Assigned(Band2) then Band2.Visible := False;
+  if Assigned(Band3) then Band3.Visible := False;
+  if Assigned(Band4) then Band4.Visible := False;
+  if Assigned(Band5) then Band5.Visible := False;
+  if Assigned(BandSub) then BandSub.Visible := True;
+  if Assigned(BandInfo) then BandInfo.Visible := False;
+
+  SetRuler;
+  UpdateMenu;
+end;
+
+procedure TBASinOutput.UpdateToolbarInfoBandWidth;
+var
+  MaxPanel3Width,
+  Idx, AvailableWidth, SubBandIdx, InfoBandIdx: Integer;
+begin
+  if CoolBar1 = nil then
+    Exit;
+
+  if Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked then
+    Exit;
+
+  SubBandIdx := FindToolbarBandIndex(Panel3);
+  InfoBandIdx := FindToolbarBandIndex(PanelToolbarInfo);
+  if (SubBandIdx = -1) or (InfoBandIdx = -1) then
+    Exit;
+
+  MaxPanel3Width := 360;
+  if Panel3.Width > MaxPanel3Width then
+    Panel3.Width := MaxPanel3Width;
+                   
+  CoolBar1.Bands[SubBandIdx].Width := Min(Panel3.Width + 8, MaxPanel3Width + 8);
+  AvailableWidth := CoolBar1.ClientWidth - 12;
+  for Idx := 0 to CoolBar1.Bands.Count - 1 do
+  begin
+    CoolBar1.Bands[Idx].Break := False;
+    if CoolBar1.Bands[Idx].Visible and (Idx <> InfoBandIdx) then
+      Dec(AvailableWidth, CoolBar1.Bands[Idx].Width);
+  end;
+
+  CoolBar1.Bands[InfoBandIdx].Width := Max(AvailableWidth, 8);
 end;
 
 Procedure TBASinOutput.GetOSVersion;
@@ -1234,10 +1427,31 @@ begin
 
   If ScrollBox1.ClientHeight > ScrollBox1.VertScrollBar.Range Then ViewLine := 0;
 
-  Label1.SetBounds(Bevel3.Left + Bevel3.Width + 8, (CoolBar1.Height Div 2) - (Label1.Height Div 2), CoolBar1.ClientWidth - Bevel3.Left - Bevel3.Width - 16, Label1.Height);
+  UpdateToolbarInfoBandWidth;
   
   RepaintBASIC(True);
   UpdateParseText;
+end;
+
+procedure TBASinOutput.CoolBar1Resize(Sender: TObject);
+begin
+  if AppClosing then
+    Exit;
+
+  if not (Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked) then
+    Exit;
+
+  if (ScrollBox1 = nil) or (FastIMG1 = nil) then
+    Exit;
+
+  ScrollBox1.Align := alNone;
+  ScrollBox1.Align := alClient;
+
+  FastIMG1.SetBounds(ScrollBox1.Left + 2, ScrollBox1.Top + 2, ScrollBox1.ClientWidth, ScrollBox1.ClientHeight);
+  if ScrollBox1.ClientHeight > ScrollBox1.VertScrollBar.Range then
+    ViewLine := 0;
+
+  RepaintBASIC(True);
 end;
 
 procedure TBASinOutput.MenuItemClick(Sender: TObject);
@@ -1292,7 +1506,8 @@ begin
               SaveEmulationState(UndoState);
               NotesWindow.Memo1.Lines.Clear; //arda. I can't remember if this is ok here.
                //FASTMode := True; //arda
-              ComboFuncs.Items.Clear;
+              FuncList.Clear;
+              ComboFuncs.Items.Assign(FuncList);
               
               Reset;
 
@@ -1321,9 +1536,9 @@ begin
         Begin // Assembler
 
            if (Not Opt_AsmPasmoAvailable) Then Begin
-              Windows.MessageBox(BASinOutput.Handle, pChar('Assembler in BasinC is incomplete, unstable'#13'and unsupported. Please put pasmo.exe to the root to use pasmo as default assembler.'), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+              Windows.MessageBox(BASinOutput.Handle, pChar('BasinC is not an assembler and'#13'not designed to work reliably with machine code.'#13'Please see assembler instructions in help document.'), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
            End Else Begin
-              Windows.MessageBox(BASinOutput.Handle, pChar('Pasmo detected, activate using File > Assemble > Use Pasmo' + #13#10 +  'Note: Assembler in BasinC is unsupported.' ), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+              Windows.MessageBox(BASinOutput.Handle, pChar('BasinC is not an assembler and'#13'not designed to work reliably with machine code.'#13'Pasmo is detected. ' + #13#10 ), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
 
            End;
            ShowWindow(AsmEditorWindow, False);
@@ -1422,6 +1637,7 @@ begin
            CentreFormOnForm(FindForm, Self);
            FindForm.FindType := ftBASIC;
            ShowWindow(FindForm, True);
+           repaintBasic(True);  //non-blinking cursor fix 1.85
         End;
      22:
         Begin // Find Next
@@ -1489,13 +1705,31 @@ begin
         Begin // Command History;
            ShowWindow(CommandWindow, False);
         End;
-     29:
+    29:
         Begin // Variables Window
-           ShowWindow(VariablesWindow, False);
+           if Sender is TSpeedButton then
+           begin
+             if VariablesWindow.Visible then
+               VariablesWindow.Hide
+             else
+               ShowWindow(VariablesWindow, False);
+           end
+           else
+             ShowWindow(VariablesWindow, False);
+           SpeedButtonQuickVars.Down := VariablesWindow.Visible;
         End;
-     30:
+    30:
         Begin // System Variables Window
-           ShowWindow(SysVarsWindow, False);
+           if Sender is TSpeedButton then
+           begin
+             if SysVarsWindow.Visible then
+               SysVarsWindow.Hide
+             else
+               ShowWindow(SysVarsWindow, False);
+           end
+           else
+             ShowWindow(SysVarsWindow, False);
+           SpeedButtonQuickSysVars.Down := SysVarsWindow.Visible;
         End;
      31:
         Begin // Breakpoints Window
@@ -1564,17 +1798,35 @@ begin
            ShowWindow(OptionsWindow, True);
            SetSyntaxHelper;
         End;
-     45:
+    45:
         Begin // Token Table
-           ShowWindow(TokenForm, False);
+           if Sender is TSpeedButton then
+           begin
+             if TokenForm.Visible then
+               TokenForm.Hide
+             else
+               ShowWindow(TokenForm, False);
+           end
+           else
+             ShowWindow(TokenForm, False);
+           SpeedButtonQuickTokenTable.Down := TokenForm.Visible;
         End;
      46:
         Begin // Wordwrap by inserting spaces
            WordWrap(StringStart, StringLen, 1);
         End;
-     47:
+    47:
         Begin // UDG Editor
-           ShowWindow(UDGWindow, False);
+           if Sender is TSpeedButton then
+           begin
+             if UDGWindow.Visible then
+               UDGWindow.Hide
+             else
+               ShowWindow(UDGWindow, False);
+           end
+           else
+             ShowWindow(UDGWindow, False);
+           SpeedButtonEditorUDG.Down := UDGWindow.Visible;
         End;
      48:
         Begin // Memory grabber
@@ -1681,9 +1933,18 @@ begin
         Begin // Memory Map Window
            ShowWindow(MemMapWindow, False);
         End;
-     62:
+    62:
         Begin // Tape Builder Window
-           ShowWindow(TapeWindow, False);
+           if Sender is TSpeedButton then
+           begin
+             if TapeWindow.Visible then
+               TapeWindow.Hide
+             else
+               ShowWindow(TapeWindow, False);
+           end
+           else
+             ShowWindow(TapeWindow, False);
+           SpeedButtonEditorTape.Down := TapeWindow.Visible;
         End;
      63:
         Begin // Save...
@@ -1764,9 +2025,10 @@ begin
         End;
      69:
         Begin // Compiler
-           Windows.MessageBox(BASinOutput.Handle, pChar('Compiler in BasinC is incomplete, unstable'#13'and unsupported. Many directives are not defined.'), pChar('Compiler Disclaimer'), MB_OK or MB_ICONINFORMATION);
-
-           Compile;
+           //Windows.MessageBox(BASinOutput.Handle, pChar('Compiler in BasinC is incomplete, unstable'#13'and unsupported. Many directives are not defined.'), pChar('Compiler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+           //Compile;
+           CentreFormOnForm(FormCompiler1, Self);
+           ShowWindow(FormCompiler1, True);
         End;
      70:
         Begin // Continue
@@ -1903,9 +2165,18 @@ begin
         Begin // ZX Printer window
            ShowWindow(PrinterForm, False);
         End;
-     86:
+    86:
         Begin // Profile window
-           ShowWindow(ProfileForm, False);
+           if Sender is TSpeedButton then
+           begin
+             if ProfileForm.Visible then
+               ProfileForm.Hide
+             else
+               ShowWindow(ProfileForm, False);
+           end
+           else
+             ShowWindow(ProfileForm, False);
+           SpeedButtonQuickProfile.Down := ProfileForm.Visible;
         End;
      87:
         Begin // Enable Profiling
@@ -1936,22 +2207,53 @@ begin
         Begin // Tokenise a whole string
            DeTokeniseString;
         End;
-     107:
+    107:
         Begin // Screen Paintbox
-           ScrPaintForm.Show;
-//           ShowWindow(ScrPaintForm, False);
+           if Sender is TSpeedButton then
+           begin
+             if ScrPaintForm.Visible then
+               ScrPaintForm.Hide
+             else
+               ShowWindow(ScrPaintForm, False);
+           end
+           else
+             ShowWindow(ScrPaintForm, False);
+           SpeedButtonEditorImage.Down := ScrPaintForm.Visible;
         End;
 
-     108:
+    108:
         Begin // Memory Manager
-           MemManagerForm.Show;
+           if Sender is TSpeedButton then
+           begin
+             if MemManagerForm.Visible then
+               MemManagerForm.Hide
+             else
+               ShowWindow(MemManagerForm, False);
+           end
+           else
+             ShowWindow(MemManagerForm, False);
+           SpeedButtonEditorMemory.Down := MemManagerForm.Visible;
 
         End;
 
-     109:
+    109:
         Begin // BasCloud
-           BasinetWindow.ClearSnippet;
-           ShowWindow(BasinetWindow, False)
+           if Sender is TSpeedButton then
+           begin
+             if BasinetWindow.Visible then
+               BasinetWindow.Hide
+             else
+             begin
+               BasinetWindow.ClearSnippet;
+               ShowWindow(BasinetWindow, False);
+             end;
+           end
+           else
+           begin
+             BasinetWindow.ClearSnippet;
+             ShowWindow(BasinetWindow, False);
+           end;
+           SpeedButtonEditorSnippet.Down := BasinetWindow.Visible;
 
         End;
 
@@ -1998,10 +2300,39 @@ begin
         End;
 
         121:
-        Begin //show-hide icons
+        Begin //show-hide breakpoint control icons
         Opt_Controlicons := Not Opt_Controlicons;
         SetRuler;
 
+        End;
+        143:
+        Begin //show-hide evaluator icons
+        FToolbarShowEvaluators := Not FToolbarShowEvaluators;
+        SetRuler;
+
+        End;
+        144:
+        Begin //show-hide filing icons
+        FToolbarShowFilingIcons := Not FToolbarShowFilingIcons;
+        SetRuler;
+
+        End;
+        145:
+        Begin //show-hide quick tools icons
+        FToolbarShowQuickTools := Not FToolbarShowQuickTools;
+        SetRuler;
+
+        End;
+        146:
+        Begin //show-hide editor icons
+        FToolbarShowEditorIcons := Not FToolbarShowEditorIcons;
+        SetRuler;
+
+        End;
+        147:
+        Begin // use multi-row toolbar layout
+          MultiRowToolbar1.Checked := not MultiRowToolbar1.Checked;
+          SetRuler;
         End;
 
         122:
@@ -2111,7 +2442,7 @@ begin
         134:
         Begin
            Opt_ViewInfoLine:=Not Opt_ViewInfoLine;
-           Label1.Visible:=Opt_ViewInfoLine;
+           SetRuler;
         End;
         135:
         Begin //autodetect GO TOS
@@ -2124,14 +2455,35 @@ begin
            ExtractSubs;
 
         End;
-        137:
+        137: //view ai pane
         Begin
-          Opt_EnableAI:=Not Opt_EnableAI;
-          if (trim(Opt_BYOK_APIKEY)<>'') And (trim(Opt_SelectedAIModel)<>'') Then  MemoChat.Lines.Text := 'AI is ready ('+ trim(Opt_SelectedAIModel) +')' else MemoChat.Lines.Text := 'Please setup your AI agent in Options > Tools > AI...';
+          Opt_EnableAI:=Not Opt_EnableAI;  
+          if ((trim(Opt_AIMode) = 'Ollama') and (trim(Opt_AILocalUrl) <> '') and (trim(Opt_SelectedAIModel) <> '')) or
+             ((trim(Opt_AIMode) <> 'Ollama') and (trim(Opt_BYOK_APIKEY) <> '') and (trim(Opt_SelectedAIModel) <> '')) then
+            MemoChat.Lines.Text := 'AI is ready ('+ trim(Opt_AIMode) + ' - ' + trim(Opt_SelectedAIModel) +')'
+          else
+            MemoChat.Lines.Text := 'Please setup your AI agent in Options > Tools > AI...';
           
 
           FormResize(nil);
         End;
+
+        138:  // share to url -- can be edited in ini file
+Begin
+  if (Opt_ShareURL = '') then
+  begin
+    // Show disclaimer first if not accepted, exit
+    if not ShowShareDisclaimerAcceptDecline(Self) then
+      Exit;
+
+    // accepted, setup url
+    Opt_ShareURL :='';// 'https://basinc.zx.tr/addsnippet.php';  // default url
+  end;
+End;
+
+
+
+
         139:
         Begin
           FormBasinCTips.ChkShowTips.Checked:=True;
@@ -2139,10 +2491,38 @@ begin
           FormBasinCTips.ShowOnStartupIfEnabled;
 
         End;
+        140: //only autocollects subs >1
+        Begin
+           Opt_OnlyAddMultipleJumps:=Not Opt_OnlyAddMultipleJumps;
+           ExtractSubs;
+        End;
+        141:
+        Begin // Select ALL
+           if Length(BASICMem) > 0 then
+           begin
+             // Keep selection semantics consistent with keyboard/mouse handling.
+             UpdateCursorPos(1, False);
+             UpdateCursorPos(Length(BASICMem), True);
+             UpdateMenu;
+             RepaintBASIC(True);
+             UpdateParseText;
+             MakeCursorVisible;
+           end;
+        End;
+        142:
+        Begin // Reset Toolbars
+           ResetToolbarBands;
+        End;
 
+        148: // AlwaysOnTopTools1 handler
+        Begin
+          AlwaysOnTopTools1.Checked := not AlwaysOnTopTools1.Checked;
+          ApplyAlwaysOnTopToolsSetting;
+        end;
   End;
 
 end;
+
 
 procedure Tbasinoutput.RunOrActivateCheqEdit;
 var
@@ -2286,6 +2666,7 @@ begin
         BASICList.Free;
         UndoList.Free;
         RedoList.Free;
+        FuncList.Free;
         CharDIB.Free;
         MS_48kClick.Free;
         MS_128kClick.Free;
@@ -2299,6 +2680,7 @@ end;
 procedure TBASinOutput.UpdateParseText;
 Var
  Idx, TempInt: Integer;
+ FoundText: string;
 Begin
   If Not Opt_ShowingSyntax then exit;
   ParseResult := '';
@@ -2334,19 +2716,7 @@ Begin
                           if (Opt_AutoCollectSubs or Opt_AutoCollectJumps) Then Begin                         //well I know this only works when syntax helper is also enabled
                           ComboFuncs.ItemIndex:=-1;
                           if (ParseError.Error = 'Ok') Then Begin
-                             {TempInt:= Pos('GO SUB',ParseResult);                   //Subroutine Detection Patch - Arda 1.81
-                             if (TempInt=0) Then TempInt:= Pos('GO TO',ParseResult);
-                             if (TempInt<>0) Then Begin
-                                    if (TryStrToInt(Trim(Copy(ParseResult, TempInt+7, MaxInt)),TempInt)) Then Begin
-                                           for idx := 0 to ComboFuncs.Items.Count - 1 do
-                                               if Pos(Format('%4d:', [TempInt]), ComboFuncs.Items[idx]) = 1 then
-                                                  begin
-                                                     ComboFuncs.ItemIndex:=idx;
-                                                  End;
-                                    End;
-
-                             End;}
-                           TempInt := Pos('GO SUB', ParseResult);
+                              TempInt := Pos('GO SUB', ParseResult);
                        if (TempInt = 0) then TempInt := Pos('GO TO', ParseResult);
 
                           if (TempInt <> 0) then
@@ -2354,18 +2724,21 @@ Begin
                              if ( (UpCase(ParseResult[TempInt + 3]) = 'S') and TryStrToInt(Trim(Copy(ParseResult, TempInt + 6, MaxInt)), TempInt) ) or
                                 ( (UpCase(ParseResult[TempInt + 3]) <> 'S') and TryStrToInt(Trim(Copy(ParseResult, TempInt + 5, MaxInt)), TempInt) ) then
                              begin
-                                    for idx := 0 to ComboFuncs.Items.Count - 1 do
-                                      if Pos(Format('%4d:', [TempInt]), ComboFuncs.Items[idx]) = 1 then
+                                    FoundText := '';
+                                    for idx := 0 to FuncList.Count - 1 do
+                                      if Pos(Format('%4d:', [TempInt]), FuncList[idx]) = 1 then
                                       begin
-                                        ComboFuncs.ItemIndex := idx;
+                                        FoundText := FuncList[idx];
                                         Break;
                                       end;
-                                    end;
+                                    if FoundText <> '' then
+                                      ComboFuncs.ItemIndex := ComboFuncs.Items.IndexOf(FoundText);
                              end;
 
                           End;
                        End;
 
+                 End;
            StatusBar1.Repaint;
         End Else Begin
            ParseResult := GetCurrentStatement(GetEditLine);
@@ -2552,6 +2925,15 @@ Var
   Idx, i: Integer;
   InputPanel: TPanel;
   OutputPanel: TPanel;
+  MemGlyph: TBitmap;
+  FrameW: Integer;
+  procedure SetupToggleSpeedButton(Btn: TSpeedButton; AGroupIndex: Integer);
+  begin
+    Btn.GroupIndex := AGroupIndex;
+    Btn.AllowAllUp := True;
+    Btn.Down := False;
+    
+  end;
 begin
 
  //arda new menu manual redrawing directive begin
@@ -2574,13 +2956,27 @@ begin
   BASICList := TStringlist.Create;
   UndoList := TStringlist.Create;
   RedoList := TStringlist.Create;
+  FuncList := TStringlist.Create;
   MRUList := TStringlist.Create;
 
   ViewLine := 0;
   ViewColumn := 0;
   CursOffset := 1;
   Panel1.visible := false;
-
+  FToolbarShowFilingIcons := True;
+  FToolbarShowEvaluators := False;
+  FToolbarShowQuickTools := False;
+  FToolbarShowEditorIcons := False;
+  SetupToggleSpeedButton(SpeedButtonQuickVars, 29);
+  SetupToggleSpeedButton(SpeedButtonQuickSysVars, 30);
+  SetupToggleSpeedButton(SpeedButtonQuickProfile, 86);
+  SetupToggleSpeedButton(SpeedButtonQuickTokenTable, 45);
+  SetupToggleSpeedButton(SpeedButtonEditorUDG, 47);
+  SetupToggleSpeedButton(SpeedButtonEditorImage, 107);
+  SetupToggleSpeedButton(SpeedButtonEditorTape, 62);
+  SetupToggleSpeedButton(SpeedButtonEditorSnippet, 109);
+  SetupToggleSpeedButton(SpeedButtonEditorMemory, 108);
+  
 
   PanelAI := TPanel.Create(Self);
   PanelAI.Parent := Self;
@@ -2630,7 +3026,8 @@ begin
   btnPromptSend.Height := 40;
   btnPromptSend.Caption := 'Send';
   btnPromptSend.OnClick := btnPromptSendClick;
-  btnPromptSend.TabStop:=false;
+
+  btnPromptSend.TabStop:=false;
 
   MemoPrompt := TMemo.Create(InputPanel);
   MemoPrompt.Parent := InputPanel;
@@ -2716,7 +3113,7 @@ var
   FriendlyMsg, ErrStatus: string;
 begin
   SelectedModel := Trim(Opt_SelectedAIModel);
-  if SelectedModel = '' then
+  if (SelectedModel = '') and (not SameText(Trim(Opt_AIMode), 'Ollama')) then
     SelectedModel := 'gemini-1.5-flash-latest';
 
   FinalUrl := 'https://generativelanguage.googleapis.com/v1beta/models/' +
@@ -2740,13 +3137,28 @@ SystemRole :=
 '8. Do not provide unchanged lines in the code tag block.' + #13#10 +
 '9. If a line is no longer needed and no replacement is also needed, provide only the line number to mark it for removal.' + #13#10 +
 '10. If the user query does not require code, DO NOT use the tags.' + #13#10 +
-'12. If you see a [SELECTED_SOURCE] tag, it means the user selected only a part of the source code. Focus on this part of the code.' + #13#10 +
-'13. Use CR (ASCII 13) as the only line separator inside BASIC code blocks.';
+'11. TO, LN and FN are reserved names do not use them as variable names. You can use up to 8 letters words for variables.' + #13#10 +
+'12. Arrays must be single-letter words. When resizing an array, use only the characters a through z as names. ' + #13#10 +
+'13. There is no string operators like MID, String$ etc. but you can slice strings using TO keyword like a$(x to y).' + #13#10 +
+'14. Block-IF and ELSE commands are not available. No SYS commands available.' + #13#10 +
+'15. If you see a [SELECTED_SOURCE] tag, it means the user selected only a part of the source code. Focus on this part of the code.' + #13#10 +
+'16. Use CR (ASCII 13) as the only line separator inside BASIC code blocks.';
 
-  if ApiKey = '' then
+  if SameText(Trim(Opt_AIMode), 'Ollama') then
   begin
-    ShowMessage('Please enter an API key in the Options.');
-    Exit;
+    if SelectedModel = '' then
+    begin
+      ShowMessage('Please select a local model in Options.');
+      Exit;
+    end;
+  end
+  else
+  begin
+    if ApiKey = '' then
+    begin
+      ShowMessage('Please enter an API key in the Options.');
+      Exit;
+    end;
   end;
 
   if (ApiUrl = '') or (UserQuestion = '') then
@@ -2790,34 +3202,55 @@ SystemRole :=
   btnOverwriteCode.enabled:=false;
 
   try
-    AIResponse := AskGemini(
-      PChar(ApiUrl),
-      PChar(ApiKey),
-      PChar(PayloadPrompt),
-      PChar(SystemRole)
-    );
+    if SameText(Trim(Opt_AIMode), 'Ollama') then
+      AIResponse := AskLocal(
+        PChar(Trim(Opt_AILocalUrl)),
+        PChar(SelectedModel),
+        PChar(PayloadPrompt),
+        PChar(SystemRole)
+      )
+    else
+      AIResponse := AskGemini(
+        PChar(ApiUrl),
+        PChar(ApiKey),
+        PChar(PayloadPrompt),
+        PChar(SystemRole)
+      );
 
     if AIResponse = nil then
       RawResponse := 'Error: Response unavailable'
     else
       RawResponse := StrPas(AIResponse);
 
-   if GetFriendlyAIErrorMessage(RawResponse, FriendlyMsg, ErrStatus) then
-  begin
-    // Known errors: show friendly message; unknown: already generic message, but log details.
-    if (ErrStatus <> 'RESOURCE_EXHAUSTED') and
-       (ErrStatus <> 'UNAUTHENTICATED') and
-       (ErrStatus <> 'PERMISSION_DENIED') and
-       (ErrStatus <> 'NOT_FOUND') and
-       (ErrStatus <> 'UNAVAILABLE') then
+    if SameText(Trim(Opt_AIMode), 'Ollama') then
     begin
-      DebugLog('AI ERROR RAW: ' + RawResponse);
+      if Pos('Error:', RawResponse) = 1 then
+      begin
+        MemoChat.Lines.Add('AI: ' + RawResponse);
+        btnPromptSend.Enabled := True;
+        MemoPrompt.SetFocus;
+        Exit;
+      end;
+    end
+    else
+    begin
+      if GetFriendlyAIErrorMessage(RawResponse, FriendlyMsg, ErrStatus) then
+      begin
+        // Known errors: show friendly message; unknown: already generic message, but log details.
+        if (ErrStatus <> 'RESOURCE_EXHAUSTED') and
+           (ErrStatus <> 'UNAUTHENTICATED') and
+           (ErrStatus <> 'PERMISSION_DENIED') and
+           (ErrStatus <> 'NOT_FOUND') and
+           (ErrStatus <> 'UNAVAILABLE') then
+        begin
+          DebugLog('AI ERROR RAW: ' + RawResponse);
+        end;
+        MemoChat.Lines.Add('AI: ' + FriendlyMsg);
+        btnPromptSend.Enabled := True;
+        MemoPrompt.SetFocus;
+        Exit;
+      end;
     end;
-    MemoChat.Lines.Add('AI: ' + FriendlyMsg);
-    btnPromptSend.Enabled := True;
-    MemoPrompt.SetFocus;
-    Exit;
-  end;
   
    BasicStartPos := Pos('[BASIC_START]', RawResponse);
    BasicEndPos   := Pos('[BASIC_END]', RawResponse);
@@ -2936,12 +3369,15 @@ Var
   fName: Array[0..1024] of CHAR;
   LPos, CodeAddress, LoadLength: Integer;
   Name: String;
+  trapbackup: bool;
 begin
   hDrop := Msg.WParam; Name := '';
   DragQueryFile(hDrop,0,fName,254);
   DragFinish(hDrop);
   DragAcceptFiles(Handle, True);
-
+  if  Registers.EmuRunning then exit;
+  trapbackup:=   Opt_TapeTrapLoad;
+  Opt_TapeTrapLoad := False;
   Name := fName;
   If (Lowercase(ExtractFileExt(Name)) = '.bas') or
      (Lowercase(ExtractFileExt(Name)) = '.sna') or
@@ -2976,7 +3412,8 @@ begin
         ResizeSectionBool := False;
      End;
   End;
-
+  //Opt_TapeTrapLoad:=trapbackup;
+  
 End;
 
 procedure TBASinOutput.ScrollBox1VScroll(Sender: TObject; Pos: SmallInt; EventType: TVScrollEventType);
@@ -3154,14 +3591,20 @@ Begin
   DisplayWindow1.Checked := DisplayWindow.Visible;
   CharacterRuler1.Checked := Opt_CharacterRuler;
   CodeControlIcons1.Checked := Opt_Controlicons;
+  Evaluators1.Checked := FToolbarShowEvaluators;
+  FilingIcons1.Checked := FToolbarShowFilingIcons;
+  QuickTools1.Checked := FToolbarShowQuickTools;
+  EditorIcons1.Checked := FToolbarShowEditorIcons;
   EnableProfiling1.Checked := ProfilingEnabled;
   EnableSubList1.Checked:=Opt_SubRoutines;
   AutoDetectGoSubs1.Checked:=Opt_AutoCollectSubs;
   AutodetectGOTOs2.Checked:=Opt_AutoCollectJumps;
+  HideEntriesWithSingleOrigin1.Checked:=Opt_OnlyAddMultipleJumps;
   PreviewOrigins1.Checked:=Opt_ShowJumpOrigins;
   InfoLine1.Checked:=Opt_ViewInfoLine;
   GraphEditor1.Visible:=Opt_CheqEditAvailable;
   CheqEditPage1.Visible:=Not Opt_CheqEditAvailable;
+  GetPasmo1.Visible:=Not Opt_AsmPasmoAvailable;
   Notes1.Checked:=Opt_CompoSize;
   AIChatPanel1.Checked:=Opt_EnableAI;
 
@@ -3186,6 +3629,7 @@ begin
      SetCapsLock;
      UpdateRunTimeButtons;
   End;
+
 end;
 
 procedure TBASinOutput.Timer2Timer(Sender: TObject);
@@ -3196,6 +3640,14 @@ begin
      DisplayWindow.BringToFront;
      DisplayWindow.WantsFront := False;
   End;
+  if Assigned(VariablesWindow) then
+     SpeedButtonQuickVars.Down := VariablesWindow.Visible;
+  if Assigned(SysVarsWindow) then
+     SpeedButtonQuickSysVars.Down := SysVarsWindow.Visible;
+  if Assigned(ProfileForm) then
+     SpeedButtonQuickProfile.Down := ProfileForm.Visible;
+  if Assigned(TokenForm) then
+     SpeedButtonQuickTokenTable.Down := TokenForm.Visible;
   OnHint(Nil);
 end;
 
@@ -4107,30 +4559,9 @@ Begin
                        Else Begin
                           If CurWord <> '' Then begin
                                 //new keyword, off screen
-                                {If Opt_Indenting and (UpperCase(CurWord) = 'NEXT') and (WordOffset>0) Then begin //flist
-
-                                        if (Copy(WordStack, Length(WordStack), 1)='F') Then
-                                        Begin
-                                                Wordstack:= Copy(WordStack, 1, Length(WordStack)-1);
-                                                Dec(WordOffset , 1); //flist
-                                                Dec(ViewX, (Opt_Indentsize*8)*Opt_FontScale); //flist
-                                                Dec(CurWordOrg, (Opt_Indentsize*8)*Opt_FontScale);
-                                                //XPos:=CurWordOrg+ViewX+32;
-                                                Dec(XPos,(Opt_Indentsize*8)*Opt_FontScale);
-                                        End Else Begin
-                                                //oops this program is not valid for indenting!
-                                                //if x Then Next y   <-- conditional next.
-                                                //let it sink.
-                                        End ;
-                                End;   //flist   }
+                                //indenting erased 1.84 see old code
 
                                 NewWord(DIB, CurWord, CurWordOrg, YPos, Ink, Paper, Bright, LineBreak, REMCommand, InString, DoPaint, CurWordPos);
-                                //indenting178
-                                //If Opt_Indenting and (UpperCase(CurWord) = 'NEXT') Then Begin//and (WordOffset>0) Then begin //flist
-                                        //Dec(XPos,(Opt_Indentsize*8)*Opt_FontScale);
-                                //        IndentMarkDecrease:=true;
-                                //End;
-                                //enindent78
                           End;
 
 
@@ -4146,22 +4577,7 @@ Begin
                        End;
                     End;
                  End Else Begin
-                        {
-                        If Opt_Indenting and (CurWord <> '' ) Then Begin
-                                 if  (UpperCase(CurWord) = 'NEXT') and (WordOffset>0) Then begin //flist
-                                        if (Copy(WordStack, Length(WordStack), 1)='F') Then
-                                        Begin
-                                         Wordstack:= Copy(WordStack, 1, Length(WordStack)-1);
-                                        Dec(WordOffset , 1); //flist
-                                        Dec(ViewX, (Opt_Indentsize*8)*Opt_FontScale); //flist
-
-                                        Dec(CurWordOrg, (Opt_Indentsize*8)*Opt_FontScale);
-                                        //XPos:=CurWordOrg+ViewX+32;
-                                        Dec(XPos,(Opt_Indentsize*8)*Opt_FontScale);
-
-                                        End;
-                                End;   //flist
-                        End;}
+                        //end indenting -- erased 1.84
                  End;
               If CurChar = '"' Then Begin   // quotes
                  If CurWord <> '' Then
@@ -4375,11 +4791,42 @@ Begin
 End;
 
 procedure TBASinOutput.ExtractSubs;
+var
+  Idx: Integer;
+  ItemText, OriginText: string;
+  OpenPos, ClosePos: Integer;
+  ShowItem: Boolean;
 Begin
       if Not Opt_SubRoutines then exit;
-      ComboFuncs.Items.Clear;
+      FuncList.Clear;
       ExtractRems;
       if (Opt_AutoCollectSubs Or Opt_AutoCollectJumps) then ExtractGosubs(Opt_AutoCollectSubs,Opt_AutoCollectJumps,Opt_ShowJumpOrigins);
+      ComboFuncs.Items.BeginUpdate;
+      try
+        ComboFuncs.Items.Clear;
+        if Opt_OnlyAddMultipleJumps then
+        begin
+          for Idx := 0 to FuncList.Count - 1 do
+          begin
+            ItemText := FuncList[Idx];
+            ShowItem := True;
+            OpenPos := LastDelimiter('(', ItemText);
+            ClosePos := LastDelimiter(')', ItemText);
+            if (OpenPos > 0) and (ClosePos > OpenPos) then
+            begin
+              OriginText := Copy(ItemText, OpenPos + 1, ClosePos - OpenPos - 1);
+              if (OriginText <> '') and (OriginText[1] <> '*') and (Pos(',', OriginText) = 0) then
+                ShowItem := False;
+            end;
+            if ShowItem then
+              ComboFuncs.Items.Add(ItemText);
+          end;
+        end
+        else
+          ComboFuncs.Items.Assign(FuncList);
+      finally
+        ComboFuncs.Items.EndUpdate;
+      end;
 
 end;
 
@@ -4463,7 +4910,7 @@ begin
         subName := Trim(Copy(currentLine, j, Length(currentLine) - j + 1));
         subName := UpperCase(subName);
         // "Line No: Sub Name"
-        ComboFuncs.Items.Add(Format('%4d: %s', [lineNum, subName]));
+        FuncList.Add(Format('%4d: %s', [lineNum, subName]));
       end;
     end;
 
@@ -4707,7 +5154,7 @@ begin
     else if TargetList[idx].Count > 1 then
       FinalStr := FinalStr + Format(' (*%d)', [TargetList[idx].Count]);
 
-    ComboFuncs.Items.Add(FinalStr);
+    FuncList.Add(FinalStr);
   end;
 end;
 
@@ -4907,6 +5354,10 @@ Var
   Idx: Integer;
   SciFlag, GotSign: Boolean;
 Begin
+  if (Text = '') or not (Text[1] in ['0'..'9']) then Begin
+     Result := False;
+     Exit;
+  End;
   SciFlag := False;
   GotSign := False;
   Result := True;
@@ -5742,6 +6193,16 @@ begin
               End;
            End;
 
+           // Block pure Ctrl combinations from being inserted as control chars.
+           // Keep AltGr (Ctrl+Alt) working for layout-specific character input.
+           If CtrlDown and Not (ssAlt in Shift) Then Begin
+              RepaintBASIC(False);
+              UpdateParseText;
+              MakeCursorVisible;
+              Exit;
+              
+           End;
+
            KeyChar := GetCharFromVKey(Key);
            If KeyChar = '' Then Begin
               RepaintBASIC(False);
@@ -5959,34 +6420,6 @@ Begin
 
    //this proc relies in CursorPoint variable
 
-  {
-  OldPoint := Point(ViewLine, ViewColumn);
-  If (CursorPoint.X) < (64) Then
-     ViewColumn := Max(ViewColumn - ((-CursorPoint.X+(64)) Div (8)), 0);
-  If (CursorPoint.X) > FastIMG1.Bmp.Width -(64) Then
-     Inc(ViewColumn, (CursorPoint.X - (FastIMG1.Bmp.Width -(64))) Div (8));
-
-  debuge:=((FastIMG1.Bmp.Height Div (8*Opt_FontScale)) - GetSystemMetrics(SM_CYHSCROLL));
-
-  If (CursorPoint.Y) < (24) Then
-  Begin
-
-     ViewLine := Max(ViewLine - ((-CursorPoint.Y+32) Div (8)), 0);
-
-  End Else If (CursorPoint.Y)  > (debuge - (40)) Then   Begin
-
-      debuge:=((CursorPoint.Y)-(((FastIMG1.Bmp.Height Div Opt_FontScale) - GetSystemMetrics(SM_CYHSCROLL)) - (40))) Div (8);
-
-     Inc(ViewLine, debuge);
-
-     End;
-
-  ScrollBox1.VertScrollBar.Position := ViewLine * (8*Opt_FontScale);
-  // OutputDebugString (PChar('ViewLine- '+IntToStr(ViewLine)+' H:'+IntToStr(FastIMG1.Bmp.Height)+' Y:'+IntToStr( CursorPoint.Y)));
-
-
-  ScrollBox1.HorzScrollBar.Position := ViewColumn * (8*Opt_FontScale);
-  RepaintBASIC(True);}
 
    OldPoint := Point(ViewLine, ViewColumn);
   If CursorPoint.X < 0 Then
@@ -6234,13 +6667,17 @@ Begin
         UDGWindow.FormShow(nil);
      VariablesWindow.Button1.Enabled := True;
      UpdateCursorPos(CursOffset, False);
+
      File1.Enabled := True;
      View1.Enabled := True;
      Edit1.Enabled := True;
      Search1.Enabled := True;
      Run1.Enabled := True;
      Tools1.Enabled := True;
+     Editors1.Enabled:=True;
      Help1.Enabled := True;
+     DebugWindows1.Enabled:=True;
+     
   End;
 End;
 
@@ -7754,37 +8191,55 @@ Begin
 End;
 
 Procedure TBASinOutput.SetRuler;
+Var
+  Idx: Integer;
 Begin
   RulerIMG.Visible := Opt_CharacterRuler;
   Bevel5.Visible := Opt_ShowStatusbar and (Opt_ShowingSyntax or Opt_CharacterRuler);
   CoolBar1.Visible := Opt_ShowToolbar;
+  CoolBar1.Align := alTop;
+  CoolBar1.AutoSize := Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked;
+  if not CoolBar1.AutoSize then
+    CoolBar1.Height := 47;
 
   Label1.Visible:= Opt_ViewInfoLine;
 
-  SpeedButton12.Visible:= Opt_Controlicons;
-  SpeedButton11.Visible:= Opt_Controlicons;
+  SpeedButton12.Visible:= FToolbarShowEvaluators;
+  SpeedButton11.Visible:= FToolbarShowEvaluators;
   SpeedButton10.Visible:= Opt_Controlicons;
   SpeedButton8.Visible:= Opt_Controlicons;
   SpeedButton7.Visible:= Opt_Controlicons;
   SpeedButton9.Visible:= Opt_Controlicons;
 
-  Bevel4.Visible:= Opt_Controlicons;
   Panel3.Visible:= Opt_SubRoutines;
-  Bevel8.Visible:= Opt_SubRoutines;
-  Bevel2.Visible:= Opt_Controlicons;
-if Opt_ControlIcons then
-    Bevel3.Left := SpeedButton9.Left + SpeedButton9.Width + 4
-  else
-    Bevel3.Left := SpeedButton6.Left + SpeedButton6.Width + 4;
+  Bevel1.Visible := False;
+  Bevel2.Visible := False;
+  Bevel3.Visible := False;
+  Bevel4.Visible := False;
+  Bevel8.Visible := False;
 
-  if Opt_SubRoutines then
+  if CoolBar1.Bands.Count >= 8 then
   begin
-    Panel3.Left := Bevel3.Left+8;
-    bevel8.left:=bevel3.left;
+    if not (Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked) then
+      for Idx := 0 to CoolBar1.Bands.Count - 1 do
+        CoolBar1.Bands[Idx].Break := False;
 
-    Bevel3.Left := Panel3.Left + Panel3.Width + 4;
-
+    Idx := FindToolbarBandIndex(PanelToolbarBand0);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := FToolbarShowFilingIcons;
+    Idx := FindToolbarBandIndex(PanelToolbarBand2);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := FToolbarShowEvaluators;
+    Idx := FindToolbarBandIndex(PanelToolbarBand3);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_Controlicons;
+    Idx := FindToolbarBandIndex(PanelToolbarBand4);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := FToolbarShowQuickTools;
+    Idx := FindToolbarBandIndex(PanelToolbarBand5);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := FToolbarShowEditorIcons;
+    Idx := FindToolbarBandIndex(Panel3);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_SubRoutines;
+    Idx := FindToolbarBandIndex(PanelToolbarInfo);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_ViewInfoLine;
   end;
+  UpdateToolbarInfoBandWidth;
 
   SetSyntaxHelper;
   FormResize(nil);
@@ -8605,17 +9060,18 @@ begin
      GoToCursor1.Enabled := True;
      ToggleBreakPoint1.ImageIndex := StrToInt(TempStr);
 
-          { --- YENI EKLENEN KISIM: JumpTargets1 Mantigi --- }
-     JumpTargets1.Clear;
+     for Idx2 := JumpTargets1.Count - 1 downto 0 do
+       if JumpTargets1.Items[Idx2] <> EnableAutoSub1 then
+         JumpTargets1.Delete(Idx2);
      JumpTargets1.Enabled := False;
      
      TargetLineVal := StrToIntDef(TempStr, -1);
 
-     for Idx := 0 to ComboFuncs.Items.Count - 1 do
+     for Idx := 0 to FuncList.Count - 1 do
      begin
-       if Pos(Format('%4d:', [TargetLineVal]), ComboFuncs.Items[Idx]) = 1 then
+       if Pos(Format('%4d:', [TargetLineVal]), FuncList[Idx]) = 1 then
        begin
-         LineText := ComboFuncs.Items[Idx];
+         LineText := FuncList[Idx];
 
          pOpen := LastDelimiter('(', LineText);
          pClose := LastDelimiter(')', LineText);
@@ -8648,14 +9104,13 @@ begin
              end;
 
 
-             if JumpTargets1.Count > 0 then
+             if JumpTargets1.Count > Ord(Assigned(EnableAutoSub1)) then
                JumpTargets1.Enabled := True;
            end;
          end;
-         Break; // Satir bulundu, d�ng�den �ik
+         Break;
        end;
      end;
-     { ------------------------------------------------ }
 
 
 
@@ -9004,7 +9459,15 @@ end;
 
 procedure TBASinOutput.CheckUpdates1Click(Sender: TObject);
 begin
-        ShellExecute(0, 'open', 'https://arda.kisafilm.org/blog/?cat=13&lang=en', nil, nil, SW_SHOWNORMAL);
+        ShellExecute(
+  0,
+  PAnsiChar('open'),
+  PAnsiChar(AnsiString('https://basinc.zx.tr?updatecheck=' + GetBuildInfoAsString(true))),
+  nil,
+  nil,
+  SW_SHOWNORMAL
+);
+
 end;
 
 procedure TBASinOutput.HtmlHelpOnline(hwndCaller: HWND; pszFile: PChar; uCommand: UINT; dwData: DWORD);
@@ -9017,7 +9480,7 @@ begin
     // "::" split
     LocalPath := pszFile;
     Delete(LocalPath, 1, Pos('::', LocalPath) + 1);
-    HelpURL := 'https://zx.tr/basinc/help' + LocalPath+'?basinc183';
+    HelpURL := 'https://zx.tr/basinc/help' + LocalPath+'?'+GetBuildInfoAsString(true);
 
     // open default browser
     ShellExecute(0, 'open', PChar(HelpURL), nil, nil, SW_SHOWNORMAL);
@@ -9085,6 +9548,116 @@ end;
 
 
 
+function TBASinOutput.ShowShareDisclaimerAcceptDecline(AOwner: TComponent): Boolean;
+const
+  CAPTION_TEXT = 'BasinC Net - Share Disclaimer (Please Read)';
+  BTN_ACCEPT   = 'Accept';
+  BTN_DECLINE  = 'Decline';
+
+  SECTION1_TITLE = '1) Cultural / Archival Purpose Notice';
+  SECTION2_TITLE = '2) GDPR / Privacy Addendum (Minimal - EU-aligned)';
+  SECTION3_TITLE = '3) Short Consent Text (Accept / Decline)';
+
+  TEXT_SECTION1 =
+    'basinc.zx.tr and the BasinC Net sharing feature are provided as a non-commercial environment ' +
+    'to share and preserve Sinclair BASIC / ZX Spectrum code practices for educational, historical, ' +
+    'and cultural-heritage purposes.' + sLineBreak + sLineBreak +
+    'This platform aims to keep knowledge accessible and prevent loss of community knowledge. ' +
+    'It does not seek to claim ownership over user submissions.' + sLineBreak + sLineBreak +
+    'Because all shared snippets are publicly accessible, you understand that third parties may ' +
+    'view, copy, archive, repost, or reuse the content. The service provider does not control and ' +
+    'cannot prevent such third-party actions.';
+
+  TEXT_SECTION2 =
+    'BasinC itself does not establish a direct internet connection. When you share code, BasinC ' +
+    'hands your data to your default web browser; the transfer is performed by the browser.' + sLineBreak + sLineBreak +
+    'Data sent is limited to:' + sLineBreak +
+    '- The code snippet you choose to share (Base64-encoded)' + sLineBreak +
+    '- A randomly generated installation identifier that is not intended to contain personal data' + sLineBreak + sLineBreak +
+    'Server-side logs (such as IP address and standard web request metadata) may be processed as part ' +
+    'of normal web hosting operations for security and reliability. No profiling is performed.' + sLineBreak + sLineBreak +
+    'You may delete your shared content at any time, and no retention or availability guarantee is provided.';
+
+  TEXT_SECTION3 =
+    'By clicking Accept, you confirm that:' + sLineBreak +
+    '- The snippet will be published publicly and may be accessed by anyone.' + sLineBreak +
+    '- You own the rights to share the code, or you have permission to do so.' + sLineBreak +
+    '- Your content does not violate third-party rights (copyright, licensing, trademarks) and is not unlawful.' + sLineBreak +
+    '- The service is provided "as-is" with no warranty of storage, persistence, or availability.' + sLineBreak +
+    '- The service provider is not liable for any direct or indirect damages resulting from the use, execution, ' +
+    'or redistribution of shared snippets by you or third parties.' + sLineBreak + sLineBreak +
+    'If you do not agree, click Decline.';
+var
+  F: TForm;
+  Memo: TMemo;
+  PanelBottom: TPanel;
+  BtnAccept, BtnDecline: TButton;
+  FullText: string;
+begin
+  Result := False;
+
+  FullText :=
+    SECTION1_TITLE + sLineBreak +
+    //StringOfChar('-', Length(SECTION1_TITLE)) + sLineBreak +
+    TEXT_SECTION1 + sLineBreak + sLineBreak +
+    SECTION2_TITLE + sLineBreak +
+    //StringOfChar('-', Length(SECTION2_TITLE)) + sLineBreak +
+    TEXT_SECTION2 + sLineBreak + sLineBreak +
+    SECTION3_TITLE + sLineBreak +
+    //StringOfChar('-', Length(SECTION3_TITLE)) + sLineBreak +
+    TEXT_SECTION3;
+
+  F := TForm.CreateNew(AOwner);
+  try
+    F.Caption := CAPTION_TEXT;
+    F.Position := poScreenCenter;
+    F.BorderStyle := bsDialog;
+    F.Width := 760;
+    F.Height := 520;
+
+    Memo := TMemo.Create(F);
+    Memo.Parent := F;
+    Memo.Align := alClient;
+    Memo.ReadOnly := True;
+    Memo.ScrollBars := ssVertical;
+    Memo.WordWrap := True;
+    Memo.Lines.Text := FullText;
+
+    PanelBottom := TPanel.Create(F);
+    PanelBottom.Parent := F;
+    PanelBottom.Align := alBottom;
+    PanelBottom.Height := 52;
+    PanelBottom.BevelOuter := bvNone;
+
+    BtnAccept := TButton.Create(F);
+    BtnAccept.Parent := PanelBottom;
+    BtnAccept.Caption := BTN_ACCEPT;
+    BtnAccept.Width := 110;
+    BtnAccept.Height := 26;
+    BtnAccept.Top := 12;
+    BtnAccept.Left := F.ClientWidth - BtnAccept.Width - 12;
+    BtnAccept.ModalResult := mrOk;
+    BtnAccept.Default := True;
+
+    BtnDecline := TButton.Create(F);
+    BtnDecline.Parent := PanelBottom;
+    BtnDecline.Caption := BTN_DECLINE;
+    BtnDecline.Width := 110;
+    BtnDecline.Height := 26;
+    BtnDecline.Top := 12;
+    BtnDecline.Left := BtnAccept.Left - BtnDecline.Width - 8;
+    BtnDecline.ModalResult := mrCancel;
+    BtnDecline.Cancel := True;
+
+    F.ActiveControl := BtnDecline;
+
+    Result := (F.ShowModal = mrOk);
+  finally
+    F.Free;
+  end;
+end;
+
+
 
 procedure TBASinOutput.ComboFuncsChange(Sender: TObject);
 begin
@@ -9092,7 +9665,7 @@ begin
  if ComboFuncs.ItemIndex >= 0 then
   begin
     ComboFuncs.Hint := ComboFuncs.Items[ComboFuncs.ItemIndex];
-    ComboFuncs.ShowHint := True; // Hint g�sterimini a�
+    ComboFuncs.ShowHint := True; // Hint
   end
   else
     ComboFuncs.ShowHint := False;
@@ -9103,6 +9676,18 @@ begin
 procedure TBASinOutput.BasinCOfficialDiscordServer1Click(Sender: TObject);
 begin
  ShellExecute(0, 'open', PChar('https://discord.gg/V7Mf27Z5DY'), nil, nil, SW_SHOWNORMAL);
+end;
+
+procedure TBASinOutput.BasinCShare1Click(Sender: TObject);
+begin
+ ShellExecute(0, 'open', PAnsiChar(AnsiString('https://basinc.zx.tr?v=' + GetBuildInfoAsString(true))), nil, nil, SW_SHOWNORMAL);
+
+
+end;
+
+procedure TBASinOutput.GetPasmo1Click(Sender: TObject);
+begin
+ ShellExecute(0, 'open', PChar('https://pasmo.speccy.org/'), nil, nil, SW_SHOWNORMAL);
 end;
 
 initialization
@@ -9118,6 +9703,34 @@ end.
 // todo: basincnet web site - somewhere to store snippets, share on social media and run on web emulator or run on basinc locally.
 
 // todo: Ulaplus only works in supereagle mode?!?
+
+//1.85
+// Fixed  - Cursor to stay invisible for a moment after find text operation if in non-blink mode.
+// Changed- Behaviour of syntax highlighter to fix variable names starting with "e<number>", this is not a fix, but a small balancing change
+// Fixed  - Tape Browser now accept files via drag&drop again. :)
+// Fixed  - Last block wouldn't load from tape, should be fixed now.
+// Added  - options > Cpu Speed setting can be retained between sessions if desired.
+// Added  - Font Read button in the options to make options window more robust.
+// 
+
+
+//1.84
+// Added  - Local AI option is added. Now the Quality of AI responses is your responsibility. ;)
+//          Usable models, at least DeepSeekCoderV2 or Llama 3.1 (as of 2026 Jan)
+// Added  - Stack Pointer last 10 values listing in CPU Monitor window. Can be toggled with "View" button at the top.
+// Added  - "Select All" menu item is added. Also added keyboard shortcuts for copy listing and copy plain text, default behaviour is also changed to plain text.
+// Added  - More toolbar TOGGLE buttons for Tools and Debug windows for easy access and getting rid of tools you don't use.
+// Added  - OldSkool arrangable and draggable toolbar buttons are back. The toolbar was originally planned as customisable by Dunny, but never materailized until now.
+// Added  - Tape editor can now show headerless blocks so you can grab the data within. They are still cannot be loaded though as ROM cannot load them from basic either.
+// Added  - View > "Always On Top Tools" toggle option. This applies only to Vars, Sysvars, Profiling, Token, Udg, Paint, Tape, Snippets and Manager windows.
+// Added  - "Sort" checkbox on Token Table Keywords list. So now it's easier to find a keyword.
+// Added  - Base Snippets are moved to another file, preventing overwriting your own snippets while updating.
+// Changed- Moved assembler to editors menu, ai chat to tools menu, debugging views has their own header now.
+// Changed- Profile Results window is now in courier font like other tool windows.
+// Fixed  - Major fix: 20 years of missing opcodes in Interrupt Mode 2 emulation, but possibly there are more (reported by Janko via Discord)
+// Fixed  - BasinC was losing the last used folder when opening bas files. Now it properly remembers even between sessions (reported by PaddyC13 via Discord)
+// Fixed  - While using Pasmo Assembler, org address was calculated incorrectly when code had more than one org specified.
+
 
 //1.83
 // Fixed - Nasty bug on NEG opcode emulation caused all sort of problems in new delphi compiler. Sorted! (Uwe Geiken)
@@ -9143,6 +9756,8 @@ end.
 // Added - AI API Calls. Ofcourse what did you expect?! :) Bring your own key style. Google Cloud only for now. see Options>External Tools/AI -- Nothing is exposed to internet unless you click SEND button
 // Added - Snippets window now has a splitter in the middle to change the size of the panes
 // Added - AutoBackup folder view button and interval setting in options > files tab.
+// Changed - English, Spanish, Deutsch and Turkish translation is updated (Updated parts are AI translation over old manual translations)
+
 
 // 1.82
 // Added - ZX0 compression natively supported in basinC (you may find options on export menus or memory grabber etc.)
@@ -9340,6 +9955,7 @@ end.
   // Allow instances
   // Project Notes Editor
   // Snippets
+
 
 
 

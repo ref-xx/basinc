@@ -282,9 +282,9 @@ begin
     else
     begin
       Lines.Add('; Auto-generated default tips file (missing basinctips.ini)');
-      Lines.Add('BasinCMini.png,12,nav,0,Welcome to BasinC![br][br]We cannot found the tips file. Please check your installation.\\.');
+      Lines.Add('BasinCMini.png,12,nav,0,Welcome to BasinC![br][br]We cannot found the tips file. Please check your installation for basintips.ini');
       try
-        Lines.SaveToFile(TipsFilePath);
+        //Lines.SaveToFile(TipsFilePath);
       except
         // ignore (read-only install or permissions)
       end;

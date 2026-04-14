@@ -111,6 +111,7 @@ type
     FromMemoryManager1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure FormHide(Sender: TObject);
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure FastIMG2MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FastIMG1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -173,6 +174,8 @@ type
     procedure FromMemoryManager1Click(Sender: TObject);
   private
     { Private declarations }
+    procedure CreateWnd; override;
+    procedure UpdateDropTarget(Accept: Boolean);
   public
     { Public declarations }
     UdgFileName: AnsiString;  //last open/saved filename //arda--requested by DamienG >1.793
@@ -332,7 +335,7 @@ begin
   hDrop := Msg.WParam; Name := '';
   DragQueryFile(hDrop,0,fName,254);
   DragFinish(hDrop);
-  DragAcceptFiles(Handle, True);
+  UpdateDropTarget(True);
 
   Name := fName;
 
@@ -348,7 +351,17 @@ begin
 
 End;
 
+procedure TUDGWindow.UpdateDropTarget(Accept: Boolean);
+begin
+  if HandleAllocated then
+    DragAcceptFiles(Handle, Accept);
+end;
 
+procedure TUDGWindow.CreateWnd;
+begin
+  inherited;
+  UpdateDropTarget(True);
+end;
 
 procedure TUDGWindow.GrabFromMemory;
 Var
@@ -401,9 +414,10 @@ begin
   FirstRun := True;
   GotUndo := False;
   PaintMode := BitSet;
+  OnHide := FormHide;
 
   RenderCurrentAnim(True);
-  DragAcceptFiles(Handle, True);
+  UpdateDropTarget(True);
 end;
 
 Procedure TUDGWindow.SetUpGrid(Ew, Eh, Dw, Dh: Integer);
@@ -807,6 +821,9 @@ End;
 
 procedure TUDGWindow.FormShow(Sender: TObject);
 begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorUDG.Down := True;
+
   If FirstRun and (ProgStateFlag <> PS_Reset) Then Begin
      FormResize(nil);
      GrabFromMemory;
@@ -820,6 +837,12 @@ begin
   OnionShowing := False;
   RepaintChars;
   GetBIGChar(True);
+end;
+
+procedure TUDGWindow.FormHide(Sender: TObject);
+begin
+  If Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorUDG.Down := False;
 end;
 
 procedure TUDGWindow.FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -1685,6 +1708,7 @@ procedure TUDGWindow.UDGEditorHelp1Click(Sender: TObject);
 begin
   BasinOutput.HtmlHelpOnline(Application.Handle, PChar(BASinDir+'\BASin.chm::/topics/window_udg_editor.html'), HH_DISPLAY_TOPIC, 0);
   MouseDown := False;
+  
 end;
 
 procedure TUDGWindow.FormResize(Sender: TObject);
@@ -2746,7 +2770,7 @@ begin
   NewHeight := 8 + 6 + 6 + 4 + 4 + 4 + 4 + 4;
   Panel2.Height := NewHeight;
   SizeForm(Self, Left, Top, Width, Height + (NewHeight - CurHeight));
-  DragAcceptFiles(Handle, False);
+  UpdateDropTarget(False);
 
 end;
 
@@ -3150,5 +3174,6 @@ begin
 end;
 
 End.
+
 
 

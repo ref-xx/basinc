@@ -8,7 +8,7 @@
 // * hard disk rather than tape.                *
 // *                                            *
 // * (C) 2002-2007 By Paul Dunn.                *
-// * (C) 2008-2025 By Arda Erdikmen             *
+// * (C) 2008-2026 By Arda Erdikmen             *
 // **********************************************
 
 
@@ -125,7 +125,7 @@ Var
   WantBreak:           Boolean;
 
   TrapPrint:           Boolean = False;
-  //TrapCounter:         Integer=0;
+  Old07f5:              Word=0;
 
   RAMDiskArray:        Array[0..10] of Byte;
 
@@ -678,7 +678,7 @@ Begin
 
      Last7FFD := Value;
 
-     For Idx := $6b To $c2 Do
+     For Idx := $6b To $c2 Do    //copy 128k sysvars
         Memory[23296 + (Idx - $6b)] := Rom128k[Idx];
 
      If Value and 16 = 16 Then
@@ -986,8 +986,8 @@ Begin
               // If A is $FF then we are expecting the BODY of the file.
               If FileHeader = '' Then Exit;
               If Opt_TapeTrapLOAD Then
-                 If (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
-                    If FileBody = 'HEADERLESS' Then Begin
+                 If FileBody = 'HEADERLESS' Then Begin
+                    If (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
                        If TapeBlocks[TapePosition][3] = #$FF Then Begin // This is a headerless block
                           FileBody := Copy(TapeBlocks[TapePosition], 4, 999999);
                           FileHeader[1] := #0; // Headerless blocks, by their nature, can overwrite the BASIC, so make sure it gets updated.
@@ -997,10 +997,10 @@ Begin
                           If TapePosition = TapeBlocks.Count Then
                              TapePosition := 0;
                        TapeWindow.UpdateTapeList;
+                    End Else Begin
+                       EmulateRET;
+                       Exit;
                     End;
-                 End Else Begin
-                    EmulateRET;
-                    Exit;
                  End;
 
 
@@ -1097,6 +1097,53 @@ Begin
                     Registers.PC := $0644;
            End;
         End;
+     $07F6:   //MCODER3 Romtrap 1 to prevent loading from tape
+        Begin
+           CopyMemory(@Memory[16384], @MCODER3_PART1[0], SizeOf(MCODER3_PART1));
+           PutWord(@Memory[$07f5], old07f5);     //disable trap
+           Registers.SP:=$5BFE;
+           Registers.A:=0;
+           Registers.F:=$93;
+           Registers.B:=$b0;
+           Registers.C:=$01;
+           Registers.D:=0;
+           Registers.E:=0;
+           Registers.H:=0;
+           Registers.L:=$B8;
+           Registers.IX:=$50D4;
+           Registers.IY:=$5c3A;
+           Registers.PC:=$4bDB;
+           old07f5:=GetWord(@Memory[$08B1]);
+           PutWord(@Memory[$08B1],$00ED); //set the next trap!
+        End;
+
+     $08B2: //Mcoder3 Romtrap 2 see above.
+       Begin
+           PutWord(@Memory[$08B1],old07f5); //disable trap again.
+           CopyMemory(@Memory[$4100], @MCODER3_PART2[0], SizeOf(MCODER3_PART2)); //load next part
+           if (GetWord(@Memory[Registers.SP])=$4100) Then Begin
+               Inc(Registers.SP, 2);   //correct
+               old07f5:=GetWord(@Memory[$42bc]);
+               PutWord(@Memory[$42bc],$00ED);
+           end else begin
+               ControlEmulation(false);
+               //compilation failed
+           end;
+           Registers.PC:=$4100;
+       End;
+      $42BD: //Mcoder3 Romtrap 3. last one. see above.
+        Begin
+         //compilation successful.
+         if (Not Registers.IntsEnabled) Then begin
+             ControlEmulation(false);
+         End;
+         Filename := BASinDir+'\48.Rom';
+         LoadROM(Memory); //disable all traps.
+         ModifyRom;
+
+        End;
+
+
      $0B53:
         Begin
            // Select the UDG cut off point for 128k or 48k mode
@@ -2399,6 +2446,8 @@ Begin
   // before the ROM truncates it to 10 chars max.
 
   PutWord(@Memory[$063A], $00ED);
+
+
 
   // Now a trap at LD-BYTES, where we can get the information about
   // what the user wants to LOAD, be it "", CODE, DATA or SCREEN$
@@ -4121,6 +4170,7 @@ Begin
      PostMessage(BASinOutput.Handle, WM_UPDATEVARS, 0, 0);
   End;
   Memory[0] := $FF;
+  //Opt_TapeTrapLoad := true;
   ControlEmulation(True);
   NeedParseUpdate := True;
   PostMessage(BASinOutput.Handle, WM_UPDATECURSOR, 0, 0);

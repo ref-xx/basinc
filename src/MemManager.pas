@@ -167,6 +167,7 @@ type
      Procedure HexCursor;
     procedure FastIMG1MouseMove(Sender: TObject; Shift: TShiftState; X,   Y: Integer);
     procedure FormShow(Sender: TObject);
+    procedure FormHide(Sender: TObject);
     procedure FastIMG1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FastIMG1MouseUp(Sender: TObject; Button: TMouseButton;
@@ -1167,6 +1168,10 @@ end;
 
 procedure TMemManagerForm.FormShow(Sender: TObject);
 begin
+  OnHide := FormHide;
+  if Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorMemory.Down := True;
+
   FViewStart := 0;
   FViewLength := 65536;
   HexShown:=9999;
@@ -1176,6 +1181,11 @@ begin
   MPHexEditor1.ResetSelection(True);
 end;
 
+procedure TMemManagerForm.FormHide(Sender: TObject);
+begin
+  if Assigned(BASinOutput) Then
+     BASinOutput.SpeedButtonEditorMemory.Down := False;
+end;
 
 procedure TMemManagerForm.FastIMG1MouseDown(Sender: TObject;
   Button: TMouseButton; Shift: TShiftState; X, Y: Integer);

@@ -92,6 +92,8 @@ type
     Label31: TLabel;
     Label32: TLabel;
     Label33: TLabel;
+    ListBox1: TListBox;
+    Button9: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormResize(Sender: TObject);
@@ -127,6 +129,7 @@ type
     procedure Button8Click(Sender: TObject);
     procedure Edit18KeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
+    procedure Button9Click(Sender: TObject);
 
   private
     { Private declarations }
@@ -842,6 +845,11 @@ begin
 
   Edit14.SetBounds(ClientWidth - Edit14.Width - 8, Edit1.Height + 12, Edit14.Width, Edit14.Height);
   Label10.SetBounds(Edit14.Left - 20, (Edit14.Top + (Edit14.Height - Label10.Height) Div 2), Label10.Width, Label10.Height);
+  listbox1.left:=edit14.Left;
+  listbox1.Top:=edit14.Top+edit14.Height+1;
+  listbox1.Width:=edit14.Width;
+  Button9.SetBounds(ClientWidth - Edit14.Width - 8, Edit14.Top-Edit14.Height, Edit14.Width, Edit14.Height);
+
   Edit10.SetBounds(Edit14.Left, Edit14.Top + Edit14.Height + 8, Edit10.Width, Edit10.Height);
   Label11.SetBounds(Edit10.Left - 20, (Edit10.Top + (Edit10.Height - Label11.Height) Div 2), Label11.Width, Label11.Height);
   Edit11.SetBounds(Edit10.Left, Edit10.Top + Edit10.Height + 8, Edit11.Width, Edit11.Height);
@@ -1193,6 +1201,10 @@ begin
 end;
 
 Procedure TCPUWindow.UpdateRegs;
+Var
+  Idx: Integer;
+  StackAddr: Word;
+  StackValue: Word;
 Begin
   SetDebugColourEdt(Edit2, Registers.PC <> OldRegs.PC);
   SetDebugColourEdt(Edit3, GetWord(@Registers.F) <> GetWord(@OldRegs.F));
@@ -1265,6 +1277,19 @@ Begin
   CheckBox8.Checked := Registers.F and 2 = 2;
   CheckBox9.Checked := Registers.F and 1 = 1;
   Init := False;
+
+  ListBox1.Items.BeginUpdate;
+  Try
+     ListBox1.Items.Clear;
+     StackAddr := Registers.SP;
+     For Idx := 0 To 9 Do Begin
+        StackValue := Memory[StackAddr] + (Memory[(StackAddr + 1) and $FFFF] shl 8);
+        ListBox1.Items.Add(IntToStr(StackValue));
+        StackAddr := (StackAddr + 2) and $FFFF;
+     End;
+  Finally
+     ListBox1.Items.EndUpdate;
+  End;
 
 
   Edit17.Text := 'Rom: ' + IntToStr(CurROM) + ' - Bank: ' + IntToStr(PagedBank); //Show page arda add
@@ -1785,5 +1810,11 @@ Begin
   if (WatchByteAddress=0) Then Edit20.Color:=cl3DLight else Edit20.Color:=clWindow;
 
 End;
+
+procedure TCPUWindow.Button9Click(Sender: TObject);
+begin
+listbox1.Visible:=Not Listbox1.Visible;
+
+end;
 
 end.

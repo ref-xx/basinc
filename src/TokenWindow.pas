@@ -34,10 +34,12 @@ type
     CheckBox1: TCheckBox;
     Button2: TButton;
     TabSheet4: TTabSheet;
-    EditTokenCode1: TEdit;
+    chkSortTokens: TCheckBox;
+    GroupBox1: TGroupBox;
     Label9: TLabel;
-    Button3: TButton;
     Chktokenize: TCheckBox;
+    Button3: TButton;
+    EditTokenCode1: TEdit;
     procedure FormShow(Sender: TObject);
     procedure FastIMG1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure FastIMG2MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -77,6 +79,7 @@ type
     procedure FormShortCut(var Msg: TWMKey; var Handled: Boolean);
     procedure Button3Click(Sender: TObject);
     procedure FastIMG8Click(Sender: TObject);
+    procedure chkSortTokensClick(Sender: TObject);
 
   private
     { Private declarations }
@@ -96,6 +99,7 @@ type
     Procedure DrawATTRChars;
     Procedure DrawColourChars;
     Procedure DrawKeywords;
+    Procedure DrawKeywordsSorted;
     Procedure BuildBigChar(Sender: TObject; Character: Byte; X, Y: Integer);
     Function  TranslateToTokens(Character: Byte): String;
   end;
@@ -129,7 +133,10 @@ Begin
   DrawEDITChars;
   DrawATTRChars;
   DrawColourChars;
-  DrawKeywords;
+  If chkSortTokens.Checked Then
+     DrawKeywordsSorted
+  Else
+     DrawKeywords;
 End;
 
 Procedure TTokenForm.DrawAlphas;
@@ -402,6 +409,107 @@ Begin
 
 End;
 
+Procedure TTokenForm.DrawKeywordsSorted;
+Type
+  TKeywordSortItem = Record
+    Keyword: String;
+    KeywordIndex: Integer;
+  End;
+Var
+  X, Y, Y1, F, L, G, P, TestX, LenMod, LMod, H: Integer;
+  StartIdx, EndIdx, CurItem, ItemCount: Integer;
+  AsciiKeywordsSorted: Array of TKeywordSortItem;
+  TempItem: TKeywordSortItem;
+Begin
+
+  // Keywords in alphabetic order, but keep original token index for hit-testing/insertion.
+
+  FastIMG8.Bmp.SetSize(FastIMG8.Width, FastIMG8.Height, 32);
+  FastIMG8.Bmp.Clear(TFSpecWhite);
+  FastDraw.PolyLine(FastIMG8.Bmp, [Point(0, 0), Point(FastIMG8.Width -1, 0), Point(FastIMG8.Width-1, FastIMG8.Height -1), Point(0, FastIMG8.Height -1)], TfBlack);
+  X := 2;
+  Y := 3;
+
+  If ProgramIs128k Then Begin
+     StartIdx := 0;
+     P := 8;
+  End Else Begin
+     StartIdx := 2;
+     P := 10;
+  End;
+  EndIdx := 93;
+
+  For F := 0 To High(KeywordsPos) Do Begin
+     KeywordsPos[F].Pt.X := -32000;
+     KeywordsPos[F].Pt.Y := -32000;
+     KeywordsPos[F].Width := 0;
+  End;
+
+  ItemCount := EndIdx - StartIdx +1;
+  SetLength(AsciiKeywordsSorted, ItemCount);
+
+  CurItem := 0;
+  For F := StartIdx To EndIdx Do Begin
+     AsciiKeywordsSorted[CurItem].Keyword := AsciiKeywords[F];
+     AsciiKeywordsSorted[CurItem].KeywordIndex := F;
+     Inc(CurItem);
+  End;
+
+  For F := 0 To High(AsciiKeywordsSorted)-1 Do
+     For H := F+1 To High(AsciiKeywordsSorted) Do
+        If CompareText(AsciiKeywordsSorted[F].Keyword, AsciiKeywordsSorted[H].Keyword) > 0 Then Begin
+           TempItem := AsciiKeywordsSorted[F];
+           AsciiKeywordsSorted[F] := AsciiKeywordsSorted[H];
+           AsciiKeywordsSorted[H] := TempItem;
+        End;
+
+  CurItem := 0;
+  While (CurItem < ItemCount) and (Y + 11 < FastIMG8.Bmp.Height) Do Begin
+     G := 0;
+     TestX := 2;
+     While (TestX < FastIMG8.BMP.Width) and (CurItem+G < ItemCount) Do Begin
+        Inc(TestX, (Length(AsciiKeywordsSorted[CurItem+G].Keyword)*8)+P);
+        Inc(G);
+     End;
+     Dec(G);
+     If G < 1 Then Begin
+        G := 1;
+        TestX := 2 + (Length(AsciiKeywordsSorted[CurItem].Keyword)*8) + P;
+     End Else
+        Dec(TestX, (Length(AsciiKeywordsSorted[CurItem+G].Keyword)*8)+P);
+     LenMod := (FastIMG8.Bmp.Width - TestX) Div G;
+
+     For H := 0 To G-1 Do Begin
+        F := AsciiKeywordsSorted[CurItem+H].KeywordIndex;
+        If H = G-1 Then
+           L := FastIMG8.Bmp.Width - X
+        Else
+           L := (Length(AsciiKeywords[F])*8)+P+LenMod;
+        LMod := (L-((Length(AsciiKeywords[F])*8)+P)) Div 2;
+        FastDraw.Line(FastIMG8.Bmp, X-2, Y-3, X+L-2, Y-3, TFSpecBlack);
+        FastDraw.Line(FastIMG8.Bmp, X-2, Y-3, X-2, Y+11, TFSpecBlack);
+        If FastIMG8.Tag = F Then Begin
+           For Y1 := Y-1 To Y+10 Do
+              FastDraw.Line(FastIMG8.Bmp, X, Y1, X+L-4, Y1, TFSpecBlack);
+           SpecTextToDIB(FastIMG8.Bmp, 3+X+LMod, Y+2, AsciiKeywords[F], 7, 0, 1, False, False);
+        End Else Begin
+           SpecTextToDIB(FastIMG8.Bmp, 3+X+LMod, Y+2, AsciiKeywords[F], 0, 7, 0, False, False);
+        End;
+        KeywordsPos[F].Pt.X := X-1;
+        KeywordsPos[F].Pt.Y := Y-2;
+        KeywordsPos[F].Width := L-2;
+        Inc(X, L);
+     End;
+     Inc(CurItem, G);
+     X := 2;
+     Inc(Y, 15);
+  End;
+
+  If FastIMG8.Tag = -2 Then FastIMG8.Tag := -1;
+  FastIMG8.Repaint;
+
+End;
+
 procedure TTokenForm.FormShow(Sender: TObject);
 begin
   FastIMG8.Tag := -2; // -2 means no position info yet stored.
@@ -611,7 +719,21 @@ procedure TTokenForm.FastIMG8MouseMove(Sender: TObject; Shift: TShiftState; X, Y
 Var
   F: DWord;
 begin
-  If FastIMG8.Tag > -2 Then
+  if (chkSortTokens.Checked) Then Begin
+     If FastIMG8.Tag > -2 Then
+       For F := 0 To 92 Do
+          If (X >= KeywordsPos[F].Pt.X) Then
+             If (Y >= KeywordsPos[F].Pt.Y) Then
+                If (Y < KeywordsPos[F].Pt.Y + 12) Then
+                   If (X < KeywordsPos[F].Pt.X + KeywordsPos[F].Width) Then Begin
+                      FastIMG8.Tag := F;
+                      DrawKeywordsSorted;
+                      UpdateLabel8(F+163);
+                      Exit;
+                   End;
+  End else Begin
+
+   If FastIMG8.Tag > -2 Then
      For F := 0 To 92 Do
         If (X >= KeywordsPos[F].Pt.X) Then
            If (Y >= KeywordsPos[F].Pt.Y) Then
@@ -622,6 +744,7 @@ begin
                     UpdateLabel8(F+163);
                     Exit;
                  End;
+  End;
 end;
 
 procedure TTokenForm.FastIMG8Exit(Sender: TObject);
@@ -927,6 +1050,15 @@ end;
 procedure TTokenForm.FastIMG8Click(Sender: TObject);
 begin
  edittokencode1.Text:= inttostr(FastIMG8.Tag + 163);
+
+end;
+
+procedure TTokenForm.chkSortTokensClick(Sender: TObject);
+begin
+
+  Label8.Caption := '';
+  FastIMG8.Tag := -1;
+  if (chkSortTokens.Checked) Then DrawKeywordsSorted Else DrawKeywords;
 
 end;
 

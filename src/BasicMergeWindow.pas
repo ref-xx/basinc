@@ -54,16 +54,6 @@ procedure TBasicMergeForm.Button2Click(Sender: TObject);
 var
   LStart, LEnd: Integer;
 begin
-  // Reset warning color each time user tries again
-  CheckBox4.Color := clBtnFace;
-
-  // Safety confirmation must be checked
-  if not CheckBox4.Checked then
-  begin
-    CheckBox4.Color := clRed; // Visual warning
-    Exit;
-  end;
-
   // Read options from UI into form fields
   RemoveRemarks := CheckBox5.Checked; // Remove REM lines
   ProcessData   := CheckBox1.Checked; // Join DATA statements
@@ -99,7 +89,7 @@ end;
 
 procedure TBasicMergeForm.FormClose(Sender: TObject; var Action: TCloseAction);
 var
-  SkipDATA, JoinSame, KeepBreakpoints: Boolean;
+  SkipDATA, JoinSame, KeepBreakpoints, DidProcess: Boolean;
 begin
   // Only run when user pressed Minify! (OK)
   if not OkayPressed then
@@ -110,28 +100,39 @@ begin
     MergeMax := 249; // Typical ZX Spectrum BASIC line length limit
 
   // Remove all REM comments if requested
+  DidProcess := False;
   if RemoveRemarks then
+  begin
     RemoveCommentsFromBasic;
+    DidProcess := True;
+  end;
 
   // Map UI options to MergeBASICLines flags
-  SkipDATA        := not CheckBox2.Checked; // If "Further process PRINT and DATA" is off, skip DATA
-  JoinSame        := CheckBox1.Checked;     // Join DATA statements
+  SkipDATA        := not ProcessPrint; // If "Further process PRINT and DATA" is off, skip DATA
+  JoinSame        := ProcessData;      // Join DATA statements
   KeepBreakpoints := CheckBox3.Checked;     // Do not touch breakpoint lines
 
-  // Perform the actual merge/minify on the BASIC source
-  MergeBASICLines(
-    MergeMax,
-    MergeStart,
-    MergeEnd,
-    SkipDATA,
-    JoinSame,
-    KeepBreakpoints
-  );
+  // Perform merge/minify only when requested
+  if CheckBox4.Checked then
+  begin
+    MergeBASICLines(
+      MergeMax,
+      MergeStart,
+      MergeEnd,
+      SkipDATA,
+      JoinSame,
+      KeepBreakpoints
+    );
+    DidProcess := True;
+  end;
 
-  // Re-tokenise and push back to the editor / program window
-  BASinOutput.TokeniseEditText(False);
-  //PostMessage(BASinOutput.Handle, WM_UPDATEPROGRAM, 0, 0);
-  BASinOutput.GetBASIC;
+  if DidProcess then
+  begin
+    // Re-tokenise and push back to the editor / program window
+    BASinOutput.TokeniseEditText(False);
+    //PostMessage(BASinOutput.Handle, WM_UPDATEPROGRAM, 0, 0);
+    BASinOutput.GetBASIC;
+  end;
 end;
 
 

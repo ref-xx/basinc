@@ -130,7 +130,7 @@ Begin
 
      If Found.Position <> 0 Then Begin
         // Found something, so bring it to the editor.
-
+        
         BASinOutput.FindAndActivateLine(BASinOutput.CursLineNum, BASinOutput.CursStatementNum);
         BASinOutput.UpdateCursorPos(Found.Position, False);
 
