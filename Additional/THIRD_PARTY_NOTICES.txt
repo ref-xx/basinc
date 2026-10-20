@@ -1,0 +1,16 @@
+BasinC 1.9.0 third-party notices
+
+The following license applies separately to the bundled
+ZX Basic compiler, not to the BasinC application or the Spectrum ROMs/manual.
+
+ZX Basic compiler / BasinC compatibility fork (external\zxbc-direct.exe)
+Upstream: Jose Manuel Rodriguez de la Rosa and contributors.
+License: GNU Affero General Public License, version 3 or later
+(SPDX: AGPL-3.0-or-later), as identified in the supplied compiler source headers.
+The complete license text is in ZXBC_AGPL-3.0.txt.
+
+The bundled executable is a BasinC compatibility fork. Fork source and build
+information: https://github.com/ref-xx/zxbasic-NativeSinclairBasic
+Maintainer: Arda Erdikmen (ardarda@gmail.com).
+
+ZX Basic MC Compiler / Basinc Compatibility layer for Compilateur Intégral by F.Malard.
