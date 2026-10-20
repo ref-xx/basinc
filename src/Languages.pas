@@ -389,8 +389,8 @@ Uses BASINMain, CheqEdit;
 
 function GraphTileMapEditorName(const Language: String): String;
 begin
-  if Language = 'T'#252'rk'#231'e' then
-    Result := 'Graph D'#246#254'eme Haritas'#253' D'#252'zenleyicisi'
+  if Language = 'Türkçe' then
+    Result := 'Graph Tile Map Editor'
   else if Language = 'Deutsch' then Result := 'Graph-Kachelkarten-Editor'
   else if Language = 'Spanish' then Result := 'Editor de mapas de teselas Graph'
   else Result := 'Graph Tile Map Editor';
