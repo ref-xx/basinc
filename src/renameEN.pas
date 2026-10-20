@@ -96,6 +96,7 @@ BASICEditorWindow.MainMenu1.Help1.Caption :='Help';
 BASICEditorWindow.MainMenu1.Help1.Contents1.Caption :='Contents';
     // urceR14.20110529\BasinMain.dfm
 BASinOutput.Caption :=ReleaseName;
+BASinOutput.GraphEditor1.Caption :='Graph Tile Map Editor';
 BASinOutput.CoolBar1.Label1.Caption :='Label1';
 BASinOutput.MainMenu1.File1.Caption :='&File';
 BASinOutput.MainMenu1.File1.New1.Caption :='New';
@@ -112,7 +113,8 @@ BASinOutput.MainMenu1.File1.ReLOAD1.Item51.Caption :='Item5';
 BASinOutput.MainMenu1.File1.ReLOAD1.Item61.Caption :='Item6';
 BASinOutput.MainMenu1.File1.ReLOAD1.Item71.Caption :='Item7';
 BASinOutput.MainMenu1.File1.ReLOAD1.Item81.Caption :='Item8';
-BASinOutput.MainMenu1.File1.ImportBASIC1.Caption :='Import Binary...';
+BASinOutput.MainMenu1.File1.ImportBASIC1.Caption :='Import...';
+BASinOutput.MainMenu1.File1.ExportTap1.Caption :='Export...';
 BASinOutput.MainMenu1.File1.ImportfromTapeImage1.Caption :='Attach Tape Image...';
 BASinOutput.MainMenu1.File1.N1.Caption :='-';
 BASinOutput.MainMenu1.File1.Save1.Caption :='Save';
@@ -825,7 +827,10 @@ ProfileForm.ListView1.items[0].Caption :='Usage';
 ProfileForm.ListView1.items[0].Caption :='Line';
 ProfileForm.ListView1.items[0].Caption :='Contents';
 ProfileForm.CheckBox1.Caption :='Relative Usage Statistics';
-ProfileForm.Button2.Caption :='Show Selected';
+if ProfileForm.ShowingSelected then
+  ProfileForm.Button2.Caption := 'Show All Lines'
+else
+  ProfileForm.Button2.Caption := 'Show Selected Lines';
 ProfileForm.Button3.Caption :='Help';
     // ourceR14.20110529\ProgInfo.dfm
 ProgInfoForm.Caption :='Information';
@@ -1009,6 +1014,7 @@ UDGWindow.MainMenu1.File1.Open1.Caption :='Open...';
 UDGWindow.MainMenu1.File1.Grab1.Caption :='Import';
 UDGWindow.MainMenu1.File1.Grab1.FromUDGs1.Caption :='From UDGs';
 UDGWindow.MainMenu1.File1.Grab1.FromCurrentCHARS1.Caption :='From Current CHARS';
+UDGWindow.MainMenu1.File1.Grab1.FromROMChars1.Caption :='Import From ROM Chars';
 UDGWindow.MainMenu1.File1.Grab1.FromMemory1.Caption :='From Specified Address...';
 UDGWindow.MainMenu1.File1.N5.Caption :='-';
 UDGWindow.MainMenu1.File1.Send1.Caption :='Export...';

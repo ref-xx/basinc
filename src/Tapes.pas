@@ -68,6 +68,8 @@ type
     DeleteBlock2: TMenuItem;
     N7: TMenuItem;
     Properties2: TMenuItem;
+    N8: TMenuItem;
+    AutoRewindTapes1: TMenuItem;
     procedure Button1Click(Sender: TObject);
     procedure Program1Click(Sender: TObject);
     procedure Screen1Click(Sender: TObject);
@@ -90,6 +92,7 @@ type
     procedure TapeMenuItemClick(Sender: TObject);
     procedure RedirectLOADcommands1Click(Sender: TObject);
     procedure RedirectSAVEcommands1Click(Sender: TObject);
+    procedure AutoRewindTapes1Click(Sender: TObject);
     procedure ListView1DblClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure TapeCreatorHelp1Click(Sender: TObject);
@@ -115,7 +118,7 @@ type
     Procedure TapeToBAS(Block: String);
     Procedure TapeToBSC(Block: String);
     Procedure TapeToBSD(Block: String);
-    procedure ExportTape;
+    procedure ExportTape(Filename: String);
       Procedure TapeBlockToBinary;
       procedure TapeAllBlocksToBinary;
     Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles; //arda
@@ -1179,15 +1182,15 @@ Begin
 
   // Now skip out to the DATA
 
-  Idx := 27;
-  While Idx <= Length(Block) Do Begin
-     Memory[GetWord(@Memory[PROG])+Idx-27] := Ord(Block[Idx]);
+  Idx := 25;
+  While Idx < Length(Block) Do Begin
+     Memory[GetWord(@Memory[PROG])+Idx-25] := Ord(Block[Idx]);
      Inc(Idx);
   End;
-  Memory[GetWord(@Memory[PROG])+Idx-27] := $80;
+  Memory[GetWord(@Memory[PROG])+Idx-25] := $80;
 
   PutWord(@Memory[VARS], GetWord(@Memory[PROG])+ProgLen);
-  PutWord(@Memory[E_LINE], GetWord(@Memory[PROG])+Length(Block));
+  PutWord(@Memory[E_LINE], GetWord(@Memory[PROG])+Length(Block)-24);
   SaveBAS(False, False);
 
   Filename := OpenFile(Handle, 'Save as .bas file...', [FTBas], '', True, False);
@@ -1401,6 +1404,7 @@ Begin
 
   RedirectLOADCommands1.Checked := Opt_TapeTrapLOAD;
   RedirectSAVECommands1.Checked := Opt_TapeTrapSAVE;
+  AutoRewindTapes1.Checked := Opt_TapeAutoRewind;
 
 End;
 
@@ -1477,6 +1481,12 @@ begin
   RedirectSAVECommands1.Checked := Opt_TapeTrapSAVE;
 end;
 
+procedure TTapeWindow.AutoRewindTapes1Click(Sender: TObject);
+begin
+  Opt_TapeAutoRewind := not Opt_TapeAutoRewind;
+  AutoRewindTapes1.Checked := Opt_TapeAutoRewind;
+end;
+
 procedure TTapeWindow.ListView1DblClick(Sender: TObject);
 var
   SelTapeIdx: Integer;
@@ -1542,7 +1552,7 @@ End;
  
 end;
 
-procedure TTapeWindow.ExportTape;  // Quick and dirty workaround for exporting tap from Main Screen. --arda
+procedure TTapeWindow.ExportTape(Filename: String);  // Export the current BASIC program as a tape image.
 Var
 Idx:Integer;
 tempTrap:Boolean;
@@ -1563,6 +1573,7 @@ TapeBlocks.Clear;
 UpdateTapeList;
 
   FileHeader := #$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80#$80;
+  BASinOutput.TokeniseEditText(False);
   SaveBAS(False, False);
   SetLength(FileArray, Length(FileBody));
   CopyMemory(@FileArray[0], @FileBody[1], Length(FileBody));
@@ -1573,7 +1584,7 @@ UpdateTapeList;
   UpdateTapeList;
 
 
-SaveTape('');
+SaveTape(Filename);
 
 TapeBlocks.Clear;
 UpdateTapeList;

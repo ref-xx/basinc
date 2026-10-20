@@ -173,6 +173,7 @@ var
   WatchByteValue:   Byte = 0; // 8-bit value to watch
 
   StepOperation: Boolean;
+  SuppressBreakpointWindow: Boolean = False;
   ExitProcOperation: Boolean;
   CallCounter: DWord;
   Symbols: Array[0..65535] of TSymbol;

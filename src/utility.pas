@@ -68,6 +68,11 @@ Type
   Procedure StoreEmulationState(Filename: String; Var State: TEmulationState);
   Procedure RestoreEmulationState(Filename: String);
   Procedure SetProjectName(Name: String);
+  Procedure InitializeProjectMetadata;
+  Function GetProjectDurationSeconds: Int64;
+  Function FormatProjectDuration(Seconds: Int64): String;
+  Function FormatProjectDurationToolbar(Seconds: Int64): String;
+  Procedure CommitProjectMetadataSave(DurationSeconds: Int64; SavedAt: TDateTime; SaveCount: Int64);
   Function  TrimExtension(Name: String): String;
 
   Function ArrayToTBytes(Value: array of byte; Ln: integer; Start: integer = 0): TByteArray;
@@ -128,7 +133,7 @@ Var
   ReleaseName:            String = 'BasinC'; //is now set from the Project Options > Version Info.
   iniReleaseName:         String = '';
   ReleaseBuild:           String = 'Private Build';
-  ReleaseDate:            String = 'April 14, 2026';
+  ReleaseDate:            String = 'October 20, 2026';
   DefaultProjectName:     String = 'My Basic';
   CurProjectName:         String = 'My Basic';
   CurProjectFilename:     String = 'My Basic';
@@ -183,7 +188,10 @@ Var
   Opt_ClipCorners:        Boolean = False;              // Rounded corners on the main window?
   Opt_AvgShades:          Boolean = False;              // Stupid Graphic thing.
   Opt_FontScale:          Integer = 2;                  // Size of the Editor Font - x8 pixels.
+  Opt_ViewFontToolbar:    Boolean = True;               // Show font-size selector on the editor toolbar.
   Opt_8BitStretch:        Boolean = True;               // On some cards, GDI will fly with this option enabled.
+  Opt_GPUDisplay:         Boolean = False;              // Experimental Lazarus Direct3D 11 renderer.
+  Opt_GPUFilter:          Integer = 1;                  // 0=none, 1=Lottes CRT.
 
   Opt_Frameskip:          Integer = 1;                  // Frameskip setting
   Opt_AutoFrameSkip:      Boolean = True;
@@ -199,6 +207,7 @@ Var
   Opt_CharacterRuler:     Boolean = True;               // A ruler device for measuring characters in PRINT statements
   Opt_Controlicons:       Boolean = False;              // Breakpoint control icons
   Opt_ViewInfoLine:       Boolean = False;              // Info Header
+  Opt_ShowProjectDuration:Boolean = False;              // Project duration toolbar
   Opt_SubRoutines:        Boolean = True;               // Show Sub-Jump Combobox
   Opt_AutoCollectSubs:    Boolean = True;               // Enable detecting GO SUB commands and add it to Sub-Combo.
   Opt_AutoCollectJumps:   Boolean = True;               // Enable detecting GO TO targets
@@ -273,7 +282,8 @@ Var
   Opt_z80Version:         DWord = 2;                    // Saves .z80 snapshots as V1.45, V2.01 or V3.5 snaps
   Opt_Always128k:         Integer = 0;                     // Saves snaps as which hardware?   default=always 48
   Opt_SavePretty:         Boolean = False;              // Saves .bas files nicely by splitting up multistatement lines.
-  Opt_TapeRewind:         Boolean = False;               // Automatically rewind TZX/TAP tapes when the reach the end.
+  Opt_TapeAutoRewind:     Boolean = False;               // Automatically rewind TZX/TAP tapes when they reach the end.
+   Opt_TapeRewind:         Boolean absolute Opt_TapeAutoRewind; // Backward-compatible alias.
 
   Opt_DisplaySnap:        Boolean = False;              // snap display to editor window v1.795
   Opt_DisplayOnTop:       Boolean = False;              // make Display window on top
@@ -412,6 +422,16 @@ Var
   Spectranet:             Boolean = False;              // Does this program uses spectranet-like % prefixed commands?
 
   ProjectSaved:           Boolean = False;              // Has the project been saved?
+
+  ProjectBasincVersion:       String = '';
+  ProjectStartDateTime:       TDateTime = 0;
+  ProjectDurationSeconds:    Int64 = 0;
+  ProjectLastSavedDateTime:  TDateTime = 0;
+  ProjectSaveCount:          Int64 = 0;
+  ProjectBuildCount:         Int64 = 0;
+  ProjectKeypressCount:      Int64 = 0;
+  ProjectTimingStartCounter: Int64 = 0;
+  ProjectTimingFrequency:    Int64 = 0;
 
 Const
 
@@ -860,8 +880,79 @@ Begin
   ProjectSaved := True;
   BASinOutput.Label1.Caption := 'Project ' + CurProjectName ;
   BASinOutput.SetCaption;
+  BASinOutput.RefreshTrackedBASFileState;
 
 
+End;
+
+Procedure InitializeProjectMetadata;
+Begin
+  ProjectBasincVersion := ReleaseBuild;
+  ProjectStartDateTime := Now;
+  ProjectDurationSeconds := 0;
+  ProjectLastSavedDateTime := 0;
+  ProjectSaveCount := 0;
+  ProjectBuildCount := 0;
+  ProjectKeypressCount := 0;
+  ProjectTimingFrequency := 0;
+  ProjectTimingStartCounter := 0;
+  QueryPerformanceFrequency(ProjectTimingFrequency);
+  QueryPerformanceCounter(ProjectTimingStartCounter);
+End;
+
+Function GetProjectDurationSeconds: Int64;
+Var
+  CurrentCounter: Int64;
+Begin
+  Result := ProjectDurationSeconds;
+  If (ProjectTimingFrequency > 0) and (ProjectTimingStartCounter > 0) Then Begin
+     QueryPerformanceCounter(CurrentCounter);
+     If CurrentCounter >= ProjectTimingStartCounter Then
+        Inc(Result, (CurrentCounter - ProjectTimingStartCounter) Div ProjectTimingFrequency);
+  End;
+End;
+
+Function FormatProjectDuration(Seconds: Int64): String;
+Var
+  Days, Hours, Minutes, RemainingSeconds: Int64;
+Begin
+  If Seconds < 0 Then Seconds := 0;
+  Days := Seconds Div 86400;
+  RemainingSeconds := Seconds Mod 86400;
+  Hours := RemainingSeconds Div 3600;
+  RemainingSeconds := RemainingSeconds Mod 3600;
+  Minutes := RemainingSeconds Div 60;
+  RemainingSeconds := RemainingSeconds Mod 60;
+  Result := IntToStr(Days) + ' ' +
+            Format('%.2d:%.2d:%.2d', [Hours, Minutes, RemainingSeconds]);
+End;
+
+Function FormatProjectDurationToolbar(Seconds: Int64): String;
+Var
+  Hours, Minutes, RemainingSeconds: Int64;
+  MinutesText, SecondsText: String;
+Begin
+  If Seconds < 0 Then Seconds := 0;
+  Hours := Seconds Div 3600;
+  Minutes := (Seconds Mod 3600) Div 60;
+  RemainingSeconds := Seconds Mod 60;
+  MinutesText := IntToStr(Minutes);
+  SecondsText := IntToStr(RemainingSeconds);
+  If Length(MinutesText) < 2 Then MinutesText := '0' + MinutesText;
+  If Length(SecondsText) < 2 Then SecondsText := '0' + SecondsText;
+  If Hours > 0 Then
+     Result := 'Duration ' + IntToStr(Hours) + 'h ' + MinutesText + 'm ' + SecondsText + 's'
+  Else
+     Result := 'Duration ' + MinutesText + 'm ' + SecondsText + 's';
+End;
+
+Procedure CommitProjectMetadataSave(DurationSeconds: Int64; SavedAt: TDateTime; SaveCount: Int64);
+Begin
+  ProjectDurationSeconds := DurationSeconds;
+  ProjectLastSavedDateTime := SavedAt;
+  ProjectSaveCount := SaveCount;
+  QueryPerformanceFrequency(ProjectTimingFrequency);
+  QueryPerformanceCounter(ProjectTimingStartCounter);
 End;
 
 {
@@ -919,8 +1010,8 @@ Var
   Vs, Idx, Lt, Tp, Wd, Ht: Integer;
   ToolbarIdx, BandIdx, SavedIndex, SavedWidth: Integer;
   Value, NewEntry: String;
-  ToolbarControls: Array[0..7] Of TControl;
-  ToolbarNames: Array[0..7] Of String;
+  ToolbarControls: Array[0..9] Of TControl;
+  ToolbarNames: Array[0..9] Of String;
   Function FindCoolBarBandIndex(ACoolBar: TCoolBar; AControl: TControl): Integer;
   Var
     Idx: Integer;
@@ -963,6 +1054,8 @@ Begin
   Opt_CharacterRuler :=      INIRead('Programming', 'Opt_CharacterRuler', Opt_CharacterRuler);
   Opt_Controlicons :=        INIRead('Programming', 'Opt_Controlicons', Opt_Controlicons);
   Opt_ViewInfoLine :=        INIRead('Programming', 'Opt_ViewInfoLine', Opt_ViewInfoLine);
+  Opt_ShowProjectDuration := INIRead('Programming', 'Opt_ShowProjectDuration', Opt_ShowProjectDuration);
+  Opt_ViewFontToolbar :=     INIRead('Programming', 'opt_viewFontToolbar', Opt_ViewFontToolbar);
   Opt_SubRoutines:=          INIRead('Programming', 'Opt_SubRoutines', Opt_SubRoutines);           //1.8
   Opt_AutoCollectSubs:=      INIRead('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs);   //1.8
   Opt_AutoCollectJumps:=     INIRead('Programming', 'Opt_AutoCollectJumps', Opt_AutoCollectJumps);   //1.83
@@ -1002,6 +1095,8 @@ Begin
         ToolbarControls[5] := BASinOutput.PanelToolbarBand5;
         ToolbarControls[6] := BASinOutput.Panel3;
         ToolbarControls[7] := BASinOutput.PanelToolbarInfo;
+        ToolbarControls[8] := BASinOutput.PanelFontSizeSelector;
+        ToolbarControls[9] := BASinOutput.PanelProjectDuration;
 
         ToolbarNames[0] := 'PanelToolbarBand0';
         ToolbarNames[1] := 'PanelToolbarBand1';
@@ -1011,8 +1106,10 @@ Begin
         ToolbarNames[5] := 'PanelToolbarBand5';
         ToolbarNames[6] := 'Panel3';
         ToolbarNames[7] := 'PanelToolbarInfo';
+        ToolbarNames[8] := 'PanelFontSizeSelector';
+        ToolbarNames[9] := 'PanelProjectDuration';
 
-        For ToolbarIdx := 0 To 7 Do Begin
+        For ToolbarIdx := 0 To 9 Do Begin
            BandIdx := FindCoolBarBandIndex(BASinOutput.CoolBar1, ToolbarControls[ToolbarIdx]);
            If BandIdx = -1 Then
               Continue;
@@ -1021,7 +1118,7 @@ Begin
               BASinOutput.CoolBar1.Bands[BandIdx].Index := SavedIndex;
         End;
 
-        For ToolbarIdx := 0 To 7 Do Begin
+        For ToolbarIdx := 0 To 9 Do Begin
            BandIdx := FindCoolBarBandIndex(BASinOutput.CoolBar1, ToolbarControls[ToolbarIdx]);
            If BandIdx = -1 Then
               Continue;
@@ -1187,6 +1284,9 @@ Begin
   Opt_IntegerScaling :=      INIRead('Scaling', 'Opt_IntegerScaling', Opt_IntegerScaling);
   Opt_RenderMethod :=        TRenderMethod(INIRead('Scaling', 'Opt_RenderMethod', Ord(Opt_RenderMethod)));
   Opt_8BitStretch :=         INIRead('Scaling', 'Opt_8BitStretch', Opt_8BitStretch);
+  Opt_GPUDisplay :=          INIRead('Scaling', 'Opt_GPUDisplay', Opt_GPUDisplay);
+  Opt_GPUFilter :=           INIRead('Scaling', 'Opt_GPUFilter', Opt_GPUFilter);
+  If (Opt_GPUFilter < 0) or (Opt_GPUFilter > 1) Then Opt_GPUFilter := 1;
 
   // FrameSkip
 
@@ -1234,7 +1334,8 @@ Begin
 
   // Tape Images
 
-  Opt_TapeRewind :=          INIRead('TAPFiles', 'Opt_TapeRewind', Opt_TapeRewind);
+  Opt_TapeRewind :=            INIRead('TAPFiles', 'Opt_TapeRewind', Opt_TapeAutoRewind);
+  Opt_TapeAutoRewind :=          INIRead('TAPFiles', 'Opt_TapeAutoRewind', Opt_TapeRewind);
   Opt_TapeTrapSAVE:=         INIRead('TAPFiles', 'Opt_TapeTrapSAVE', Opt_TapeTrapSAVE);    //1.83
   Opt_TapeTrapLOAD:=         INIRead('TAPFiles', 'Opt_TapeTrapLOAD', Opt_TapeTrapLOAD);    //1.83
 
@@ -1301,7 +1402,7 @@ Begin
 
 
   INI.Free;
-  ReleaseName := 'BasinC v'+ GetBuildInfoAsString(False);
+  ReleaseName := 'BasinC '+ GetBuildInfoAsString(False);
   ReleaseBuild:= 'BasinC v'+ GetBuildInfoAsString(True);
   
 End;
@@ -1310,8 +1411,8 @@ Procedure SaveOptions;
 Var
   Idx, Vs, Lt, Tp, Wd, Ht: Integer;
   ToolbarIdx, BandIdx: Integer;
-  ToolbarControls: Array[0..7] Of TControl;
-  ToolbarNames: Array[0..7] Of String;
+  ToolbarControls: Array[0..9] Of TControl;
+  ToolbarNames: Array[0..9] Of String;
   Function FindCoolBarBandIndex(ACoolBar: TCoolBar; AControl: TControl): Integer;
   Var
     Idx: Integer;
@@ -1364,6 +1465,8 @@ Begin
   INIWrite('Programming', 'Opt_CharacterRuler', Opt_CharacterRuler);
   INIWrite('Programming', 'Opt_Controlicons', Opt_Controlicons);
   INIWrite('Programming', 'Opt_ViewInfoLine', Opt_ViewInfoLine);
+  INIWrite('Programming', 'Opt_ShowProjectDuration', Opt_ShowProjectDuration);
+  INIWrite('Programming', 'opt_viewFontToolbar', Opt_ViewFontToolbar);
   INIWrite('Programming', 'Opt_SubRoutines', Opt_SubRoutines);         //1.8
   INIWrite('Programming', 'Opt_AutoCollectSubs', Opt_AutoCollectSubs); //1.8
   INIWrite('Programming', 'Opt_AutoCollectJumps', Opt_AutoCollectJumps); //1.83
@@ -1396,6 +1499,8 @@ Begin
         ToolbarControls[5] := BASinOutput.PanelToolbarBand5;
         ToolbarControls[6] := BASinOutput.Panel3;
         ToolbarControls[7] := BASinOutput.PanelToolbarInfo;
+        ToolbarControls[8] := BASinOutput.PanelFontSizeSelector;
+        ToolbarControls[9] := BASinOutput.PanelProjectDuration;
 
         ToolbarNames[0] := 'PanelToolbarBand0';
         ToolbarNames[1] := 'PanelToolbarBand1';
@@ -1405,8 +1510,10 @@ Begin
         ToolbarNames[5] := 'PanelToolbarBand5';
         ToolbarNames[6] := 'Panel3';
         ToolbarNames[7] := 'PanelToolbarInfo';
+        ToolbarNames[8] := 'PanelFontSizeSelector';
+        ToolbarNames[9] := 'PanelProjectDuration';
 
-        For ToolbarIdx := 0 To 7 Do Begin
+        For ToolbarIdx := 0 To 9 Do Begin
            BandIdx := FindCoolBarBandIndex(BASinOutput.CoolBar1, ToolbarControls[ToolbarIdx]);
            If BandIdx = -1 Then
               Continue;
@@ -1559,6 +1666,8 @@ Begin
   INIWrite('Scaling', 'Opt_IntegerScaling', Opt_IntegerScaling);
   INIWrite('Scaling', 'Opt_RenderMethod', Ord(Opt_RenderMethod));
   INIWrite('Scaling', 'Opt_8BitStretch', Opt_8BitStretch);
+  INIWrite('Scaling', 'Opt_GPUDisplay', Opt_GPUDisplay);
+  INIWrite('Scaling', 'Opt_GPUFilter', Opt_GPUFilter);
 
   // FrameSkip
 
@@ -1606,7 +1715,7 @@ Begin
 
   // Tape Images
 
-  INIWrite('TAPFiles', 'Opt_TapeRewind', Opt_TapeRewind);
+  INIWrite('TAPFiles', 'Opt_TapeAutoRewind', Opt_TapeAutoRewind);
   INIWrite('TAPFiles', 'Opt_TapeTrapSAVE', Opt_TapeTrapSAVE);    //1.83
   INIWrite('TAPFiles', 'Opt_TapeTrapLOAD', Opt_TapeTrapLOAD);    //1.83
 

@@ -9,6 +9,7 @@ Uses
 Var
 
   ProfileArray: Array[0..2550000] of Int64;
+  ProfileHits: Array[0..2550000] of Cardinal;
   ProfilingEnabled: Boolean;
   ProfileBASICList: TStringlist;
   ProfilingPoint: Integer;
@@ -28,7 +29,7 @@ implementation
   Var
      Str, BASIC: String;
      REMCommand, InString: Boolean;
-     Idx, Idx2, LineNum, StatementNum, LastIDX: Integer;
+     Idx, Idx2, LineNum, StatementNum, LastIDX, ProfileIndex: Integer;
   Begin
 
      ProfileTs := 0;
@@ -92,7 +93,9 @@ implementation
               While Copy(Str, 1, 1) = ' ' Do Str := Copy(Str, 2, 999999);
 
               ProfileBASICList.Add(IntToStr(LineNum)+':'+IntToStr(StatementNum)+#255+Str);
-              ProfileArray[(LineNum*255) + StatementNum -1] := 0;
+              ProfileIndex := (LineNum*255) + StatementNum -1;
+              ProfileArray[ProfileIndex] := 0;
+              ProfileHits[ProfileIndex] := 0;
               InString := False;
               REMCommand := False;
 
@@ -145,6 +148,8 @@ implementation
                  ProfilingPoint := Memory[SUBPPC] -1
               Else
                  ProfilingPoint := (GetWord(@Memory[PPC]) *255) + Memory[SUBPPC] -1;
+
+              Inc(ProfileHits[ProfilingPoint]);
 
            End;
      End;

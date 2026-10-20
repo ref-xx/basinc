@@ -20,6 +20,8 @@ Uses Windows, Dialogs,Controls, Classes, SysUtils, Clipbrd, Math, Messages;
 
 Type
 
+  TUntilVariableCheck = function: Boolean of object;
+  TCommandLineRunStartedNotify = procedure of object;
   TSpectrumError    = Record Modified: Boolean; Address: Word; Desc: AnsiString; Notify: Boolean; End;
   TFindResult       = Record LineNum, Position, Address: Word; End;
   TSymbol           = Record sType: Integer; Desc: AnsiString; Address: DWord; End;
@@ -67,6 +69,8 @@ Type
   Function  ReversePos(SubString: AnsiString; Text: AnsiString): Integer;
   Procedure ReplaceText(Address: Word; Text: AnsiString; Bytes: Word);
   Procedure LOADQuoteQuote(FName: AnsiString);
+  Procedure MCoderResetPrintCapture;
+  Procedure MCoderCapturePrintChar(CharCode: Byte; Row, Col: Word);
   Function  AutoLine(Tokens: AnsiString): AnsiString;
   Function  InsertLine(Line: AnsiString; Overwrite: Boolean): AnsiString;
   Procedure GenerateBASICChecksum(var Check: DWord);
@@ -94,9 +98,15 @@ Var
   LastFFFD,
   CurROM:              Byte;
   FASTMode:            Boolean;
+  CommandLineFastMode: Boolean = False;
   CurrentCommand:      Byte;
   Trapped:             Boolean;
   ProgStateFlag:       Byte = 2; // Set to PS_RESET as default
+  ProgramStopSerial:   DWord = 0;
+  CommandLineRunStartedNotify: TCommandLineRunStartedNotify = nil;
+  CommandLineRunStartPending: Boolean = False;
+  CommandLineUntilVariableCheck: TUntilVariableCheck = nil;
+  CommandLineUntilVariableMatched: Boolean = False;
   InsertList,
   ClipList:            TStringlist;
   NeedVarsUpdate,
@@ -126,6 +136,8 @@ Var
 
   TrapPrint:           Boolean = False;
   Old07f5:              Word=0;
+  MCoderPrintCells:     Array[0..23, 0..31] of Byte;
+  MCoderPrintCellsValid:Boolean = False;
 
   RAMDiskArray:        Array[0..10] of Byte;
 
@@ -590,9 +602,13 @@ Const
 
 implementation
 
-Uses BASinMain, Watches, Breakpoints, RLEUnit, Display, TokenWindow, AddCode, CPUDisplay,
+Uses CommandLine, BASinMain, Watches, Breakpoints, RLEUnit, Display, TokenWindow, AddCode, CPUDisplay,
      FastCore, InputUtils, Filing, BASSupport, Utility, ErrorWindow, Parser, Profiling,
-     VarsWindow, SysVars, LogWind, CommandHistory, Evaluate, GOSUB, Sound, Tapes, RomPrintOutputUnit;
+     VarsWindow, SysVars, LogWind, CommandHistory, Evaluate, GOSUB, Sound, Tapes, RomPrintOutputUnit,
+     BasincCompiler1, External;
+
+var
+  TapeBlockPendingBody: Boolean;
 
 Function LoadRom(Var Location: Array of Byte): Boolean;
 Var
@@ -806,6 +822,7 @@ Label
 Begin
   // ROM Traps
   Trapped := True;
+  Try
 
   //if Trapcounter>0 Then TrapCounter:=TrapCounter+1;
   //if (TrapCounter>0) Then DebugLog(IntToStr(TrapCounter)+'. '+ IntToStr(Registers.PC-1)+': ['+ IntToStr(ElapsedFrames) +':'+ IntToStr(Registers.TotalTS)+'] S:' +IntToStr(GetWord(@Memory[$5C1A])) );
@@ -824,16 +841,25 @@ Begin
 
      $0297:
         Begin
-           // Prevent the ROM keyboard routine from getting keys from the ports,
-           // as it screws up the INPUT routines in BASin, with the PC key support.
            SendNextToken;
-           If (Memory[FLAGS] And 32) = 32 Then Registers.F := Registers.F or 64;
-           EmulateRET;
+
+           If (GetWord(@Memory[Registers.SP]) >= 16384) Then Begin
+              // Restore the original $0296 instruction (IN A,(C)) for compiled
+              // programs and other runtime code that calls KEY-SCAN directly.
+              Registers.A := GetPortByte(GetWord(@Registers.C));
+              Registers.PC := $0298;
+           End Else Begin
+              // Editor/direct mode uses BasinC's translated token buffer.
+              If (Memory[FLAGS] And 32) = 32 Then Registers.F := Registers.F or 64;
+              EmulateRET;
+           End;
+            
         End;
      $04C3:
         Begin
            // Trap Saves.
            If Registers.A = $00 Then Begin
+               TapeBlockPendingBody := False;
               // Saving the header. Grab it now,
               // and we can use it for info later on.
               // IX Points to the header.
@@ -903,7 +929,9 @@ Begin
         Begin
            // Trap the LOAD as it happens.
            LoadLen := GetWord(@Registers.E);
+           
            If Registers.A = $00 Then Begin
+               TapeBlockPendingBody := False;
               // If we haven't yet LOADed a header, then do so now.
               // There is a return address on the stack, and then
               // IX is next. This Stacked IX points to the 2nd "header"
@@ -911,7 +939,9 @@ Begin
               // What we expect. What we are expecting is at (IX-17).
               TempIX := Registers.IX -$11;
               MemAtIX := Memory[TempIX];
-              If Opt_TapeTrapLOAD and (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
+                                                         If Opt_TapeTrapLOAD and (TapeBlocks.Count > 0) and
+                  (TapePosition >= 0) and (TapePosition < TapeBlocks.Count)
+                  Then Begin
                  // LOADing from a Tape Image
                  // Get the header + Body from the current tape block.
               TapeLoad:
@@ -921,13 +951,13 @@ Begin
                     DataLoadLen := GetWord(@FileHeader[12]);
                     FileBody := Copy(TapeBlocks[TapePosition], 25, DataLoadLen +1);
                     Inc(TapePosition);
-                    If Opt_TapeRewind Then
-                       If TapePosition >= TapeBlocks.Count Then
-                          TapePosition := 0;
                     TapeWindow.UpdateTapeList;
-                    ShowWindow(TapeWindow, False);
+                    If (Not Assigned(FormCompiler1)) or (Not FormCompiler1.PreviewTapeLoading) Then
+                       ShowWindow(TapeWindow, False);
+                     TapeBlockPendingBody := True;
                  End Else
                     FileBody := 'HEADERLESS';
+                  TapeBlockPendingBody := True;
               End Else Begin
                  Case MemAtIX of
                     0: Begin
@@ -944,9 +974,11 @@ Begin
                           LoadCode;
                        End;
                  End;
-                 If Opt_TapeTrapLOAD and (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
+                                             If Opt_TapeTrapLOAD and (TapeBlocks.Count > 0) and
+                  (TapePosition >= 0) and (TapePosition < TapeBlocks.Count)
+                  Then Begin
                     // Did the load end up loading from a tape image? If so, then loop back to catch the block.
-                    Goto TapeLoad;
+                                                                                 Goto TapeLoad;
                  End;
               End;
               // If no errors, then proceed.
@@ -966,7 +998,8 @@ Begin
                         BASinOutput.AddToMRUList(Filename);
 
                     End;
-                    FASTMode := False;
+                    If Not CommandLineFastMode Then
+                       FASTMode := False;
                  End;
               End Else Begin
                  If Memory[0] = $FF Then Begin           // We've returned from a cancelled LOAD menu item.
@@ -987,15 +1020,17 @@ Begin
               If FileHeader = '' Then Exit;
               If Opt_TapeTrapLOAD Then
                  If FileBody = 'HEADERLESS' Then Begin
-                    If (TapeBlocks.Count > 0) and (TapePosition < TapeBlocks.Count) Then Begin
-                       If TapeBlocks[TapePosition][3] = #$FF Then Begin // This is a headerless block
+                    If (TapeBlocks.Count > 0) and (TapePosition >= 0) and
+                           (TapePosition < TapeBlocks.Count) Then Begin
+                       If TapeBlocks[TapePosition][3] <> #$FF Then Begin
+                           EmulateRET;
+                           Exit;
+                        End;
+                        If TapeBlocks[TapePosition][3] = #$FF Then Begin // This is a headerless block
                           FileBody := Copy(TapeBlocks[TapePosition], 4, 999999);
                           FileHeader[1] := #0; // Headerless blocks, by their nature, can overwrite the BASIC, so make sure it gets updated.
                        End;
                        Inc(TapePosition);
-                       If Opt_TapeRewind Then
-                          If TapePosition = TapeBlocks.Count Then
-                             TapePosition := 0;
                        TapeWindow.UpdateTapeList;
                     End Else Begin
                        EmulateRET;
@@ -1005,7 +1040,13 @@ Begin
 
 
               LoadLen := GetWord(@FileHeader[12]);
-              For MemPtr := Registers.IX to Registers.IX+LoadLen-1 Do Begin
+              If TapeBlockPendingBody and Opt_TapeAutoRewind and (TapeBlocks.Count > 0) and
+                  (TapePosition >= TapeBlocks.Count) Then Begin
+                  TapePosition := 0;
+                  TapeWindow.UpdateTapeList;
+               End;
+   
+               For MemPtr := Registers.IX to Registers.IX+LoadLen-1 Do Begin
 
                  Memory[MemPtr] := Ord(FileBody[(MemPtr-Registers.IX)+1]);
                    End;
@@ -1039,10 +1080,51 @@ Begin
                     NewProfile;
               End;
               // And Emulate a RET to exit.
-              EmulateRET;
+              If (FileHeader[1] = #0) and (CurrentCommand = 239) Then Begin
+                 // Program successfully loaded!
+                 // Read AutoStart line number from the PROGRAM header parameter 1.
+                 TempWord := GetWord(@FileHeader[14]);
+                 
+                 If (GetWord(@Memory[23621]) <> $FF58) and (GetWord(@Memory[23621]) <> $FFFF) Then Begin
+                    // Executed from within a program (e.g. 10 LOAD "S1")
+                    If TempWord < 32768 Then Begin
+                       // If there is an auto-run line, run it
+                       PutWord(@Memory[23618], TempWord); // NEWPPC = AutoStart
+                       Memory[23620] := 0;                // NSPPC = 0
+                       PutWord(@Memory[23621], 0);        // PPC = 0
+                       Memory[23623] := 0;                // SUBPPC = 0
+                       Registers.SP := GetWord(@Memory[23613]); // SP = ERR_SP
+                       Registers.PC := $1B76;             // Go to STMT-RET to execute
+                    End Else Begin
+                       // No auto-run (return to direct mode cleanly)
+                       PutWord(@Memory[23621], 0);        // PPC = 0
+                       Memory[23623] := 0;                // SUBPPC = 0
+                       Memory[23620] := 0;                // NSPPC = 0
+                       Registers.SP := GetWord(@Memory[23613]); // SP = ERR_SP
+                       Registers.PC := $1303;             // MAIN-EXEC halt loop
+                    End;
+                 End Else Begin
+                    // Executed from direct mode (e.g. LOAD "S1")
+                    If TempWord < 32768 Then Begin
+                       // If there is an auto-run line, run it
+                       PutWord(@Memory[23618], TempWord); // NEWPPC = AutoStart
+                       Memory[23620] := 0;                // NSPPC = 0
+                       Registers.SP := GetWord(@Memory[23613]); // SP = ERR_SP
+                       Registers.PC := $1B76;             // Go to STMT-RET
+                    End Else Begin
+                       // No auto-run, perform normal RET to complete LOAD
+                       EmulateRET;
+                    End;
+                 End;
+              End Else Begin
+                 // Normal RET for CODE, DATA, etc.
+                 EmulateRET;
+              End;
               // Also save the state here for later retrieval if necessary.
               If FileHeader[1] = #0 Then Begin
                  SaveEmulationState(BREAKState);
+                 If Assigned(FormCompiler1) Then
+                    FormCompiler1.CleanupPreviewTapeBlock;
               End;
            End;
         End;
@@ -1077,7 +1159,7 @@ Begin
            If Registers.zByte1 <> 0 Then Begin
               If Not Opt_TapeTrapLOAD Then
                  // We're LOADing, so anything goes.
-                 Registers.PC := $064B  //ardafix--previously $0644 (reported by ignacobo) v1795
+                 Registers.PC :=$064B  //ardafix--previously $0644 (reported by ignacobo) v1795
               Else
                  If Registers.F and 1 = 0 Then
                     Registers.PC := $64B
@@ -1100,6 +1182,10 @@ Begin
      $07F6:   //MCODER3 Romtrap 1 to prevent loading from tape
         Begin
            CopyMemory(@Memory[16384], @MCODER3_PART1[0], SizeOf(MCODER3_PART1));
+           // Part 1 enters its error handler at $4183. Let it calculate PPC
+           // from CH_ADD, then trap the final JP $0D6B at $41AD.
+           PutWord(@Memory[$41AD], $00ED);
+           PostMCoderCompilerStatus(msPart1Loaded);
            PutWord(@Memory[$07f5], old07f5);     //disable trap
            Registers.SP:=$5BFE;
            Registers.A:=0;
@@ -1117,29 +1203,56 @@ Begin
            PutWord(@Memory[$08B1],$00ED); //set the next trap!
         End;
 
+     $41AE: //MCODER3 part 1 error handler after PPC has been calculated.
+       Begin
+          ControlEmulation(false);
+          PostMCoderCompilerFailure(Memory[ERR_NR], GetWord(@Memory[PPC]),
+                                    Memory[SUBPPC]);
+          // Restore the editor once, in the posted failure handler, after
+          // the CPU loop has stopped executing compiler instructions.
+          Exit;
+       End;
+
      $08B2: //Mcoder3 Romtrap 2 see above.
        Begin
            PutWord(@Memory[$08B1],old07f5); //disable trap again.
            CopyMemory(@Memory[$4100], @MCODER3_PART2[0], SizeOf(MCODER3_PART2)); //load next part
+           PostMCoderCompilerStatus(msPart2Loaded);
            if (GetWord(@Memory[Registers.SP])=$4100) Then Begin
                Inc(Registers.SP, 2);   //correct
                old07f5:=GetWord(@Memory[$42bc]);
                PutWord(@Memory[$42bc],$00ED);
            end else begin
                ControlEmulation(false);
+               PostMCoderCompilerFailure(Memory[ERR_NR], GetWord(@Memory[PPC]),
+                                         Memory[SUBPPC]);
                //compilation failed
+               Exit;
            end;
            Registers.PC:=$4100;
        End;
       $42BD: //Mcoder3 Romtrap 3. last one. see above.
         Begin
          //compilation successful.
-         if (Not Registers.IntsEnabled) Then begin
-             ControlEmulation(false);
-         End;
+         PutWord(@Memory[$42bc],old07f5); //restore the RET overwritten by the final MCODER3 trap
+         ControlEmulation(false);
          Filename := BASinDir+'\48.Rom';
-         LoadROM(Memory); //disable all traps.
+         LoadROM(Memory); //restore standard BASin ROM traps after successful compile
          ModifyRom;
+         CopyMemory(@Registers.PC, @TempState.Registers.PC, SizeOf(TZ80Registers));
+         Registers.EmuRunning := False;
+         BASinOutput.Running := False;
+         BASinOutput.SingleStep := False;
+         BASinOutput.RunLine := 65536;
+         BASinOutput.RunStatement := 0;
+         BASinOutput.GOTOStatement := 1;
+         CursorType := TempState.CursorType;
+         ProgStateFlag := TempState.ProgState;
+         FullSpeed := False;
+         PostMessage(BASinOutput.Handle, WM_UPDATEPROGRAM, 1, 0);
+         PostMessage(BASinOutput.Handle, WM_UPDATEVARS, 0, 0);
+         PostMessage(BASinOutput.Handle, WM_UPDATEPROGBUTTONS, 0, 0);
+         PostMCoderCompilerStatus(msCompileComplete);
 
         End;
 
@@ -1167,7 +1280,7 @@ Begin
 
 
 
-             if TrapPrint then Begin
+             if TrapPrint or (Assigned(FormCompiler1) and FormCompiler1.CompileRunning) then Begin
                 tempWord:=((Registers.H shl 8)+Registers.L) -1;
                 tempWord:=((tempWord-getword(@Memory[CHARS])) div 8 )and $FF;
 
@@ -1197,22 +1310,27 @@ Begin
             Registers.H:= tempByte;
 
 
-             if TrapPrint then Begin
+             if TrapPrint or (Assigned(FormCompiler1) and FormCompiler1.CompileRunning) then Begin
 
               tempbyte:=tempWord;
               tempWord := (((Registers.H shr 3) and $03) or $58) shl 8 or Registers.L;
 
-              // Attribute adresinden satir/sütun hesapla
+              // Attribute adresinden satir/sÃ¼tun hesapla
               col := (tempWord -22528 ) mod 32;
               row := (tempWord -22528 ) div 32;
               //RomPrintOutputWindow.Memo1.Text:= RomPrintOutputWindow.Memo1.Text+ Chr(tempByte)+ ':'+ inttoStr(tempWord)+' | ';
 
               if (row >= 0) and (row < 24) and (col >= 0) and (col < 32) then
               begin
+              If Assigned(FormCompiler1) and FormCompiler1.CompileRunning Then
+                 MCoderCapturePrintChar(tempByte, row, col);
+
+              if TrapPrint then Begin
               // Modify Memo1
               TempStr := RomPrintOutputWindow.Memo1.Lines[row];
               TempStr[col+1] := Chr(tempByte);
               RomPrintOutputWindow.Memo1.Lines[row] := TempStr;
+              End;
               End;
 
               end;
@@ -1622,6 +1740,11 @@ Begin
            BASinOutput.Running := True;
            CPUWindow.CPURunning := True;
            BASinOutput.Running := True;
+           If CommandLineRunStartPending and
+              Assigned(CommandLineRunStartedNotify) Then Begin
+              CommandLineRunStartPending := False;
+              CommandLineRunStartedNotify;
+           End;
            RestoreErrors;
            If BASinOutput.RunningAck <> BASinOutput.Running Then Begin
               PostMessage(BASinOutPut.Handle, WM_UPDATEPROGBUTTONS, 0, 0);
@@ -1648,15 +1771,16 @@ Begin
              LastError := 0  // 255 ('OK') ise indeksi 0 yap
            Else
              Inc(LastError);  // 0-42 ('1'-'?') ise indeksi 1-43 yap
-           // --- DÜZELTME SONU ---
+           // --- DÃœZELTME SONU ---
 
            LastErrorLine := GetWord(@Memory[PPC]);
            LastErrorStatement := Memory[SUBPPC];
            // If LastError > 28 Then Dec(LastError); // end ardafix 109
            NeedParseUpdate := True;
-           ProgStateFlag := PS_Stopped;
+            ProgStateFlag := PS_Stopped;
+            Inc(ProgramStopSerial);
 
-           // As the program or direct command has just finished,
+            // As the program or direct command has just finished,
            // If there are any visible watches, they need updating.
            UpdateWatches;
            BASinOutput.UpdateMenu;
@@ -1675,7 +1799,7 @@ Begin
                  BASinOutput.FindAndActivateLine(LastErrorLine, LastErrorStatement);
            BASinOutput.WantNewLine := True;
            ResetSound;
-           If ErrorAddresses[LastError].Notify Then Begin
+           If ErrorAddresses[LastError].Notify and Not IsDebugCommandLine Then Begin
               CLS_LOWER := False;
               Registers.PC := $1362;
               PutWord(@Registers.F, GetWord(@Memory[Registers.SP]));
@@ -1951,6 +2075,12 @@ Begin
               If NeedVarsUpdate Then Begin
                  PostMessage(BASinOutput.Handle, WM_UPDATEVARS, 0, 0);
                  NeedVarsUpdate := False;
+              End;
+              If Assigned(CommandLineUntilVariableCheck) and
+                 CommandLineUntilVariableCheck Then Begin
+                 CommandLineUntilVariableMatched := True;
+                 Registers.EmuRunning := False;
+                 Goto Finished;
               End;
               CurPPC := GetWord(@Memory[PPC]);
               If CurPPC <> 65534 Then Begin                // Valid Line number?
@@ -2354,7 +2484,11 @@ Finished:
      DisplayWindow.WantsFront := False;
   End;
 
-  Trapped := False;
+  Finally
+     // Early exits (including failed MCODER and tape loads) must release
+     // the idle-loop guard, otherwise RUN and NEW can never execute.
+     Trapped := False;
+  End;
 
 End;
 
@@ -2792,20 +2926,20 @@ Begin
 		TempWord := GetWord(@Mem[VarAddr]); // 16-bit adresi oku
 		If TempWord > StartAddr Then Begin
             
-            // --- DÜZELTME BASLANGICI ---
-            TempAddr32 := TempWord; // 32-bit tamsayiya güvenle ata
+            // --- DÃœZELTME BASLANGICI ---
+            TempAddr32 := TempWord; // 32-bit tamsayiya gÃ¼venle ata
 
-            // Matematiksel islemi 32-bit üzerinde yap
+            // Matematiksel islemi 32-bit Ã¼zerinde yap
             TempAddr32 := TempAddr32 - LengthMod;
 
-            // Sonucu 0-65535 araligina kelepçele (clamp)
+            // Sonucu 0-65535 araligina kelepÃ§ele (clamp)
             If TempAddr32 > 65535 Then
                 TempWord := 65535
             Else If TempAddr32 < 0 Then
                 TempWord := 0
             Else
-                TempWord := TempAddr32; // Artik 16-bit'e geri atamak güvenli
-            // --- DÜZELTME SONU ---
+                TempWord := TempAddr32; // Artik 16-bit'e geri atamak gÃ¼venli
+            // --- DÃœZELTME SONU ---
             
 			PutWord(@Mem[VarAddr], TempWord);
 		End;
@@ -4176,6 +4310,34 @@ Begin
   PostMessage(BASinOutput.Handle, WM_UPDATECURSOR, 0, 0);
 End;
 
+Procedure MCoderResetPrintCapture;
+Var
+  Row, Col: Integer;
+Begin
+  For Row := 0 To 23 Do
+     For Col := 0 To 31 Do
+        MCoderPrintCells[Row, Col] := 0;
+  MCoderPrintCellsValid := True;
+End;
+
+Procedure MCoderCapturePrintChar(CharCode: Byte; Row, Col: Word);
+Begin
+  If Not Assigned(FormCompiler1) or Not FormCompiler1.CompileRunning Then Begin
+     MCoderPrintCellsValid := False;
+     Exit;
+  End;
+
+  If Not MCoderPrintCellsValid Then
+     MCoderResetPrintCapture;
+
+  If (Row > 23) or (Col > 31) Then Exit;
+  If MCoderPrintCells[Row, Col] = CharCode Then Exit;
+
+  MCoderPrintCells[Row, Col] := CharCode;
+  If CharCode >= 32 Then
+     PostMCoderCompilerChar(CharCode, Row, Col);
+End;
+
 Function AutoLine(Tokens: AnsiString): AnsiString;
 Var
   CurLineNum,
@@ -4364,7 +4526,7 @@ Begin
   BASinOutput.GetBASIC;
   BASinOutput.SplitStatements := OldSplitState;
 
-  // 2. BASICMem'i satirlara böl (Manuel parsing en güvenlisidir)
+  // 2. BASICMem'i satirlara bÃ¶l (Manuel parsing en gÃ¼venlisidir)
   Idx := 1;
   LineStr := '';
   While Idx <= Length(BASinOutput.BASICMem) Do Begin
@@ -4386,21 +4548,21 @@ Begin
      LineStr := BASICList[Idx];
      
      // Bu satirda REM var mi diye karakter karakter tara
-     // Tirnak içindeki "REM" yazilarini atlamak için InString kontrolü yapiyoruz.
+     // Tirnak iÃ§indeki "REM" yazilarini atlamak iÃ§in InString kontrolÃ¼ yapiyoruz.
      RemPos := 0;
      InString := False;
      
-     // 3 karakterlik 'REM' kelimesini arayacagimiz için Length-2'ye kadar gidiyoruz
+     // 3 karakterlik 'REM' kelimesini arayacagimiz iÃ§in Length-2'ye kadar gidiyoruz
      For I := 1 To Length(LineStr) - 2 Do Begin
         If LineStr[I] = '"' Then InString := Not InString;
 
         If Not InString Then Begin
-           // Karakterleri büyük harfe çevirip kontrol et (küçük harf rem yazilsa da bulsun)
+           // Karakterleri bÃ¼yÃ¼k harfe Ã§evirip kontrol et (kÃ¼Ã§Ã¼k harf rem yazilsa da bulsun)
            If (UpCase(LineStr[I])   = 'R') And
               (UpCase(LineStr[I+1]) = 'E') And
               (UpCase(LineStr[I+2]) = 'M') Then Begin
               RemPos := I;
-              Break; // Ilk REM'i bulunca çik, geri kalani yorumdur.
+              Break; // Ilk REM'i bulunca Ã§ik, geri kalani yorumdur.
            End;
         End;
      End;
@@ -4415,13 +4577,13 @@ Begin
         While (K > 0) And (LineStr[K] = ' ') Do Dec(K);
 
         If (K > 0) And (LineStr[K] = ':') Then Begin
-           CutPos := K; // Kesme noktasini ':' isaretine çek (onu da silmek için)
+           CutPos := K; // Kesme noktasini ':' isaretine Ã§ek (onu da silmek iÃ§in)
         End;
 
         // Satiri kes (1'den Kesme Noktasina kadar al)
         LineStr := Copy(LineStr, 1, CutPos - 1);
         
-        // --- SILINME KONTROLÜ ---
+        // --- SILINME KONTROLÃœ ---
         // Kestikten sonra geriye sadece satir numarasi mi kaldi?
         TempStr := Trim(LineStr);
         IsLineNumOnly := True;
@@ -4430,7 +4592,7 @@ Begin
            IsLineNumOnly := True // Zaten bossa silinecek
         Else Begin
            For K := 1 To Length(TempStr) Do Begin
-              // Eger rakam disinda bir sey varsa (örn: PRINT), bu geçerli bir satirdir.
+              // Eger rakam disinda bir sey varsa (Ã¶rn: PRINT), bu geÃ§erli bir satirdir.
               If Not (TempStr[K] In ['0'..'9']) Then Begin
                  IsLineNumOnly := False;
                  Break;
@@ -4439,14 +4601,14 @@ Begin
         End;
 
         If IsLineNumOnly Then
-           BASICList[Idx] := '' // Bos string yaparak silinmek üzere isaretle
+           BASICList[Idx] := '' // Bos string yaparak silinmek Ã¼zere isaretle
         Else
-           BASICList[Idx] := LineStr; // Temizlenmis satiri güncelle
+           BASICList[Idx] := LineStr; // Temizlenmis satiri gÃ¼ncelle
      End;
   End;
 
   // 4. BASICMem'i yeniden insa et
-  // Önce bellegi tamamen temizle (Corruption'i önlemek için kritik)
+  // Ã–nce bellegi tamamen temizle (Corruption'i Ã¶nlemek iÃ§in kritik)
   BASinOutput.BASICMem := '';
   BASinOutput.LastLineBuffer := '';
 
@@ -4463,7 +4625,7 @@ Begin
 
   BASICList.Free;
 
-  // 5. Degisiklikleri editöre ve hafizaya uygula
+  // 5. Degisiklikleri editÃ¶re ve hafizaya uygula
   BASinOutput.BASICChanged := True;
   BASinOutput.TokeniseEditText(False);
   BASinOutput.RepaintBASIC(True);

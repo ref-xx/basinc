@@ -210,6 +210,7 @@ type
     N18: TMenuItem;
     PacktoTape1: TMenuItem;
     N2: TMenuItem;
+    SendSelectionto1: TMenuItem;
     procedure FormResize(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormHide(Sender: TObject);
@@ -380,6 +381,7 @@ type
     Function  ScreenToSCR(ImageIndex: Integer): String;
     Procedure CreateScreen(var Dst: TScrImage);
     Procedure ExportImage;
+    Procedure ExportSelection;
   end;
 
 Const
@@ -650,6 +652,92 @@ begin
 
 End;
 
+Procedure TScrPaintForm.ExportSelection;
+Var
+  AbsoluteX, AbsoluteY, Bit, CellX, CellY, CharCount, DataIndex,
+  Offset, Row, SelectedPixels, X, Y: Integer;
+  Binary: AnsiString;
+  ByteVal: Byte;
+  CellCounts: Array[0..31, 0..23] of Byte;
+  InvalidSelection: Boolean;
+Begin
+
+  If Not CurScreen^.SelActive Then Exit;
+
+  FillChar(CellCounts, SizeOf(CellCounts), 0);
+  InvalidSelection := False;
+  SelectedPixels := 0;
+
+  // Count selected pixels in each absolute 8x8 screen cell.
+  For Y := 0 To CurScreen^.SelHeight -1 Do
+     For X := 0 To CurScreen^.SelWidth -1 Do Begin
+        Offset := X + (Y * CurScreen^.SelWidth);
+        If CurScreen^.SelMask[Offset] = 1 Then Begin
+           Inc(SelectedPixels);
+           AbsoluteX := CurScreen^.SelOrigin.X + X;
+           AbsoluteY := CurScreen^.SelOrigin.Y + Y;
+           If (AbsoluteX < 0) or (AbsoluteX > 255) or
+              (AbsoluteY < 0) or (AbsoluteY > 191) Then
+              InvalidSelection := True
+           Else
+              Inc(CellCounts[AbsoluteX Div 8, AbsoluteY Div 8]);
+        End;
+     End;
+
+  If SelectedPixels = 0 Then Begin
+     MessageBox(Handle,
+                PChar('The selection must contain at least one complete 8x8 character.'),
+                PChar('Invalid selection'), MB_OK or MB_ICONWARNING);
+     Exit;
+  End;
+
+  // Every touched cell must be selected completely; partial cells are invalid.
+  CharCount := 0;
+  For CellY := 0 To 23 Do
+     For CellX := 0 To 31 Do Begin
+        If (CellCounts[CellX, CellY] <> 0) and
+           (CellCounts[CellX, CellY] <> 64) Then
+           InvalidSelection := True;
+        If CellCounts[CellX, CellY] = 64 Then
+           Inc(CharCount);
+     End;
+
+  If InvalidSelection or (CharCount = 0) Then Begin
+     MessageBox(Handle,
+                PChar('The selection must consist of complete 8x8 character cells aligned to the screen grid.'),
+                PChar('Invalid selection'), MB_OK or MB_ICONWARNING);
+     Exit;
+  End;
+
+  // Store complete cells in reading order: left-to-right, then top-to-bottom.
+  // Each character contributes eight consecutive bytes.
+  SetLength(Binary, CharCount * 8);
+  DataIndex := 1;
+  For CellY := 0 To 23 Do
+     For CellX := 0 To 31 Do
+        If CellCounts[CellX, CellY] = 64 Then
+           For Row := 0 To 7 Do Begin
+              ByteVal := 0;
+              For Bit := 0 To 7 Do Begin
+                 X := (CellX * 8) + Bit - CurScreen^.SelOrigin.X;
+                 Y := (CellY * 8) + Row - CurScreen^.SelOrigin.Y;
+                 Offset := X + (Y * CurScreen^.SelWidth);
+                 If CurScreen^.SelDetail[Offset] <> 0 Then
+                    ByteVal := ByteVal or (128 Shr Bit);
+              End;
+              Binary[DataIndex] := AnsiChar(ByteVal);
+              Inc(DataIndex);
+           End;
+
+  BinaryWindow.Caption := 'Export Selected Characters...';
+  BinaryWindow.AddBinaryEx('Selection'+IntToStr(CurObj)+'_'+
+                           IntToStr(CharCount)+'chars',
+                           Binary, btMemory, Address);
+  CentreFormOnForm(BinaryWindow, Self);
+  BinaryWindow.ShowModal;
+  Inc(CurObj);
+
+End;
 Function TScrPaintForm.QuerySave(Index: Integer): Boolean;
 Var
   MsgVal: Integer;
@@ -1324,7 +1412,10 @@ Var
   Offset: Integer;
 begin
 
-  If SnapToGrid Then Begin
+  If (PaintMode = pmSelectRect) and (ssAlt in Shift) Then Begin
+     X := Round(X/(8 * CurScreen^.ZoomLevel)) * (8 * CurScreen^.ZoomLevel);
+     Y := Round(Y/(8 * CurScreen^.ZoomLevel)) * (8 * CurScreen^.ZoomLevel);
+  End Else If SnapToGrid Then Begin
      X := Round(X/(GridX * CurScreen^.ZoomLevel)) * (GridX * CurScreen^.ZoomLevel);
      Y := Round(Y/(GridY * CurScreen^.ZoomLevel)) * (GridY * CurScreen^.ZoomLevel);
   End;
@@ -1535,7 +1626,10 @@ begin
 
   SetCaptureControl(nil);
 
-  If SnapToGrid Then Begin
+  If (PaintMode = pmSelectRect) and (ssAlt in Shift) Then Begin
+     X := Round(X/(8 * CurScreen^.ZoomLevel)) * (8 * CurScreen^.ZoomLevel);
+     Y := Round(Y/(8 * CurScreen^.ZoomLevel)) * (8 * CurScreen^.ZoomLevel);
+  End Else If SnapToGrid Then Begin
      X := Round(X/(GridX * CurScreen^.ZoomLevel)) * (GridX * CurScreen^.ZoomLevel);
      Y := Round(Y/(GridY * CurScreen^.ZoomLevel)) * (GridY * CurScreen^.ZoomLevel);
   End;
@@ -1900,7 +1994,10 @@ Var
   Pixel, Attr, tINK, tPAPER, tBRIGHT, tFLASH: Byte;
 begin
 
-  If SnapToGrid Then Begin
+  If (PaintMode = pmSelectRect) and (ssAlt in Shift) Then Begin
+     X := Round(X/(8 * CurScreen^.ZoomLevel)) * (8 * CurScreen^.ZoomLevel);
+     Y := Round(Y/(8 * CurScreen^.ZoomLevel)) * (8 * CurScreen^.ZoomLevel);
+  End Else If SnapToGrid Then Begin
      X := Round(X/(GridX * CurScreen^.ZoomLevel)) * (GridX * CurScreen^.ZoomLevel);
      Y := Round(Y/(GridY * CurScreen^.ZoomLevel)) * (GridY * CurScreen^.ZoomLevel);
   End;
@@ -5417,6 +5514,13 @@ begin
 
         End;
 
+     64: // Send selection to...
+        Begin
+
+           ExportSelection;
+
+        End;
+
      101..110: // Recent Files
         Begin
            Filename := RecentPics[(Sender As TComponent).Tag-101];
@@ -5507,6 +5611,7 @@ Begin
   Expand1.Enabled := CurScreen^.SelActive;
   Contract1.Enabled := CurScreen^.SelActive;
   MakeTransparent1.Enabled := CurScreen^.SelActive;
+  SendSelectionto1.Enabled := CurScreen^.SelActive;
 
   Pixels1.Checked := ColourMode in [cmBoth, cmPixels];
   ShowAttributes1.Checked := ShowingAttrs;

@@ -50,7 +50,6 @@ type
         N1:                        TMenuItem;
         Save1:                     TMenuItem;
         SaveBASICas1:              TMenuItem;
-        N2:                        TMenuItem;
         Print1:                    TMenuItem;
         N9:                        TMenuItem;
         Exit1:                     TMenuItem;
@@ -185,6 +184,7 @@ type
     FilingIcons1: TMenuItem;
     ResetToolbars1: TMenuItem;
     Timer3: TTimer;
+    TimerProjectDuration: TTimer;
     AddNote1: TMenuItem;
     N20: TMenuItem;
     N22: TMenuItem;
@@ -203,6 +203,8 @@ type
     PanelToolbarBand3: TPanel;
     PanelToolbarBand4: TPanel;
     PanelToolbarBand5: TPanel;
+    PanelFontSizeSelector: TPanel;
+    ComboFontSize: TComboBox;
     PanelToolbarInfo: TPanel;
     Label1: TLabel;
     SubRoutineList1: TMenuItem;
@@ -312,6 +314,15 @@ type
     N28: TMenuItem;
     MultiRowToolbar1: TMenuItem;
     AlwaysOnTopTools1: TMenuItem;
+    BasinCInternalCompiler1: TMenuItem;
+    ViewFontSizeSelector1: TMenuItem;
+    N29: TMenuItem;
+    N30: TMenuItem;
+    N31: TMenuItem;
+    N2: TMenuItem;
+    ProjectDuration1: TMenuItem;
+    PanelProjectDuration: TPanel;
+    LabelProjectDuration: TLabel;
 
 
     procedure FormClose            (Sender: TObject; var Action: TCloseAction);
@@ -326,6 +337,7 @@ type
     procedure FormActivate         (Sender: TObject);
     procedure Timer2Timer          (Sender: TObject);
     procedure Timer1Timer          (Sender: TObject);
+    procedure TimerProjectDurationTimer(Sender: TObject);
     procedure FastIMG1DblClick     (Sender: TObject);
     procedure SpeedButton4Click    (Sender: TObject);
     procedure StatusBar1DrawPanel  (StatusBar: TStatusBar; Panel: TStatusPanel; const Rect: TRect);
@@ -388,12 +400,15 @@ type
     procedure ComboFuncsClick(Sender: TObject);
     procedure ComboFuncsCloseUp(Sender: TObject);
     procedure ComboFuncsChange(Sender: TObject);
+    procedure ComboFontSizeChange(Sender: TObject);
     procedure JumpToOriginClick(Sender: TObject);
     function CreateNewLineNumber: Integer;
     procedure RunOrActivateCheqEdit;
     procedure BasinCOfficialDiscordServer1Click(Sender: TObject);
     procedure BasinCShare1Click(Sender: TObject);
     procedure GetPasmo1Click(Sender: TObject);
+    procedure ComboFontSizeCloseUp(Sender: TObject);
+    procedure ComboFontSizeClick(Sender: TObject);
     //procedure WMAfterShow(var Msg: TMessage); message WM_AFTERSHOW; //causes trouble
 
 
@@ -412,10 +427,16 @@ type
        btnOverwriteCode: TButton;
        MemoChat: TMemo;
        FKeySink: Tedit;
+       FTrackedBASFileTime: TFileTime;
+       FTrackedBASFileSize: Int64;
+       FTrackedBASFileValid: Boolean;
+       FCheckingExternalBASChange: Boolean;
 
     procedure btnPromptSendClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
     procedure btnOverwriteCodeClick(Sender: TObject);
+    function GetCurrentBASFileState(var FileTime: TFileTime; var FileSize: Int64): Boolean;
+    procedure CheckForExternalBASChange;
     function FindToolbarBandIndex(AControl: TControl): Integer;
     procedure ResetToolbarBands;
     procedure ApplyAlwaysOnTopToolsSetting;
@@ -434,6 +455,7 @@ type
 
     MousePos:                      TPoint;
     MouseDown:                     Boolean;
+    MouseSelectionAnchor:          Integer;
     NonActivePaint:                Boolean;
 
     AutoBack,
@@ -521,6 +543,7 @@ type
     procedure ExtractGosubs(FindGOSUBs, FindGOTOs, ShowOrigin: Boolean);
     Procedure ExtractRems;
     Function  RepaintCursor:       Boolean;
+    Function  RepaintInactiveCursor: Boolean;
     Procedure MakeCursorVisible;
     Procedure PerformTokenIn       (Tokens: String);
     Procedure PerformKeyDown       (Key: Word; Shift: TShiftState; Repaint: Boolean);
@@ -559,6 +582,7 @@ type
     procedure HtmlHelpOnline(hwndCaller: HWND; pszFile: PChar; uCommand: UINT; dwData: DWORD);
     procedure SplitterAIMoved(Sender: TObject);
     function GetAutoBackupDir: string;
+    procedure RefreshTrackedBASFileState;
 
   end;
 
@@ -586,6 +610,7 @@ var
   EditorSelLength: Integer;
   ParseResult: String;
   ParseError: TParseError;
+  LastDisplayedProjectDuration: Int64 = -1;
 
 const
 
@@ -615,7 +640,7 @@ implementation
 {$R *.DFM}
 {$Z4}
 
-Uses StrUtils,FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
+Uses CheqEdit, StrUtils,FastCore, InputUtils, Filing, BASSupport,  EvaluateBox, QueryForm,
      Evaluate, Breakpoints, LogWind, Watches, VarsWindow, SysVars, HexEdit, About, CommandHistory,
      FindWindow, ReplaceWindow, ErrorWindow, TokenWindow, Tapes, MemMap, UDGEdit, RenumWindow,
      BinaryForm, Compiler, Options, Display, GOSUB, Sound, BEEP, ErrorDescs, AddCode, SpecialVarEdit,
@@ -997,6 +1022,8 @@ Begin
      If StepOperation Then Begin
         CPUWindow.CPURunning := Registers.EmuRunning;
         Registers.EmuRunning := False;
+        // Preserve the stop state for unattended --pc / --dumpregisters runs.
+        If SuppressBreakpointWindow Then Exit;
         If CPUWindow.Showing Then Begin
            CPUWindow.FormShow(nil);
            StepOperation := True;
@@ -1155,6 +1182,7 @@ begin
 
      If Opt_AutoLoadSession Then Begin
         RestoreEmulationState(BASinDir+'\Session.bin');
+        LoadBASProjectMetadata(CurProjectFilename);
         Memory[FLAGX] := Memory[FLAGX] and 223;
         Running := False;
         BufferKey(0, 13);
@@ -1193,7 +1221,8 @@ begin
 
      //PostMessage(Handle, WM_AFTERSHOW, 0, 0);
      timer4.Enabled:=true;
-     Timer1.Enabled:=Opt_CursorBlinking;
+     Timer1.Enabled := True;
+     TimerProjectDuration.Enabled := Opt_ShowProjectDuration;
 
   End;
 
@@ -1231,7 +1260,7 @@ begin
   if Assigned(MemManagerForm) then MemManagerForm.FormStyle := ToolFormStyle;
   if Assigned(TapeWindow) then TapeWindow.FormStyle := ToolFormStyle;
   if Assigned(BasinetWindow) then BasinetWindow.FormStyle := ToolFormStyle;
-  if Assigned(FormCompiler1) then FormCompiler1.FormStyle := ToolFormStyle;
+  if Assigned(FormCompiler1) then FormCompiler1.FormStyle := fsStayOnTop;
   if Assigned(UDGWindow) then UDGWindow.FormStyle := ToolFormStyle;
   if Assigned(ScrPaintForm) then ScrPaintForm.FormStyle := ToolFormStyle;
 end;
@@ -1263,7 +1292,8 @@ end;
 procedure TBASinOutput.ResetToolbarBands;
 var
   Idx: Integer;
-  Band0, Band1, Band2, Band3, Band4, Band5, BandSub, BandInfo: TCoolBand;
+  Band0, Band1, Band2, Band3, Band4, Band5, BandFontSize,
+  BandSub, BandDuration, BandInfo: TCoolBand;
   function GetBand(AControl: TControl): TCoolBand;
   var
     BandIdx: Integer;
@@ -1274,7 +1304,7 @@ var
       Result := CoolBar1.Bands[BandIdx];
   end;
 begin
-  if (CoolBar1 = nil) or (CoolBar1.Bands.Count < 8) then
+  if (CoolBar1 = nil) or (CoolBar1.Bands.Count < 10) then
     Exit;
 
   Band0 := GetBand(PanelToolbarBand0);
@@ -1283,7 +1313,9 @@ begin
   Band3 := GetBand(PanelToolbarBand3);
   Band4 := GetBand(PanelToolbarBand4);
   Band5 := GetBand(PanelToolbarBand5);
+  BandFontSize := GetBand(PanelFontSizeSelector);
   BandSub := GetBand(Panel3);
+  BandDuration := GetBand(PanelProjectDuration);
   BandInfo := GetBand(PanelToolbarInfo);
 
   if Assigned(Band0) then Band0.Index := 0;
@@ -1292,8 +1324,10 @@ begin
   if Assigned(Band3) then Band3.Index := 3;
   if Assigned(Band4) then Band4.Index := 4;
   if Assigned(Band5) then Band5.Index := 5;
-  if Assigned(BandSub) then BandSub.Index := 6;
-  if Assigned(BandInfo) then BandInfo.Index := 7;
+  if Assigned(BandFontSize) then BandFontSize.Index := 6;
+  if Assigned(BandSub) then BandSub.Index := 7;
+  if Assigned(BandInfo) then BandInfo.Index := 8;
+  if Assigned(BandDuration) then BandDuration.Index := 9;
 
   if not (Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked) then
     for Idx := 0 to CoolBar1.Bands.Count - 1 do
@@ -1302,10 +1336,12 @@ begin
   Opt_Controlicons := False;
   Opt_SubRoutines := True;
   Opt_ViewInfoLine := False;
+  Opt_ShowProjectDuration := False;
   FToolbarShowFilingIcons := True;
   FToolbarShowEvaluators := False;
   FToolbarShowQuickTools := False;
   FToolbarShowEditorIcons := False;
+  Opt_ViewFontToolbar := True;
 
   if Assigned(Band0) then Band0.Visible := True;
   if Assigned(Band1) then Band1.Visible := True;
@@ -1313,7 +1349,9 @@ begin
   if Assigned(Band3) then Band3.Visible := False;
   if Assigned(Band4) then Band4.Visible := False;
   if Assigned(Band5) then Band5.Visible := False;
+  if Assigned(BandFontSize) then BandFontSize.Visible := True;
   if Assigned(BandSub) then BandSub.Visible := True;
+  if Assigned(BandDuration) then BandDuration.Visible := False;
   if Assigned(BandInfo) then BandInfo.Visible := False;
 
   SetRuler;
@@ -1466,6 +1504,7 @@ Var
   NewLines: TStringlist;
   FStream: TFilestream;
   Parameters: String;
+  ExportExtension: String;
   lpos: integer; //arda's temp integer
 begin
   If (opt_GraphicsMethod = gmAltGr) and Not (Sender Is TSpeedButton) Then Begin
@@ -1505,11 +1544,13 @@ begin
               If Not Registers.EmuRunning Then ControlEmulation(True);
               SaveEmulationState(UndoState);
               NotesWindow.Memo1.Lines.Clear; //arda. I can't remember if this is ok here.
+               ClearCompilerMetadata;
                //FASTMode := True; //arda
               FuncList.Clear;
               ComboFuncs.Items.Assign(FuncList);
               
               Reset;
+              InitializeProjectMetadata;
 
            End;
         End;
@@ -1535,12 +1576,12 @@ begin
      11:
         Begin // Assembler
 
-           if (Not Opt_AsmPasmoAvailable) Then Begin
+           {if (Not Opt_AsmPasmoAvailable) Then Begin
               Windows.MessageBox(BASinOutput.Handle, pChar('BasinC is not an assembler and'#13'not designed to work reliably with machine code.'#13'Please see assembler instructions in help document.'), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
            End Else Begin
               Windows.MessageBox(BASinOutput.Handle, pChar('BasinC is not an assembler and'#13'not designed to work reliably with machine code.'#13'Pasmo is detected. ' + #13#10 ), pChar('Assembler Disclaimer'), MB_OK or MB_ICONINFORMATION);
 
-           End;
+           End;}
            ShowWindow(AsmEditorWindow, False);
         End;
      12:
@@ -1928,6 +1969,8 @@ begin
      60:
         Begin // Reload the autosaved session.bin file.
            RestoreEmulationState(BASinDir+'\Session.bin');
+           LoadBASProjectMetadata(CurProjectFilename);
+           SetCaption;
         End;
      61:
         Begin // Memory Map Window
@@ -2025,10 +2068,9 @@ begin
         End;
      69:
         Begin // Compiler
-           //Windows.MessageBox(BASinOutput.Handle, pChar('Compiler in BasinC is incomplete, unstable'#13'and unsupported. Many directives are not defined.'), pChar('Compiler Disclaimer'), MB_OK or MB_ICONINFORMATION);
-           //Compile;
+
            CentreFormOnForm(FormCompiler1, Self);
-           ShowWindow(FormCompiler1, True);
+           ShowWindow(FormCompiler1, False);
         End;
      70:
         Begin // Continue
@@ -2273,14 +2315,26 @@ begin
         //112 add note
         //113 add snipped --added upper part of the list due to priority
      119:
-        Begin //Export Tap
-        TapeWindow.ExportTape;
-
-        {***
-
-
-        ***}
+        Begin //Export BASIC program
+           Filename := OpenFile(Self.Handle, 'Export BASIC Program',
+                                [FTSna, FTZ80, FTTap, FTTZX, FTTxt],
+                                ChangeFileExt(CurProjectFilename, ''), True, False);
+           If Filename <> '' Then Begin
+              ExportExtension := Lowercase(ExtractFileExt(Filename));
+              If ExportExtension = '.sna' Then Begin
+                 TokeniseEditText(False);
+                 SaveSna(Filename);
+              End Else If ExportExtension = '.z80' Then Begin
+                 TokeniseEditText(False);
+                 SaveZ80(Filename);
+              End Else If (ExportExtension = '.tap') or (ExportExtension = '.tzx') Then Begin
+                 TapeWindow.ExportTape(Filename);
+              End Else If ExportExtension = '.txt' Then Begin
+                 SaveBASICListing(Filename);
+              End;
+           End;
         End;
+
 
       120:
         Begin //Export to external
@@ -2288,7 +2342,8 @@ begin
          Begin
 
            Filename := BASinDir + '\BasincEx.sna';
-           SaveProgram;
+           TokeniseEditText(False);
+           SaveSna(Filename);
 
            Parameters := GetShortName(BASinDir + '\BasincEx.sna');
            ShellExecute(handle,'open',PChar(Opt_ExternalExec), PChar(Parameters),'',SW_SHOWNORMAL);
@@ -2444,6 +2499,13 @@ begin
            Opt_ViewInfoLine:=Not Opt_ViewInfoLine;
            SetRuler;
         End;
+        151:
+        Begin
+           Opt_ShowProjectDuration := Not Opt_ShowProjectDuration;
+           SetCaption;
+           SetRuler;
+           UpdateMenu;
+        End;
         135:
         Begin //autodetect GO TOS
            Opt_AutoCollectJumps := Not Opt_AutoCollectJumps;
@@ -2519,37 +2581,32 @@ End;
           AlwaysOnTopTools1.Checked := not AlwaysOnTopTools1.Checked;
           ApplyAlwaysOnTopToolsSetting;
         end;
+
+        149: //internal compiler
+        Begin
+           //Windows.MessageBox(BASinOutput.Handle, pChar('Compiler in BasinC is incomplete, unstable'#13'and unsupported. Many directives are not defined.'), pChar('Compiler Disclaimer'), MB_OK or MB_ICONINFORMATION);
+           Compile;
+        end;
+
+        150: //view fontsize toolbar
+        Begin
+          Opt_ViewFontToolbar := Not Opt_ViewFontToolbar;
+          SetRuler;
+        End;
+
   End;
 
 end;
 
 
 procedure Tbasinoutput.RunOrActivateCheqEdit;
-var
-  h: HWND;
-  r: HINST;
 begin
-  // Try to find existing window
-  h := Windows.FindWindow (nil, 'Cheqedit');
-
-  if h <> 0 then
-  begin
-    // If minimized, restore it
-    if IsIconic(h) then
-      Windows.ShowWindow(h, SW_RESTORE)
-    else
-      Windows.ShowWindow(h, SW_SHOW);
-
-    // Bring window to foreground
-    SetForegroundWindow(h);
-    Exit; // Do not start a new instance
-  end;
-
-  // No existing window, start a new process
-  r := ShellExecute(0, 'open', PChar('Cheq_edit.exe'), nil, nil, SW_SHOWNORMAL);
-  if r <= 32 then
-    ShellExecute(0, 'open', PChar('https://arda.kisafilm.org/blog/?p=713&lang=en'), nil, nil, SW_SHOWNORMAL);
-
+  if not Assigned(FormCheqEdit) then
+    Application.CreateForm(TFormCheqEdit, FormCheqEdit);
+  if FormCheqEdit.WindowState = wsMinimized then
+    FormCheqEdit.WindowState := wsNormal;
+  FormCheqEdit.Show;
+  FormCheqEdit.BringToFront;
 end;
 
 procedure TBASinOutput.SaveListingAsImage;
@@ -2638,6 +2695,11 @@ procedure TBASinOutput.FormClose(Sender: TObject; var Action: TCloseAction);
 Var
   State: TEmulationState;
 begin
+  if Assigned(FormCheqEdit) then
+    if not FormCheqEdit.CanCloseDocument then begin
+      Action := caNone;
+      Exit;
+    end;
   If Not CheckForSave Then Begin
      Action := caNone;
      Exit;
@@ -2904,8 +2966,13 @@ End;
 
 Procedure TBASinOutput.OnUpdateProgCursor(var Message: TMessage);
 Begin
-  If Message.wParam <> 0 Then
+  If Message.wParam <> 0 Then Begin
      FindAndActivateLine(Message.wParam, Message.lParam and 255);
+     If Screen.ActiveForm <> Self Then Begin
+        RepaintInactiveCursor;
+        NonActivePaint := True;
+     End;
+  End;
 End;
 
 Procedure TBASinOutput.OnUpdateProgButtons(var Message: TMessage);
@@ -2935,6 +3002,8 @@ Var
     
   end;
 begin
+
+  InitializeProjectMetadata;
 
  //arda new menu manual redrawing directive begin
    if ConsoleAddon[255]= 0 Then Begin
@@ -3547,14 +3616,23 @@ Begin
   SaveBASICAs1.Enabled := True;
 
   // The Window Size items need to be set accordingly
+  If Opt_GPUDisplay Then Begin
+     N100320x2401.Caption := '100% (480x400)';
+     N200640x4801.Caption := '200% (960x800)';
+  End Else Begin
+     N100320x2401.Caption := '100% (320x240)';
+     N200640x4801.Caption := '200% (640x480)';
+  End;
   N100320x2401.Checked := False;
   N200640x4801.Checked := False;
   Custom1.Checked := False;
   Custom1.Enabled := False;
   Custom1.Visible := False;
-  If (DisplayWindow.DisplayIMG.Width = 320) and (DisplayWindow.DisplayIMG.Height = 240) Then
+  If ((Not Opt_GPUDisplay) and (DisplayWindow.DisplayIMG.Width = 320) and (DisplayWindow.DisplayIMG.Height = 240)) or
+     (Opt_GPUDisplay and (DisplayWindow.DisplayIMG.Width = 480) and (DisplayWindow.DisplayIMG.Height = 400)) Then
      N100320x2401.Checked := True
-  Else If (DisplayWindow.DisplayIMG.Width = 640) and (DisplayWindow.DisplayIMG.Height = 480) Then
+  Else If ((Not Opt_GPUDisplay) and (DisplayWindow.DisplayIMG.Width = 640) and (DisplayWindow.DisplayIMG.Height = 480)) or
+          (Opt_GPUDisplay and (DisplayWindow.DisplayIMG.Width = 960) and (DisplayWindow.DisplayIMG.Height = 800)) Then
      N200640x4801.Checked := True
   Else Begin
      Custom1.Visible := True;
@@ -3562,8 +3640,8 @@ Begin
      Custom1.Checked := True;
      Custom1.Caption := 'Custom Size ('+IntToStr(DisplayWindow.DisplayIMG.Width)+'x'+IntToStr(DisplayWindow.DisplayIMG.Height)+')';
   End;
-  Force11Aspect1.Checked := Opt_MaintainAspect or (Opt_RenderMethod in [rmScale2x, rmHq2x, rmSuper2xSAI, rmSuperEagle]);
-  Force11Aspect1.Enabled := Not (Opt_RenderMethod in [rmScale2x, rmHq2x, rmSuper2xSAI, rmSuperEagle]);
+  Force11Aspect1.Checked := Opt_GPUDisplay or Opt_MaintainAspect or (Opt_RenderMethod in [rmScale2x, rmHq2x, rmSuper2xSAI, rmSuperEagle]);
+  Force11Aspect1.Enabled := Not Opt_GPUDisplay and Not (Opt_RenderMethod in [rmScale2x, rmHq2x, rmSuper2xSAI, rmSuperEagle]);
 
   // Source Markers need to be enabled if they've been assigned.
 
@@ -3595,6 +3673,7 @@ Begin
   FilingIcons1.Checked := FToolbarShowFilingIcons;
   QuickTools1.Checked := FToolbarShowQuickTools;
   EditorIcons1.Checked := FToolbarShowEditorIcons;
+  ViewFontSizeSelector1.Checked := Opt_ViewFontToolbar;
   EnableProfiling1.Checked := ProfilingEnabled;
   EnableSubList1.Checked:=Opt_SubRoutines;
   AutoDetectGoSubs1.Checked:=Opt_AutoCollectSubs;
@@ -3602,8 +3681,9 @@ Begin
   HideEntriesWithSingleOrigin1.Checked:=Opt_OnlyAddMultipleJumps;
   PreviewOrigins1.Checked:=Opt_ShowJumpOrigins;
   InfoLine1.Checked:=Opt_ViewInfoLine;
-  GraphEditor1.Visible:=Opt_CheqEditAvailable;
-  CheqEditPage1.Visible:=Not Opt_CheqEditAvailable;
+  ProjectDuration1.Checked:=Opt_ShowProjectDuration;
+  GraphEditor1.Visible := True;
+  CheqEditPage1.Visible := False;
   GetPasmo1.Visible:=Not Opt_AsmPasmoAvailable;
   Notes1.Checked:=Opt_CompoSize;
   AIChatPanel1.Checked:=Opt_EnableAI;
@@ -3628,8 +3708,75 @@ begin
      DisplayWindow.WantsFront := False;
      SetCapsLock;
      UpdateRunTimeButtons;
+     CheckForExternalBASChange;
+     If Screen.ActiveForm = Self Then Begin
+        CursorState := True;
+        RepaintCursor;
+        NonActivePaint := False;
+     End;
   End;
 
+end;
+
+function TBASinOutput.GetCurrentBASFileState(var FileTime: TFileTime;
+  var FileSize: Int64): Boolean;
+var
+  SearchRec: TSearchRec;
+begin
+  Result := False;
+  If (LowerCase(ExtractFileExt(CurProjectFileName)) <> '.bas') or
+     (FindFirst(CurProjectFileName, faAnyFile, SearchRec) <> 0) Then
+     Exit;
+  try
+    FileTime := SearchRec.FindData.ftLastWriteTime;
+    FileSize := (Int64(SearchRec.FindData.nFileSizeHigh) shl 32) or
+                SearchRec.FindData.nFileSizeLow;
+    Result := True;
+  finally
+    FindClose(SearchRec);
+  end;
+end;
+
+procedure TBASinOutput.RefreshTrackedBASFileState;
+begin
+  FTrackedBASFileValid :=
+    GetCurrentBASFileState(FTrackedBASFileTime, FTrackedBASFileSize);
+end;
+
+procedure TBASinOutput.CheckForExternalBASChange;
+var
+  CurrentFileTime: TFileTime;
+  CurrentFileSize: Int64;
+  Choice: Integer;
+  ReloadFileName: AnsiString;
+begin
+  If FCheckingExternalBASChange or Not FTrackedBASFileValid Then
+     Exit;
+  If Not GetCurrentBASFileState(CurrentFileTime, CurrentFileSize) Then
+     Exit;
+  If (CurrentFileTime.dwLowDateTime = FTrackedBASFileTime.dwLowDateTime) and
+     (CurrentFileTime.dwHighDateTime = FTrackedBASFileTime.dwHighDateTime) and
+     (CurrentFileSize = FTrackedBASFileSize) Then
+     Exit;
+
+  FCheckingExternalBASChange := True;
+  try
+    Choice := ShowCustomDlg(
+      'The file "' + ExtractFileName(CurProjectFileName) + '" has been changed on disk.' +
+      #13#13 + 'Keep the version currently in memory, or load the changed file from disk?',
+      mtWarning, 'Load Disk', 'Keep Memory', '');
+
+    FTrackedBASFileTime := CurrentFileTime;
+    FTrackedBASFileSize := CurrentFileSize;
+    FTrackedBASFileValid := True;
+
+    If Choice = 1 Then Begin
+       ReloadFileName := CurProjectFileName;
+       LOADQuoteQuote(ReloadFileName);
+    End;
+  finally
+    FCheckingExternalBASChange := False;
+  end;
 end;
 
 procedure TBASinOutput.Timer2Timer(Sender: TObject);
@@ -3698,8 +3845,11 @@ End;
 
 Procedure TBASinOutput.SetCaption;
 Begin
-  Caption := ReleaseName + ' - ' +CurProjectName ;
+  LastDisplayedProjectDuration := GetProjectDurationSeconds;
+  Caption := ReleaseName + ' - ' + CurProjectName;
   Application.Title := CurProjectName + ' - BasinC';
+  if Assigned(LabelProjectDuration) then
+    LabelProjectDuration.Caption := FormatProjectDurationToolbar(LastDisplayedProjectDuration);
 
 
 End;
@@ -3836,6 +3986,17 @@ Const
 Label
   ColonChar;
 Begin
+
+  if Assigned(ComboFontSize) then
+  begin
+    if (Opt_FontScale >= 1) and (Opt_FontScale <= ComboFontSize.Items.Count) then
+    begin
+      if ComboFontSize.ItemIndex <> Opt_FontScale - 1 then
+        ComboFontSize.ItemIndex := Opt_FontScale - 1;
+    end
+    else if ComboFontSize.ItemIndex <> -1 then
+      ComboFontSize.ItemIndex := -1;
+  end;
 
   OldViewLine   := ViewLine;
   OldViewColumn := ViewColumn;
@@ -3977,6 +4138,23 @@ Begin
            While BASICMem[Offset] in [#48..#57] Do Begin
               LineStr := LineStr + BASICMem[Offset];
               Inc(Offset);
+           End;
+
+           // NEXT closes the current FOR block before any character on the
+           // line is positioned. Waiting for the T makes the cursor and the
+           // first four characters use the previous indentation level.
+           If Opt_Indenting and (WordOffset > 0) and
+              (Copy(WordStack, Length(WordStack), 1) = 'F') Then Begin
+              TempVal := Offset;
+              While (TempVal <= Length(BASICMem)) and
+                    (BASICMem[TempVal] = ' ') Do
+                 Inc(TempVal);
+              If UpperCase(Copy(BASICMem, TempVal, 5)) = 'NEXT ' Then Begin
+                 WordStack := Copy(WordStack, 1, Length(WordStack) -1);
+                 Dec(WordOffset);
+                 Dec(ViewX, (Opt_IndentSize * 8) * Opt_FontScale);
+                 Dec(XPos, (Opt_IndentSize * 8) * Opt_FontScale);
+              End;
            End;
 
            LineNum := StrToIntDef(LineStr, -1);
@@ -5162,13 +5340,15 @@ end;
 
 Procedure NewWord(DIB: TFastDIB; CurWord: String; XPos, YPos, Ink, Paper, Bright: Integer; LineBreak, REMLine, InString, DoPaint: Boolean; CurPos: Integer; region: Boolean=False);
 Var
-  Extras, Keyword, NewText: String;
-  InvertFrom, InvertTo, KeyWordNum, AnchorX: Integer;
+  Extras, Keyword, NewText, SelectionWord: String;
+  InvertFrom, InvertTo, KeyWordNum, AnchorX, SelectionIndex: Integer;
   Bold, Italic: Boolean;
 Begin
 
   If CurWord = '' Then Exit;
 
+  AnchorX := XPos;
+  SelectionWord := CurWord;
 
   NewText := UpperCase(CurWord);
   If CompareStrToSubStr('GOTO', NewText, 1, 4) Then
@@ -5329,16 +5509,20 @@ Begin
      NewWord(DIB, Extras, XPos, YPos, Ink, Paper, Bright, LineBreak, REMLine, InString, DoPaint, 0);
   End Else If CurPos <> 0 Then Begin
      If EditorSelStart <> EditorSelEnd Then
-        If (Integer(EditorSelStart) <= (CurPos + Length(CurWord))) and (Integer(EditorSelEnd) >= CurPos) Then Begin
+        If (Integer(EditorSelStart) < (CurPos + Length(SelectionWord))) and (Integer(EditorSelEnd) > CurPos) Then Begin
+           // Selection offsets refer to the original text, including both quotes.
            InvertFrom := (Max(EditorSelStart, CurPos) - CurPos) +1;
-           InvertTo := (Min(EditorSelEnd, CurPos + Length(CurWord)-1) - CurPos) +1;
+           InvertTo := Min(EditorSelEnd, CurPos + Length(SelectionWord)) - CurPos;
            XPos := AnchorX + 8 * (InvertFrom -1);
-           CurWord := Copy(CurWord, InvertFrom, (InvertTo - InvertFrom)+1);
            If DoPaint Then
-              If BASinOutput.ShowingPrediction Then
-                 SpecTextToDIB(DIB, XPos, YPos +1, CurWord, 17, Opt_Background, Bright, False, False)
-              Else
-                 SpecTextToDIB(DIB, XPos, YPos +1, CurWord, Opt_Background, Opt_Foreground, Bright, False, InString);
+              For SelectionIndex := InvertFrom To InvertTo Do Begin
+                 If BASinOutput.ShowingPrediction Then
+                    SpecTextToDIB(DIB, XPos, YPos +1, SelectionWord[SelectionIndex], 17, Opt_Background, Bright, False, False)
+                 Else
+                    SpecTextToDIB(DIB, XPos, YPos +1, SelectionWord[SelectionIndex], Opt_Background, Opt_Foreground, Bright, False,
+                       InString and (SelectionWord[SelectionIndex] <> '"'));
+                 Inc(XPos, 8);
+              End;
         End;
   End;
 
@@ -5466,6 +5650,110 @@ Begin
      Result := True;
      FastIMG1.Repaint;
   End;
+End;
+
+Function TBASinOutput.RepaintInactiveCursor: Boolean;
+Var
+  SavedInk, SavedPaper: TFColorA;
+  InactiveInk, InactivePaper, EditorBackground: TFColorA;
+  InactiveChar: AnsiChar;
+Const
+  InactiveInkIndex = 22;
+  InactivePaperIndex = 23;
+  HexChars: String = '0123456789ABCDEF';
+
+  Function FadeToBackground(Color, Background: TFColorA): TFColorA;
+  Begin
+    Result := Background;
+    Result.r := (Integer(Color.r) * 55 + Integer(Background.r) * 45) Div 100;
+    Result.g := (Integer(Color.g) * 55 + Integer(Background.g) * 45) Div 100;
+    Result.b := (Integer(Color.b) * 55 + Integer(Background.b) * 45) Div 100;
+  End;
+
+Begin
+  Result := False;
+  If Running or Not CursorVisible Then Exit;
+
+  InactiveChar := CursorChar;
+  If Integer(CursOffset) + 1 <= Length(BASICMem) Then
+     InactiveChar := BASICMem[CursOffset];
+  If InactiveChar < #32 Then
+     If Not Opt_SyntaxHighlight or (InactiveChar = #13) Then
+        InactiveChar := ' ';
+
+  EditorBackground := DisplayPalette[Opt_Background];
+  InactiveInk := FadeToBackground(DisplayPalette[Opt_CursorColor1],
+                                  EditorBackground);
+  InactivePaper := FadeToBackground(DisplayPalette[Opt_CursorColor2],
+                                    EditorBackground);
+
+  SavedInk := DisplayPalette[InactiveInkIndex];
+  SavedPaper := DisplayPalette[InactivePaperIndex];
+  DisplayPalette[InactiveInkIndex] := InactiveInk;
+  DisplayPalette[InactivePaperIndex] := InactivePaper;
+  Try
+    If ProgramIs128k Then Begin
+       Case InactiveChar of
+          #32..#143:
+             DrawChar(FastIMG1.Bmp,
+                      PByte(Cardinal(@EditorChars[1]) +
+                            (Byte(InactiveChar) - 32) * 8 - 1),
+                      CursorPoint.X, CursorPoint.Y,
+                      InactiveInkIndex, InactivePaperIndex, 0);
+          #144..#162:
+             DrawChar(FastIMG1.Bmp,
+                      @Memory[((Byte(InactiveChar) - 144) * 8) +
+                              GetWord(@Memory[UDG]) - 1],
+                      CursorPoint.X, CursorPoint.Y,
+                      InactiveInkIndex, InactivePaperIndex, 0);
+       Else
+          Begin
+             DrawChar(FastIMG1.Bmp, @EditorChars[1],
+                      CursorPoint.X, CursorPoint.Y,
+                      InactiveInkIndex, InactivePaperIndex, 0);
+             SmallTextOut(FastIMG1.Bmp,
+                          HexChars[Ord(InactiveChar) Div 16 + 1] +
+                          HexChars[Ord(InactiveChar) Mod 16 + 1],
+                          CursorPoint.X,
+                          FastIMG1.Bmp.AbsHeight - CursorPoint.Y - 7,
+                          InactiveInk);
+          End;
+       End;
+    End Else Begin
+       Case InactiveChar of
+          #32..#143:
+             DrawChar(FastIMG1.Bmp,
+                      PByte(Cardinal(@EditorChars[1]) +
+                            (Byte(InactiveChar) - 32) * 8 - 1),
+                      CursorPoint.X, CursorPoint.Y,
+                      InactiveInkIndex, InactivePaperIndex, 0);
+          #144..#164:
+             DrawChar(FastIMG1.Bmp,
+                      @Memory[((Byte(InactiveChar) - 144) * 8) +
+                              GetWord(@Memory[UDG]) - 1],
+                      CursorPoint.X, CursorPoint.Y,
+                      InactiveInkIndex, InactivePaperIndex, 0);
+       Else
+          Begin
+             DrawChar(FastIMG1.Bmp, @EditorChars[1],
+                      CursorPoint.X, CursorPoint.Y,
+                      InactiveInkIndex, InactivePaperIndex, 0);
+             SmallTextOut(FastIMG1.Bmp,
+                          HexChars[Ord(InactiveChar) Div 16 + 1] +
+                          HexChars[Ord(InactiveChar) Mod 16 + 1],
+                          CursorPoint.X,
+                          FastIMG1.Bmp.AbsHeight - CursorPoint.Y - 7,
+                          InactiveInk);
+          End;
+       End;
+    End;
+  Finally
+    DisplayPalette[InactiveInkIndex] := SavedInk;
+    DisplayPalette[InactivePaperIndex] := SavedPaper;
+  End;
+
+  FastIMG1.Repaint;
+  Result := True;
 End;
 
 Procedure DrawChar(DIB: TFastDIB; CharPtr: PByte; X, Y: Integer; Ink, Paper, Bright: Byte);
@@ -6439,14 +6727,17 @@ End;
 
 Function TBASinOutput.GetCharPos(X, Y: Integer): DWord;
 Var
-  InString, REMCommand: Boolean;
-  indentX, LineNumLen, CurPos, XStart, YPos: Integer;
+  InString, REMCommand, ContinuationLine: Boolean;
+  indentX, LineNumLen, CurPos, XStart, YPos, TargetCodePos: Integer;
+  IndentStack: String;
 Begin
   YPos := 0;
   InString := False;
   CurPos := ViewOffset;
   REMCommand := False;
   indentX:= 0;
+  IndentStack := '';
+  ContinuationLine := False;
 
   If YPos+(8*Opt_FontScale) < Y Then Begin
      While (CurPos < Length(BASICMem)) and (YPos+(8*Opt_FontScale) < Y) Do Begin
@@ -6456,24 +6747,41 @@ Begin
               If (UpperCase(Copy(BASICMem, CurPos, 4)) = 'REM ') Then REMCommand := True;
         If BASICMem[CurPos] = '"' Then InString := Not InString;
         If BASICMem[CurPos] = #13 Then Begin
-           //indentX:=0;  //1.83 ardafix
+           If Opt_Indenting Then
+              While Copy(IndentStack, Length(IndentStack), 1) = 'I' Do Begin
+                 IndentStack := Copy(IndentStack, 1, Length(IndentStack) -1);
+                 Dec(indentX);
+              End;
            Inc(YPos, (8*Opt_FontScale));
            REMCommand := False;
+           ContinuationLine := False;
         End;
-        If (BASICMem[CurPos] = ':') and SplitStatements and Not InString and Not REMCommand Then Inc(YPos, (8*Opt_FontScale));
+        If (BASICMem[CurPos] = ':') and SplitStatements and Not InString and Not REMCommand Then Begin
+           Inc(YPos, (8*Opt_FontScale));
+           ContinuationLine := True;
+        End;
         If Not Instring and Not REMCommand Then
            If (BASICMem[CurPos] in ['n', 'N']) Then Begin
               If (Uppercase(Copy(BASICMem, CurPos-3, 5)) = 'THEN ') Then Begin
                   Inc (indentX);
+                  If Opt_Indenting Then
+                     IndentStack := IndentStack + 'I';
                   Inc(YPos, (8*Opt_FontScale));
+                  ContinuationLine := True;
               End;
            End Else If  (BASICMem[CurPos] in ['r', 'R']) Then Begin
               If (Uppercase(Copy(BASICMem, CurPos-2, 4)) = 'FOR ') Then Begin
                   Inc (indentX);
+                  If Opt_Indenting Then
+                     IndentStack := IndentStack + 'F';
               End;
            End Else If  (BASICMem[CurPos] in ['t', 'T']) Then Begin
               If (Uppercase(Copy(BASICMem, CurPos-3, 5)) = 'NEXT ') Then Begin
-                  Dec (indentX);
+                  If (indentX > 0) and
+                     (Copy(IndentStack, Length(IndentStack), 1) = 'F') Then Begin
+                     Dec(indentX);
+                     IndentStack := Copy(IndentStack, 1, Length(IndentStack) -1);
+                  End;
               End;
            End;
      End;
@@ -6484,7 +6792,21 @@ Begin
      Result := CurPos;
   End Else Begin
      Result := CurPos;
-     XStart :=  -ViewColumn * (8*Opt_FontScale);  //(indentX*Opt_Indentsize*8)+
+
+     // NEXT is drawn one indentation level to the left of the current block.
+     // Apply the same adjustment before translating the mouse X coordinate.
+     TargetCodePos := CurPos;
+     While (TargetCodePos <= Length(BASICMem)) and
+           (BASICMem[TargetCodePos] in ['0'..'9']) Do
+        Inc(TargetCodePos);
+     While (TargetCodePos <= Length(BASICMem)) and
+           (BASICMem[TargetCodePos] = ' ') Do
+        Inc(TargetCodePos);
+     If Opt_Indenting and (indentX > 0) and
+        (UpperCase(Copy(BASICMem, TargetCodePos, 5)) = 'NEXT ') Then
+        Dec(indentX);
+
+     XStart := -ViewColumn * (8*Opt_FontScale);
      If BASICMem[CurPos] in ['0'..'9'] Then Begin
         LineNumLen := 0;
         While BASICMem[CurPos] in ['0'..'9'] Do Begin
@@ -6492,8 +6814,11 @@ Begin
            Inc(CurPos);
         End;
         Inc(XStart, (40*Opt_FontScale) - Min((LineNumLen * (8*Opt_FontScale)), (32*Opt_FontScale)));
-     End Else
-        Inc(XStart, (40*Opt_FontScale));//+(8*Opt_Indentsize*indentX));
+     End Else If ContinuationLine Then
+        // RepaintBASIC adds one character after the separator's ViewX + 32.
+        Inc(XStart, 40*Opt_FontScale)
+     Else
+        Inc(XStart, 40*Opt_FontScale);
      InString := False;
      CurPos := Result;
      While Uppercase(BASICMem[CurPos]) < 'A' Do Inc(CurPos);
@@ -6554,15 +6879,17 @@ begin
      BasinOutput.ActiveControl := ComboFuncs;
      Application.ProcessMessages;
      ComboFuncs.Enabled := False;
+     ComboFontSize.Enabled:=False;
      Application.ProcessMessages;
      ComboFuncs.Enabled:=true;
+     ComboFontSize.Enabled:=True;
      panel3.Visible := FocusBkp;
     End;
   End;
 
   If (Button = mbLeft) and (ViewOffset > 0) Then Begin
      CurPos := GetCharPos(X, Y);
-     If CurPos <> Integer(CursOffset) Then Begin
+     If (CurPos <> Integer(CursOffset)) or Not (ssShift in Shift) Then Begin
         If Not Running Then
            If (CurPos < CursProgLineStart) or (CurPos > CursProgLineEnd) Then Begin
                If BASICChanged Then sndType := 2;
@@ -6580,6 +6907,7 @@ begin
             MakeCursorVisible;
 
            End;
+       MouseSelectionAnchor := EditorSelAnchor;
        MouseDown := True;
      End;
   MousePos.X := X;
@@ -6589,6 +6917,14 @@ End;
 
 procedure TBASinOutput.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  If Running and Registers.EmuRunning Then Begin
+     DisplayWindow.FormKeyDown(Sender, Key, Shift);
+     Exit;
+  End;
+
+  If ProgStateFlag <> PS_RESET Then
+     Inc(ProjectKeypressCount);
+
   If (DWord(GetKeyState(VK_LMENU)) <= 1) Then Begin
      PerformKeyDown(Key, Shift, True);
   End;
@@ -6597,6 +6933,11 @@ end;
 
 procedure TBASinOutput.FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  If Running and Registers.EmuRunning Then Begin
+     DisplayWindow.FormKeyUp(Sender, Key, Shift);
+     Exit;
+  End;
+
   If Opt_GraphicsMethod = gmALtGr Then
      If Key = VK_CONTROL Then
         If GetKeyState(VK_RMENU) < 2 Then
@@ -6618,16 +6959,26 @@ procedure TBASinOutput.Timer1Timer(Sender: TObject);
 begin
   if (DumpDoneQuit) Then Close;
 
-  CursorState := Not CursorState;
-  If Screen.ActiveForm = Self Then Begin
-     RepaintCursor;
-     NonActivePaint := False;
-  End Else
-     If Not NonActivePaint Then Begin
-        RepaintBASIC(True);
-        FastIMG1.Repaint;
-        NonActivePaint := True;
-     End;
+  if Opt_CursorBlinking then
+  begin
+    CursorState := Not CursorState;
+    If Screen.ActiveForm = Self Then Begin
+       RepaintCursor;
+       NonActivePaint := False;
+    End Else
+       If Not NonActivePaint Then Begin
+          RepaintBASIC(True);
+          FastIMG1.Repaint;
+          NonActivePaint := True;
+       End;
+  end;
+end;
+
+procedure TBASinOutput.TimerProjectDurationTimer(Sender: TObject);
+begin
+  LastDisplayedProjectDuration := GetProjectDurationSeconds;
+  if Assigned(LabelProjectDuration) then
+    LabelProjectDuration.Caption := FormatProjectDurationToolbar(LastDisplayedProjectDuration);
 end;
 
 Procedure TBASinOutput.PopUp;
@@ -7300,8 +7651,11 @@ End;
 
 procedure TBASinOutput.FormDeactivate(Sender: TObject);
 begin
-  If Not AppClosing Then
+  If Not AppClosing Then Begin
      RepaintBASIC(True);
+     RepaintInactiveCursor;
+     NonActivePaint := True;
+  End;
 end;
 
 procedure TBASinOutput.SpeedButton4Click(Sender: TObject);
@@ -7633,6 +7987,8 @@ End;
 
 Procedure TBASinOutput.RunProgram(Line: Word);
 Begin
+  CommandLineRunStartPending := Assigned(CommandLineRunStartedNotify);
+
   // A Real headache.
   // First, if the emulation has been paused, it's a safe bet that we're already
   // in runtime. Otherwise, start the program, by calling the RUN ROM routine.
@@ -7643,6 +7999,7 @@ Begin
         UpdateRunTimeButtons;
      End Else Begin
         If Line = 65535 Then Begin
+           Inc(ProjectBuildCount);
            PutEditLine('RUN', Memory);
            EmulateRET;
            Registers.A := 13;
@@ -7660,6 +8017,7 @@ Begin
      // Emulation is running - so we need to execute a ROM routine.
      // GOTO would be best, as RUN clears variables.
      If Line = 65535 Then Begin
+        Inc(ProjectBuildCount);
         PutEditLine('RUN', Memory);
         EmulateRET;
         Registers.A := 13;
@@ -7686,6 +8044,9 @@ begin
 
 
   If Not Registers.EmuRunning or Not Running Then Begin
+     If Not Running Then
+        RunFrameCount := 0;
+
      SaveEmulationState(BREAKState); //Workaround for Force Break -- Arda
 
      RunProgram(65535);
@@ -8029,6 +8390,17 @@ begin
      If MouseDown Then Begin
         If GetCharPos(X, Y) <> CursOffset Then Begin
            UpdateCursorPos(GetCharPos(X, Y), True);
+           If Not Running Then Begin
+              // Mouse dragging selects both endpoint characters. Keep the
+              // stored range end exclusive for copy, cut, delete and painting.
+              If Integer(CursOffset) < MouseSelectionAnchor Then Begin
+                 EditorSelAnchor := MouseSelectionAnchor +1;
+                 EditorSelLength := Integer(CursOffset) - EditorSelAnchor;
+              End Else Begin
+                 EditorSelAnchor := MouseSelectionAnchor;
+                 EditorSelLength := Integer(CursOffset) - EditorSelAnchor +1;
+              End;
+           End;
            RepaintBASIC(True);
            UpdateParseText;
            MakeCursorVisible;
@@ -8212,13 +8584,20 @@ Begin
   SpeedButton9.Visible:= Opt_Controlicons;
 
   Panel3.Visible:= Opt_SubRoutines;
+  PanelFontSizeSelector.Visible := Opt_ViewFontToolbar;
+  PanelProjectDuration.Visible := Opt_ShowProjectDuration;
+  TimerProjectDuration.Enabled := Opt_ShowProjectDuration;
+  if (Opt_FontScale >= 1) and (Opt_FontScale <= ComboFontSize.Items.Count) then
+    ComboFontSize.ItemIndex := Opt_FontScale - 1
+  else
+    ComboFontSize.ItemIndex := -1;
   Bevel1.Visible := False;
   Bevel2.Visible := False;
   Bevel3.Visible := False;
   Bevel4.Visible := False;
   Bevel8.Visible := False;
 
-  if CoolBar1.Bands.Count >= 8 then
+  if CoolBar1.Bands.Count >= 10 then
   begin
     if not (Assigned(MultiRowToolbar1) and MultiRowToolbar1.Checked) then
       for Idx := 0 to CoolBar1.Bands.Count - 1 do
@@ -8234,8 +8613,12 @@ Begin
     if Idx <> -1 then CoolBar1.Bands[Idx].Visible := FToolbarShowQuickTools;
     Idx := FindToolbarBandIndex(PanelToolbarBand5);
     if Idx <> -1 then CoolBar1.Bands[Idx].Visible := FToolbarShowEditorIcons;
+    Idx := FindToolbarBandIndex(PanelFontSizeSelector);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_ViewFontToolbar;
     Idx := FindToolbarBandIndex(Panel3);
     if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_SubRoutines;
+    Idx := FindToolbarBandIndex(PanelProjectDuration);
+    if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_ShowProjectDuration;
     Idx := FindToolbarBandIndex(PanelToolbarInfo);
     if Idx <> -1 then CoolBar1.Bands[Idx].Visible := Opt_ViewInfoLine;
   end;
@@ -8244,6 +8627,17 @@ Begin
   SetSyntaxHelper;
   FormResize(nil);
 End;
+
+procedure TBASinOutput.ComboFontSizeChange(Sender: TObject);
+begin
+  if ComboFontSize.ItemIndex < 0 then
+    Exit;
+
+  Opt_FontScale := ComboFontSize.ItemIndex + 1;
+  RepaintBASIC(True);
+  MakeCursorVisible;
+  DrawRuler;
+end;
 
 
  {
@@ -9054,6 +9448,9 @@ begin
      Inc(CurPos);
   End;
 
+  // Refresh the placeholder whenever the context menu is opened.
+  EnableAutoSub1.Visible := Not (Opt_AutoCollectSubs or Opt_AutoCollectJumps);
+
   If TempStr <> '' Then Begin
      ToggleBreakPoint1.Enabled := True;
      RunToCursor1.Enabled := True;
@@ -9690,6 +10087,22 @@ begin
  ShellExecute(0, 'open', PChar('https://pasmo.speccy.org/'), nil, nil, SW_SHOWNORMAL);
 end;
 
+procedure TBASinOutput.ComboFontSizeCloseUp(Sender: TObject);
+begin
+       ComboFontSize.Enabled:=False;
+       Application.ProcessMessages;
+       ComboFontSize.Enabled:=True;
+end;
+
+procedure TBASinOutput.ComboFontSizeClick(Sender: TObject);
+begin
+ ComboFontSize.Enabled := False;
+  Application.ProcessMessages;
+  ComboFontSize.Enabled := True;
+end;
+
+
+
 initialization
   InitializeCommonControls;  
 
@@ -9703,6 +10116,56 @@ end.
 // todo: basincnet web site - somewhere to store snippets, share on social media and run on web emulator or run on basinc locally.
 
 // todo: Ulaplus only works in supereagle mode?!?
+// todo: update documentation about REM directives, Speed, hide and #<region>
+// todo: CPU monitor disassembly bug - DD 75 05 , DD 75 06 etc. shown as LD (+$05DD), H but DD 6E 0A works LD L, (IX+$0A)
+// todo: Trace execution or profiling heatmap: while tracing execution, every line on editor gets warmer color based on how many times it is visited/or time spent.
+
+// aoe@delphipc  C:\DelphiBuild\build.cmd
+
+//1.90
+// Added - Memory Manager drag and drop file support.
+// Fixed - Loading directly from harddisk was generating error C (Natural ROM behaviour), now it should be fixed (not a good thing actually).
+// Fixed - Save programs in a tape image as BAS file. it was a badly written export function.
+// Added - MC3 Compiler support (a workaround until native compiler development is completed).
+// Added - ZX Basic Compiler support -- Yes, that's not what we want, but basinc get's it's own fork of the compiler with a bit more compatible
+// Added - Inactive cursor is now slightly visible rather than vanishing completely.
+// Fixed - More indenting fixes. it's not really fully bug-free but it's better and almost usable now.
+// Changed-UDG Editor change character count option now preserves already edited data. Use "new" if you want to setup a brand new UDG.
+// Added - Image editor keyboard shortcut is added: Press ALT key when selecting a rectangle to snap to grid.
+// Added - Image Editor "Send selected to..." option in menu that sends only selected area from the image as characters.
+// Added - Udg options in bridge - mainly for importing characters from image editor but will work with any data
+// Added - New Toolbar: Zoom Selection -- It changes font size from the toolbar. See menu > View > Font Size Selector
+// Added - New Toolbar: Project Duration
+// Added - Following command line switches that loads a program, runs for given seconds and dump the contents of memory, or captured text:
+// Added - CheqEdit is part of basinc now. You can create tilemaps or graphics mode based drawings
+//   --debug switch:
+//   * BasinC.exe <file.bas|file.tap> --debug runfor --seconds <n> --textcapture
+//   Runs for the specified number of seconds. Default output is <project>.log.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor --frames <n> --textcapture
+//   Runs until the specified frame count is reached.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor --pc <address> --textcapture
+//   Runs until the CPU program counter reaches the specified address.
+//   Also, --dumpregisters creates register dump file at breakpoint state.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor --seconds <n> --frames <n> --pc <address> --textcapture
+//   Stops when the first specified condition is reached.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor --untilvar <name=value> --textcapture
+//   Runs until the specified numeric or string BASIC variable reaches the given value.
+//   --untilvar can be combined with --seconds, --frames and --pc; the first condition reached stops execution.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor <conditions> --dumpvar <name[,name...]> --textcapture [--outputfile output.log]
+//   Saves the requested BASIC variable values to output.log.varlog when execution stops.
+//   --dumpvar can also be used with --dumpmemory; the variable log is appended with the .varlog extension.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor <conditions> --textcapture [--outputfile output.log]
+//   Saves captured ROM screen text. Default output is <project>.log.
+//   * BasinC.exe <file.bas|file.tap> --debug runfor <conditions> --dumpmemory <start> <end> [--outputfile output.bin]
+//   Saves the inclusive memory range as binary. Default output is <project>.bin.
+//   * BasinC.exe <basfile> --debug --checkonly [--outputfile report.log]
+//   Checks a bas file and generates a report. Also provides following exit codes: 0=OK, 1=Syntax Error, 2=file error, 3=incompatible usage
+//   * Memory and PC addresses accept decimal, hexadecimal $FFFF, or hexadecimal 0xFFFF notation.
+//   * -outputfile and --outputfile are both accepted. When omitted, the input project name with the appropriate extension is used.
+//   * When loading autostart tap or bas, use --fast to start emulation in fast mode.
+//   * implemented but not working yet: BasinC.exe <file.bas> --debug compile [--outputfile output.asm]
+//    Natively compiles the loaded BASIC program into asm. Default output is <project>.asm.
+
 
 //1.85
 // Fixed  - Cursor to stay invisible for a moment after find text operation if in non-blink mode.

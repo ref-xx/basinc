@@ -29,6 +29,10 @@ Uses Windows, Math, SysUtils, Classes;
   Function  GetDelimitedString(Text: String; Var Index: Integer; Delimiter: AnsiChar): String;
 
   Procedure SaveBAS(SaveEdit, DoSave: Boolean);
+  Procedure SetCompilerMetadata(Value: String);
+  Function GetCompilerMetadata: String;
+  Procedure ClearCompilerMetadata;
+  Procedure LoadBASProjectMetadata(const SourceFilename: String);
 
 Const
 
@@ -74,6 +78,207 @@ Var
 implementation
 
 Uses FastCore, ROMUtils, Filing, Utility, LogWind, notes;
+
+var
+  CompilerMetadataText: String;
+
+Procedure SetCompilerMetadata(Value: String);
+begin
+  CompilerMetadataText := Trim(Value);
+end;
+
+Function GetCompilerMetadata: String;
+begin
+  Result := CompilerMetadataText;
+end;
+
+Procedure ClearCompilerMetadata;
+begin
+  CompilerMetadataText := '';
+end;
+
+Procedure AddCompilerMetadataLine(Value: String);
+var
+  Line: String;
+begin
+  Line := Trim(Value);
+  If Line = '' Then Exit;
+  If CompilerMetadataText <> '' Then
+     CompilerMetadataText := CompilerMetadataText + #13#10;
+  CompilerMetadataText := CompilerMetadataText + Line;
+end;
+
+Function ParseProjectMetadataDateTime(Value: String; Var DateTimeValue: TDateTime): Boolean;
+Var
+  DayValue, MonthValue, YearValue, HourValue, MinuteValue, SecondValue: Integer;
+Begin
+  Result := False;
+  Value := Trim(Value);
+  If Length(Value) < 19 Then Exit;
+  DayValue := StrToIntDef(Copy(Value, 1, 2), 0);
+  MonthValue := StrToIntDef(Copy(Value, 4, 2), 0);
+  YearValue := StrToIntDef(Copy(Value, 7, 4), 0);
+  HourValue := StrToIntDef(Copy(Value, 12, 2), -1);
+  MinuteValue := StrToIntDef(Copy(Value, 15, 2), -1);
+  SecondValue := StrToIntDef(Copy(Value, 18, 2), -1);
+  Try
+     DateTimeValue := EncodeDate(YearValue, MonthValue, DayValue) +
+                      EncodeTime(HourValue, MinuteValue, SecondValue, 0);
+     Result := True;
+  Except
+     Result := False;
+  End;
+End;
+
+Function ParseProjectDuration(Value: String; Var Seconds: Int64): Boolean;
+Var
+  SpacePos, HoursValue, MinutesValue, SecondsValue: Integer;
+  DaysValue: Int64;
+  ClockValue: String;
+Begin
+  Result := False;
+  Value := Trim(Value);
+  SpacePos := Pos(' ', Value);
+  If SpacePos <= 0 Then Exit;
+  DaysValue := StrToInt64Def(Copy(Value, 1, SpacePos - 1), -1);
+  ClockValue := Copy(Value, SpacePos + 1, Length(Value));
+  If (DaysValue < 0) or (Length(ClockValue) < 8) Then Exit;
+  HoursValue := StrToIntDef(Copy(ClockValue, 1, 2), -1);
+  MinutesValue := StrToIntDef(Copy(ClockValue, 4, 2), -1);
+  SecondsValue := StrToIntDef(Copy(ClockValue, 7, 2), -1);
+  If (HoursValue < 0) or (HoursValue > 23) or
+     (MinutesValue < 0) or (MinutesValue > 59) or
+     (SecondsValue < 0) or (SecondsValue > 59) Then Exit;
+  Seconds := (DaysValue * 86400) + (HoursValue * 3600) +
+             (MinutesValue * 60) + SecondsValue;
+  Result := True;
+End;
+
+Procedure ProcessBasinCMetadataLine(Value: String; Var NotesPresent: Boolean);
+Var
+  Line, LowerLine, FieldValue, CompilerType, CompilerVariables: String;
+  ColonPos: Integer;
+  ParsedDate: TDateTime;
+  ParsedDuration: Int64;
+Begin
+  Line := Value;
+  LowerLine := LowerCase(Trim(Line));
+
+  If Copy(LowerLine, 1, 5) = 'note ' Then Begin
+     If (Length(Line) >= 14) and (Line[14] = ':') Then Begin
+        NotesWindow.Memo1.Lines.Add(Copy(Line, 16, Length(Line) - 16));
+        NotesPresent := True;
+     End;
+     Exit;
+  End;
+
+  If Copy(LowerLine, 1, 9) = 'compiler ' Then Begin
+     ColonPos := Pos(':', Line);
+     If ColonPos > 0 Then Begin
+        CompilerType := Trim(Copy(Line, 10, ColonPos - 10));
+        CompilerVariables := Trim(Copy(Line, ColonPos + 1, Length(Line)));
+        If (SameText(CompilerType, 'ubyte') or SameText(CompilerType, 'byte')) and
+           (CompilerVariables <> '') Then
+           AddCompilerMetadataLine('#Compiler ' + LowerCase(CompilerType) + ' ' + CompilerVariables);
+     End;
+     Exit;
+  End;
+
+  ColonPos := Pos(':', Line);
+  If ColonPos <= 0 Then Exit;
+  FieldValue := Trim(Copy(Line, ColonPos + 1, Length(Line)));
+  If SameText(Copy(Line, 1, ColonPos - 1), 'Basinc Version') Then
+     ProjectBasincVersion := FieldValue
+  Else If SameText(Copy(Line, 1, ColonPos - 1), 'Project Start') Then Begin
+     If ParseProjectMetadataDateTime(FieldValue, ParsedDate) Then
+        ProjectStartDateTime := ParsedDate;
+  End Else If SameText(Copy(Line, 1, ColonPos - 1), 'Project Duration') Then Begin
+     If ParseProjectDuration(FieldValue, ParsedDuration) Then
+        ProjectDurationSeconds := ParsedDuration;
+  End Else If SameText(Copy(Line, 1, ColonPos - 1), 'Project Last Saved') Then Begin
+     If ParseProjectMetadataDateTime(FieldValue, ParsedDate) Then
+        ProjectLastSavedDateTime := ParsedDate;
+  End Else If SameText(Copy(Line, 1, ColonPos - 1), 'Project Saves') Then
+     ProjectSaveCount := StrToInt64Def(FieldValue, 0)
+  Else If SameText(Copy(Line, 1, ColonPos - 1), 'Project Builds') Then
+     ProjectBuildCount := StrToInt64Def(FieldValue, 0)
+  Else If SameText(Copy(Line, 1, ColonPos - 1), 'Project Keypresses') Then
+     ProjectKeypressCount := StrToInt64Def(FieldValue, 0);
+End;
+
+Function SerializeCompilerMetadata: String;
+Var
+  Lines: TStringList;
+  Line, Payload, TypeName, Variables: String;
+  SpacePos, Idx: Integer;
+Begin
+  Result := '';
+  Lines := TStringList.Create;
+  Try
+     Lines.Text := GetCompilerMetadata;
+     For Idx := 0 To Lines.Count - 1 Do Begin
+        Line := Trim(Lines[Idx]);
+        If LowerCase(Copy(Line, 1, 9)) = '#compiler' Then Begin
+           Payload := Trim(Copy(Line, 10, Length(Line)));
+           SpacePos := Pos(' ', Payload);
+           If SpacePos > 0 Then Begin
+              TypeName := LowerCase(Trim(Copy(Payload, 1, SpacePos - 1)));
+              Variables := Trim(Copy(Payload, SpacePos + 1, Length(Payload)));
+              If (Variables <> '') and ((TypeName = 'ubyte') or (TypeName = 'byte')) Then Begin
+                 If TypeName = 'ubyte' Then TypeName := 'Ubyte' Else TypeName := 'Byte';
+                 Result := Result + 'Compiler ' + TypeName + ': ' + Variables + #13#10;
+              End;
+           End;
+        End;
+     End;
+  Finally
+     Lines.Free;
+  End;
+End;
+
+Procedure LoadBASProjectMetadata(const SourceFilename: String);
+Var
+  Lines: TStringList;
+  Line: String;
+  Idx: Integer;
+  InMetadataBlock, NotesPresent: Boolean;
+Begin
+  If (SourceFilename = '') or not FileExists(SourceFilename) Then Exit;
+  InitializeProjectMetadata;
+  ClearCompilerMetadata;
+  NotesWindow.Memo1.Lines.Clear;
+  NotesPresent := False;
+  InMetadataBlock := False;
+  Lines := TStringList.Create;
+  Try
+     Try
+        Lines.LoadFromFile(SourceFilename);
+        For Idx := 0 To Lines.Count - 1 Do Begin
+           Line := Lines[Idx];
+           If SameText(Trim(Line), '# BasinC BAS') Then
+              InMetadataBlock := True
+           Else If SameText(Trim(Line), '# End BasinC BAS') Then
+              InMetadataBlock := False
+           Else If InMetadataBlock Then
+              ProcessBasinCMetadataLine(Line + ' ', NotesPresent)
+           Else If LowerCase(Copy(Line, 1, 9)) = '#compiler' Then
+              AddCompilerMetadataLine(Line)
+           Else If LowerCase(Copy(Line, 1, 5)) = '#note' Then Begin
+              NotesWindow.Memo1.Lines.Add(Copy(Line, 16, Length(Line) - 15));
+              NotesPresent := True;
+           End;
+        End;
+     Except
+        InitializeProjectMetadata;
+        ClearCompilerMetadata;
+        NotesWindow.Memo1.Lines.Clear;
+     End;
+  Finally
+     Lines.Free;
+  End;
+  If Opt_ShowNotes and NotesPresent Then
+     ShowWindow(NotesWindow, False);
+End;
 
 Function GetCRC32FromString(Str: String): String;
 Var
@@ -126,7 +331,7 @@ Procedure DecodeBAS;
 Var
   TempValue: Extended;
   AutoLine: Word;
-  NotesPresent, InString, Done: Boolean;
+  NotesPresent, InString, Done, InBasinCMetadataBlock: Boolean;
   LinePos, CurPos, LineNum, Idx, Idx2, NumElements: Integer;
   TempStr, CurBASICLine, VarSpace, CurLine, VarString: String;
 Label
@@ -140,6 +345,7 @@ Begin
 
   Log('Loading BAS file - '+Filename);
   NotesWindow.Memo1.Lines.Clear;  //rather punch in the face type entry by arda
+  NotesPresent := False;
   
   CheckCRC;
 
@@ -150,6 +356,9 @@ Begin
   CurBASICLine := '';
   VarSpace := '';
   FileBody := '';
+  ClearCompilerMetadata;
+  InitializeProjectMetadata;
+  InBasinCMetadataBlock := False;
   CurPos := 0;
   Done := False;
   AutoLine := $8000;
@@ -166,8 +375,15 @@ Begin
      End Else Begin
         // Process a line of BASIC
         If Curline <> ' ' Then Begin
-           // Comments begin with a '#' in .bas files.
-           If CurLine[1] <> '#' Then Begin
+           If SameText(Trim(CurLine), '# BasinC BAS') Then
+              InBasinCMetadataBlock := True
+           Else If SameText(Trim(CurLine), '# End BasinC BAS') Then
+              InBasinCMetadataBlock := False
+           Else If InBasinCMetadataBlock Then
+              ProcessBasinCMetadataLine(CurLine, NotesPresent)
+           Else Begin
+              // Comments begin with a '#' in .bas files.
+              If CurLine[1] <> '#' Then Begin
               // Process the special commands first, so they don't get
               // assigned a linenumber.
               // Currently, these are "Auto", "Check" and "Var".
@@ -419,7 +635,9 @@ Begin
               End;
            End Else Begin
               // Special Memo added by Arda
-              If Lowercase(Copy(CurLine, 1, 5)) = '#note' Then Begin
+              If Lowercase(Copy(CurLine, 1, 9)) = '#compiler' Then Begin
+                 AddCompilerMetadataLine(CurLine);
+              End Else If Lowercase(Copy(CurLine, 1, 5)) = '#note' Then Begin
                     LinePos := 5;
                     TempStr := '';
                     // Grab the memo now.
@@ -429,6 +647,7 @@ Begin
 
               End;
 
+           End;
            End;
         End;
      End;
@@ -577,7 +796,7 @@ Begin
   // *Finally* we have a tokenised line. The last job is to test for DEF FN, and
   // insert the dummy bytes after each parameter.
 
-  // ProcessDEFFN(CurBASICLine);  //arda181 workaround -- well, this might be problematic needs more testing, this will get called again eventually in somewhere else and add cache bytes later
+  // TokeniseLine already processes DEF FN in the body. Do not scan the binary header here.
 
 
   // Got a line, now add the $13 terminator, and add to the filebody.
@@ -588,70 +807,125 @@ Begin
 
 End;
 
+// Input is a tokenised BASIC body, never a binary four-byte line header.
+Function FindDEFFNFrom(const Line: String; StartPos: Integer): Integer;
+Var
+  Idx: Integer;
+  InString: Boolean;
+Begin
+  Result := 0;
+  InString := False;
+  Idx := StartPos;
+  While Idx <= Length(Line) Do Begin
+     If Line[Idx] = '"' Then
+        InString := Not InString
+     Else If Not InString Then Begin
+        If (Line[Idx] = #13) or (Line[Idx] = #$EA) Then Exit;
+        If Line[Idx] = #$0E Then Begin
+           // Numeric values and existing parameter slots are opaque data.
+           Inc(Idx, 6);
+           Continue;
+        End;
+        If Line[Idx] = #$CE Then Begin
+           Result := Idx;
+           Exit;
+        End;
+     End;
+     Inc(Idx);
+  End;
+End;
+
 Procedure ProcessDEFFN(var CurBASICLine: String);
 Var
-  LinePos: Integer;
-  TempStr: String;
-  TempWord: Word;
-  DEFFNDone, DEFFNHasParams: Boolean;
-Begin
-  LinePos := FindDEFFN(CurBASICLine);
-  If LinePos <> 0 Then Begin
-     Inc(LinePos);
-     DEFFNDone := False;
-     DEFFNHasParams := False;
-     While Not DEFFNDone Do Begin
-        // Find either the ")" or the next "," - whichever comes first.
-        // If we find an Alpha or a "," then we have parameters.
-        If CurBASICLine[LinePos] in ['a'..'z', 'A'..'Z'] Then
-           DEFFNHasParams := True;
-        If CurBASICLine[LinePos] = ')' Then Begin
-           DEFFNDone := True;
-           If DEFFNHasParams Then Begin
-              If CurBASICLine[LinePos-1] in ['a'..'z', 'A'..'Z', '$'] Then
-                 CurBASICLine := Copy(CurBASICLine, 1, LinePos-1)+#$0E#0#0#0#0#0+Copy(CurBASICLine, LinePos, 999999);
-           End;
-        End;
-        If CurBASICLine[LinePos] = ',' Then Begin
-           DEFFNHasParams := True;
-           If CurBASICLine[LinePos-1] in ['a'..'z', 'A'..'Z', '$'] Then
-              CurBASICLine := Copy(CurBASICLine, 1, LinePos-1)+#$0E#0#0#0#0#0+Copy(CurBASICLine, LinePos, 999999);
-           Inc(LinePos, 6);
-        End;
+  SearchPos, TokenPos, LinePos: Integer;
+  WorkLine: String;
+  Valid: Boolean;
+
+  Procedure SkipSpaces;
+  Begin
+     While LinePos <= Length(WorkLine) Do Begin
+        If WorkLine[LinePos] <> ' ' Then Exit;
         Inc(LinePos);
-        If LinePos >= Length(CurBASICLine) Then DEFFNDone := True;
-        // Test to see if there's any more DEF FNs on the line
-        If DEFFNDone Then Begin
-           TempStr := Copy(CurBASICLine, LinePos+1, 999999);
-           TempWord := FindDEFFN(TempStr);
-           If TempWord <> 0 Then Begin
-              Inc(LinePos, TempWord+1);
-              DEFFNDone := False;
+     End;
+  End;
+
+  Function ReadName: Boolean;
+  Begin
+     Result := False;
+     SkipSpaces;
+     If LinePos > Length(WorkLine) Then Exit;
+     If Not (WorkLine[LinePos] in ['a'..'z', 'A'..'Z']) Then Exit;
+     Inc(LinePos);
+     SkipSpaces;
+     If LinePos <= Length(WorkLine) Then
+        If WorkLine[LinePos] = '$' Then Inc(LinePos);
+     SkipSpaces;
+     Result := True;
+  End;
+
+Begin
+  SearchPos := 1;
+  While SearchPos <= Length(CurBASICLine) Do Begin
+     TokenPos := FindDEFFNFrom(CurBASICLine, SearchPos);
+     If TokenPos = 0 Then Exit;
+     // Stage a complete parameter list before changing the caller's text.
+     WorkLine := CurBASICLine;
+     LinePos := TokenPos + 1;
+     Valid := ReadName;
+     If Valid Then Begin
+        Valid := LinePos <= Length(WorkLine);
+        If Valid Then Valid := WorkLine[LinePos] = '(';
+     End;
+     If Valid Then Begin
+        Inc(LinePos);
+        SkipSpaces;
+        Valid := LinePos <= Length(WorkLine);
+        If Valid Then Begin
+           If WorkLine[LinePos] <> ')' Then Begin
+              Repeat
+                 Valid := ReadName;
+                 If Not Valid Then Break;
+                 If LinePos <= Length(WorkLine) Then Begin
+                    If WorkLine[LinePos] = #$0E Then Begin
+                       // Preserve populated slots as well as zero-filled ones.
+                       Valid := LinePos + 5 <= Length(WorkLine);
+                       If Not Valid Then Break;
+                       Inc(LinePos, 6);
+                       SkipSpaces;
+                    End Else Begin
+                       Insert(#$0E#0#0#0#0#0, WorkLine, LinePos);
+                       Inc(LinePos, 6);
+                    End;
+                 End;
+                 Valid := LinePos <= Length(WorkLine);
+                 If Not Valid Then Break;
+                 If WorkLine[LinePos] = ')' Then Break;
+                 Valid := WorkLine[LinePos] = ',';
+                 If Not Valid Then Break;
+                 Inc(LinePos);
+              Until False;
            End;
         End;
      End;
+     If Valid Then Begin
+        Inc(LinePos); // closing parenthesis
+        SkipSpaces;
+        Valid := LinePos <= Length(WorkLine);
+        If Valid Then Valid := WorkLine[LinePos] = '=';
+     End;
+     If Valid Then Begin
+        CurBASICLine := WorkLine;
+        SearchPos := LinePos + 1; // outside strings, at the expression
+     End Else
+        SearchPos := TokenPos + 1;
   End;
 End;
 
 Function FindDEFFN(Line: String): Integer;
-Var
-  Found: Boolean;
 Begin
-  // TO-DO: This needs a complete rewrite.
-  Result := 0;
-  Found := False;
-
-  If Length(Line) >= 1 Then Begin
-     Result := 1; //R16 fix by Arda --original value was 5. But it misses the def fn if line number is shorter than 4 digits. fix (result=1) causes false detection of def fn caused by number 206 in line number bytes.
-     While Not Found and (Result < Length(Line)) Do Begin
-        If Line[Result] = #$CE Then Begin
-           Found := True;
-        End;
-        Inc(Result);
-     End;
-  End;
-  If Not Found Then
-     Result := 0;
+  // Preserve the public convention: return the position AFTER the token.
+  Result := FindDEFFNFrom(Line, 1);
+  If Result <> 0 Then Inc(Result);
 End;
 
 Function GetString(var CurLine: String; Var LinePos: Integer): String;
@@ -1565,14 +1839,36 @@ Var
   TempValue: Extended;
   TempDWord, SaveDWord: DWord;
   Done, FirstLine, InString: Boolean;
-  BASICStr, TempStr, VarString: String;
+  BASICStr, TempStr, VarString, CompilerMetadataText: String;
   AutoStart, TempWord, VarAddress, CurAddress, Idx: Word;
+  SavedAt: TDateTime;
+  DurationAtSave, SaveCountToWrite: Int64;
+  IsAutoBackup, IsSaveAs: Boolean;
   AVars: Array[1..6] of String;
 Begin
 
   // Saves a program from the BASIC area.
   // IX points at the address to start grabbing data from,
   // Fileheader contains info about autostart.
+
+  IsAutoBackup := False;
+  DurationAtSave := GetProjectDurationSeconds;
+  SaveCountToWrite := ProjectSaveCount;
+  SavedAt := ProjectLastSavedDateTime;
+  If DoSave Then Begin
+     If Lowercase(ExtractFileExt(Filename)) <> '.bas' Then
+        Filename := Filename + '.bas';
+     IsAutoBackup := SameText(LowerCase(Copy(ExtractFileName(Filename), 1, 8)), 'autoback');
+     IsSaveAs := not SameText(ExpandFileName(Filename), ExpandFileName(CurProjectFilename));
+     If not IsAutoBackup Then Begin
+        SavedAt := Now;
+        If IsSaveAs Then
+           SaveCountToWrite := 1
+        Else
+           SaveCountToWrite := ProjectSaveCount + 1;
+     End;
+  End;
+  If SavedAt = 0 Then SavedAt := Now;
 
   FileBody := '';
   CurAddress := GetWord(@Memory[PROG]);
@@ -1594,12 +1890,36 @@ Begin
 
   End;
 
-  // If there is something written in notes window, dump them now.
-  // added by arda >1.75
-  If length(NotesWindow.Memo1.Text)>0 Then Begin
-     for TempInt:=0 to NotesWindow.Memo1.Lines.Count-1 Do Begin
-        FileBody := FileBody + '#Note 00000000 '+ NotesWindow.Memo1.Lines[TempInt] + #13#10;
-     End;
+  If DoSave Then Begin
+     FileBody := FileBody + '# BasinC BAS' + #13#10;
+     FileBody := FileBody + 'Basinc Version: ' + ReleaseBuild + #13#10;
+     FileBody := FileBody + 'Project Start: ' +
+                 FormatDateTime('dd-mm-yyyy hh:nn:ss', ProjectStartDateTime) + #13#10;
+     FileBody := FileBody + 'Project Duration: ' +
+                 FormatProjectDuration(DurationAtSave) + #13#10;
+     FileBody := FileBody + 'Project Last Saved: ' +
+                 FormatDateTime('dd-mm-yyyy hh:nn:ss', SavedAt) + #13#10;
+     FileBody := FileBody + 'Project Saves: ' + IntToStr(SaveCountToWrite) + #13#10;
+     FileBody := FileBody + 'Project Builds: ' + IntToStr(ProjectBuildCount) + #13#10;
+     FileBody := FileBody + 'Project Keypresses: ' + IntToStr(ProjectKeypressCount) + #13#10;
+
+     If Length(NotesWindow.Memo1.Text) > 0 Then
+        For TempInt := 0 To NotesWindow.Memo1.Lines.Count - 1 Do
+           FileBody := FileBody + 'Note 00000000: ' +
+                       NotesWindow.Memo1.Lines[TempInt] + #13#10;
+
+     CompilerMetadataText := SerializeCompilerMetadata;
+     If CompilerMetadataText <> '' Then
+        FileBody := FileBody + CompilerMetadataText;
+
+     FileBody := FileBody + '# End BasinC BAS' + #13#10#13#10;
+  End Else Begin
+     If Length(NotesWindow.Memo1.Text) > 0 Then
+        For TempInt := 0 To NotesWindow.Memo1.Lines.Count - 1 Do
+           FileBody := FileBody + '#Note 00000000 ' +
+                       NotesWindow.Memo1.Lines[TempInt] + #13#10;
+     If GetCompilerMetadata <> '' Then
+        FileBody := FileBody + GetCompilerMetadata + #13#10;
   End;
 
   // Now grab the VARS
@@ -1840,11 +2160,13 @@ Begin
      FileBody := 'Check '+TempStr+#13#10+FileBody;
 
      // Call SaveFile with the real filename. This will save FileBody.
-     If Lowercase(ExtractFileExt(Filename)) <> '.bas' Then Filename := Filename + '.bas';
-     If SaveFile then
-        if (trim(Copy(ExtractFilename(Filename),1,8))<>'autoback') Then
-            SetProjectName(Filename);
-        //SetProjectName(ExtractFilename(Filename));
+     If SaveFile Then Begin
+        If not IsAutoBackup Then Begin
+           ProjectBasincVersion := ReleaseBuild;
+           CommitProjectMetadataSave(DurationAtSave, SavedAt, SaveCountToWrite);
+           SetProjectName(Filename);
+        End;
+     End;
 
   End;
 

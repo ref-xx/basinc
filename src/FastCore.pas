@@ -287,6 +287,9 @@ Var
 
   Registers:        TZ80Registers;
 
+  RunFrameCount:    Int64 = 0;
+  RunFrameLimit:    Int64 = 0;
+
   PagedBank,
   ElapsedFrames,
   DisplayByte,
@@ -16395,6 +16398,11 @@ Procedure ExecuteEndOfFrame;
 Begin
   If Registers.EmuRunning Then Begin
 
+     Inc(RunFrameCount);
+     If (RunFrameLimit > 0) and (RunFrameCount >= RunFrameLimit) Then Begin
+        Registers.EmuRunning := False;
+        Exit;
+     End;
      Inc(ElapsedFrames);
      //Registers.TotalTS:=0;
 
@@ -16663,14 +16671,6 @@ Begin
 
   End;
 
-  if  (FASTMode) Then Begin
-      FastCore.Display.Pixels8[220,300] := 0;
-      FastCore.Display.Pixels8[221,300] := 0;
-      FastCore.Display.Pixels8[222,300] := 0;
-      FastCore.Display.Pixels8[221,301] := 0;
-      //End Else Begin
-
-  End;
 End;
 
 Procedure SaveEmulationState(var State: TEmulationState);

@@ -76,6 +76,8 @@ var
 
 implementation
 
+uses CommandLine;
+
 {$R *.dfm}
 
 const
@@ -210,6 +212,10 @@ end;
 
 procedure TFormBasinCTips.ShowOnStartupIfEnabled;
 begin
+  // Unattended debug runs must not enter the modal tips dialog.
+  if IsDebugCommandLine then
+    Exit;
+
   // Sync checkbox with current option before evaluating visibility
   ChkShowTips.Checked := Opt_EnableBasincTips;
 

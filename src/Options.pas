@@ -187,6 +187,7 @@ type
     Button7: TButton;
     Button8: TButton;
     CheckBox35: TCheckBox;
+    CheckBox36: TCheckBox;
     procedure FormShow(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Button2Click(Sender: TObject);
@@ -375,6 +376,7 @@ begin
   CheckBox4.Checked := Opt_MaintainAspect;
   CheckBox5.Checked := Opt_IntegerScaling;
   CheckBox11.Checked := Opt_8BitStretch;
+  CheckBox36.Checked := Opt_GPUDisplay;
   ComboBox2.ItemIndex := Ord(Opt_RenderMethod);
 
        Ci:=0;
@@ -760,6 +762,7 @@ begin
   AlterSoundSettings;
   ResetSound;
   DisplayWindow.InitScaleDIBs;
+  DisplayWindow.ApplyGPURenderer(CheckBox36.Checked);
   DisplayWindow.FormResize(Nil);
   BASinOutput.RepaintBASIC(True);
   Close;

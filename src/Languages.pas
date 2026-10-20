@@ -6,6 +6,7 @@ interface
   Utility, ROMUtils,AnimPreview;
 
   Procedure SetLanguage(Var lang: String);
+  function GraphTileMapEditorName(const Language: String): String;
 
  var
 
@@ -384,7 +385,16 @@ interface
 
 implementation
 
-Uses BASINMain;
+Uses BASINMain, CheqEdit;
+
+function GraphTileMapEditorName(const Language: String): String;
+begin
+  if Language = 'T'#252'rk'#231'e' then
+    Result := 'Graph D'#246#254'eme Haritas'#253' D'#252'zenleyicisi'
+  else if Language = 'Deutsch' then Result := 'Graph-Kachelkarten-Editor'
+  else if Language = 'Spanish' then Result := 'Editor de mapas de teselas Graph'
+  else Result := 'Graph Tile Map Editor';
+end;
 
 procedure SetErrors(var lang: string);
 var
@@ -481,12 +491,12 @@ if (lang='Türkçe') then
         BASinOutput.Item61.Caption :='Item6';
         BASinOutput.Item71.Caption :='Item7';
         BASinOutput.Item81.Caption :='Item8';
-        BASinOutput.ImportBASIC1.Caption :='Binary Aç...';
+        BASinOutput.ImportBASIC1.Caption :='Ýçe aktar...';
         BASinOutput.ImportfromTapeImage1.Caption :='Teyp Ýmajý Tak...';
         BASinOutput.N1.Caption :='-';
         BASinOutput.Save1.Caption :='Kaydet';
         BASinOutput.SaveBASICas1.Caption :='Farklý Kaydet...';
-        BASinOutput.N2.Caption :='-';
+
         BASinOutput.Print1.Caption :='Yazdýr...';
         BASinOutput.N9.Caption :='-';
         BASinOutput.Exit1.Caption :='Çýk';
@@ -624,7 +634,7 @@ if (lang='Türkçe') then
         // Missing BasinMain captions (from BasinMain.dfm 1.83.142) 
         BASinOutput.Label2.Caption :='Alt programa git';
         BASinOutput.LoadBasinState1.Caption :='Çalýþma alanýný aç...';
-        BASinOutput.ExportTap1.Caption :='Tap aktar...';
+        BASinOutput.ExportTap1.Caption :='Dýþa aktar...';
         BASinOutput.SendtoExternalUtiility1.Caption :='SNA'#39'yý harici araca gönder...';
         BASinOutput.SaveWorkspace1.Caption :='Çalýþma alanýný kaydet...';
         BASinOutput.CopyAsPlainText2.Caption :='Düz metin olarak kopyala';
@@ -636,6 +646,7 @@ if (lang='Türkçe') then
         BASinOutput.AutoDetectGOTOs2.Caption :='GO TO'#39'larý otomatik algýla';
         BASinOutput.PreviewOrigins1.Caption :='Atlama kaynaklarýný göster';
         BASinOutput.InfoLine1.Caption :='Bilgi satýrý';
+
         BASinOutput.CodeControlIcons1.Caption :='Kesme noktasý kontrol simgeleri';
         BASinOutput.SmartIndenting1.Caption :='Akýllý girintileme';
         BASinOutput.SnaptoEditor1.Caption :='Düzenleyici penceresine iliþtir';
@@ -649,7 +660,7 @@ if (lang='Türkçe') then
         BASinOutput.simplecon1.Caption :='SimpleCon arayüzü';
         BASinOutput.N22.Caption :='-';
         BASinOutput.Editors1.Caption :='Editörler';
-        BASinOutput.GraphEditor1.Caption :='Cheq Grafik Editörü';
+        BASinOutput.GraphEditor1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.SnippetEditor1.Caption :='Kod parçasý editörü';
         BASinOutput.N27.Caption :='-';
         BASinOutput.ProjectNotesEditor1.Caption :='Proje notlarý editörü';
@@ -657,7 +668,7 @@ if (lang='Türkçe') then
         BASinOutput.ShowaTip1.Caption :='Ýpucu göster';
         BASinOutput.BasinCOfficialDiscordServer1.Caption :='BasinC Resmi Discord Sunucusu';
         BASinOutput.BasinCShare1.Caption :='BasinC Paylaþ...';
-        BASinOutput.CheqEditPage1.Caption :='CheqEdit Grafik Editörü Al';
+        BASinOutput.CheqEditPage1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.GetPasmo1.Caption :='Pasmo-0.5.3 Windows Al';
         BASinOutput.N23.Caption :='-';
         BASinOutput.CheckUpdates1.Caption :='Güncellemeleri kontrol et';
@@ -711,7 +722,7 @@ if (lang='Türkçe') then
         BASinOutput.ImportBASIC1.Hint :='Herhangi bir dosyadan BASIC veya CODE verisini oku';
         BASinOutput.ImportfromTapeImage1.Hint :='Sanal teyp imajý tak ve ondan yükle';
         BASinOutput.Save1.Hint :='Geçerli programý kaydet';
-        BASinOutput.SaveBASICas1.Hint :='Geçerli programý bellekten çýkar';
+        BASinOutput.SaveBASICas1.Hint :='Geçerli programý yeni dosyaya kaydet';
         BASinOutput.Print1.Hint :='Geçerli programý yazdýr';
         BASinOutput.Exit1.Hint :='BASinC'#39'den çýk';
         BASinOutput.Undo1.Hint :='Son program deðiþikliðini geri al';
@@ -853,12 +864,12 @@ if (lang='English') then
         BASinOutput.Item61.Caption :='Item6';
         BASinOutput.Item71.Caption :='Item7';
         BASinOutput.Item81.Caption :='Item8';
-        BASinOutput.ImportBASIC1.Caption :='Import Binary...';
+        BASinOutput.ImportBASIC1.Caption :='Import...';
         BASinOutput.ImportfromTapeImage1.Caption :='Attach Tape Image...';
         BASinOutput.N1.Caption :='-';
         BASinOutput.Save1.Caption :='Save';
         BASinOutput.SaveBASICas1.Caption :='Save As...';
-        BASinOutput.N2.Caption :='-';
+
         BASinOutput.Print1.Caption :='Print...';
         BASinOutput.N9.Caption :='-';
         BASinOutput.Exit1.Caption :='Exit';
@@ -996,7 +1007,7 @@ if (lang='English') then
         // Missing BasinMain captions (from BasinMain.dfm)
         BASinOutput.Label2.Caption :='Go to sub';
         BASinOutput.LoadBasinState1.Caption :='Open Workspace...';
-        BASinOutput.ExportTap1.Caption :='Export Tap...';
+        BASinOutput.ExportTap1.Caption :='Export...';
         BASinOutput.SendtoExternalUtiility1.Caption :='Send SNA to External Utility...';
         BASinOutput.SaveWorkspace1.Caption :='Save Workspace...';
         BASinOutput.CopyAsPlainText2.Caption :='Copy';
@@ -1008,6 +1019,7 @@ if (lang='English') then
         BASinOutput.AutoDetectGOTOs2.Caption :='Auto Detect GO TO'#39's';
         BASinOutput.PreviewOrigins1.Caption :='Show Jump Origins';
         BASinOutput.InfoLine1.Caption :='Info Line';
+
         BASinOutput.CodeControlIcons1.Caption :='Breakpoint Control Icons';
         BASinOutput.SmartIndenting1.Caption :='Smart Indenting';
         BASinOutput.SnaptoEditor1.Caption :='Attach to Editor Window';
@@ -1021,7 +1033,7 @@ if (lang='English') then
         BASinOutput.simplecon1.Caption :='SimpleCon Interface';
         BASinOutput.N22.Caption :='-';
         BASinOutput.Editors1.Caption :='Editors';
-        BASinOutput.GraphEditor1.Caption :='Cheq Graph Editor';
+        BASinOutput.GraphEditor1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.SnippetEditor1.Caption :='Snippet Editor';
         BASinOutput.N27.Caption :='-';
         BASinOutput.ProjectNotesEditor1.Caption :='Project Notes Editor';
@@ -1029,7 +1041,7 @@ if (lang='English') then
         BASinOutput.ShowaTip1.Caption :='Show a Tip';
         BASinOutput.BasinCOfficialDiscordServer1.Caption :='BasinC Official Discord Server';
         BASinOutput.BasinCShare1.Caption :='BasinC Share...';
-        BASinOutput.CheqEditPage1.Caption :='Get CheqEdit Graph Editor';
+        BASinOutput.CheqEditPage1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.GetPasmo1.Caption :='Get Pasmo-0.5.3 Windows';
         BASinOutput.N23.Caption :='-';
         BASinOutput.CheckUpdates1.Caption :='Check Updates';
@@ -1083,7 +1095,7 @@ if (lang='English') then
         BASinOutput.ImportBASIC1.Hint :='Read BASIC or CODE data from any file';
         BASinOutput.ImportfromTapeImage1.Hint :='Insert a virtual tape image and load from it';
         BASinOutput.Save1.Hint :='Save the current program';
-        BASinOutput.SaveBASICas1.Hint :='Extract the current program from memory';
+        BASinOutput.SaveBASICas1.Hint :='Save the current program to a new file';
         BASinOutput.Print1.Hint :='Print the current program';
         BASinOutput.Exit1.Hint :='Quit BASin';
         BASinOutput.Undo1.Hint :='Undo the last program change';
@@ -1222,12 +1234,12 @@ if (lang='Deutsch') then
         BASinOutput.Item61.Caption :='Item6';
         BASinOutput.Item71.Caption :='Item7';
         BASinOutput.Item81.Caption :='Item8';
-        BASinOutput.ImportBASIC1.Caption :='Binärdatei importieren...';
+        BASinOutput.ImportBASIC1.Caption :='Importieren...';
         BASinOutput.ImportfromTapeImage1.Caption :='Band-Image anfügen...';
         BASinOutput.N1.Caption :='-';
         BASinOutput.Save1.Caption :='Speichern';
         BASinOutput.SaveBASICas1.Caption :='Speichern &unter...';
-        BASinOutput.N2.Caption :='-';
+
         BASinOutput.Print1.Caption :='Drucken...';
         BASinOutput.N9.Caption :='-';
         BASinOutput.Exit1.Caption :='Beenden';
@@ -1366,7 +1378,7 @@ if (lang='Deutsch') then
 // Missing BasinMain captions (from BasinMain.dfm)
         BASinOutput.Label2.Caption :='Gehe zu Sub';
         BASinOutput.LoadBasinState1.Caption :='Arbeitsbereich öffnen...';
-        BASinOutput.ExportTap1.Caption :='Tap exportieren...';
+        BASinOutput.ExportTap1.Caption :='Exportieren...';
         BASinOutput.SendtoExternalUtiility1.Caption :='SNA an externes Tool senden...';
         BASinOutput.SaveWorkspace1.Caption :='Arbeitsbereich speichern...';
         BASinOutput.CopyAsPlainText2.Caption :='Als reinen Text kopieren';
@@ -1378,6 +1390,7 @@ if (lang='Deutsch') then
         BASinOutput.AutoDetectGOTOs2.Caption :='GO TOs autom. erkennen';
         BASinOutput.PreviewOrigins1.Caption :='Sprung-Ursprünge zeigen';
         BASinOutput.InfoLine1.Caption :='Info-Zeile';
+
         BASinOutput.CodeControlIcons1.Caption :='Haltepunkt-Steuerungssymbole';
         BASinOutput.SmartIndenting1.Caption :='Intelligentes Einrücken';
         BASinOutput.SnaptoEditor1.Caption :='An Editor-Fenster andocken';
@@ -1391,7 +1404,7 @@ if (lang='Deutsch') then
         BASinOutput.simplecon1.Caption :='SimpleCon-Schnittstelle';
         BASinOutput.N22.Caption :='-';
         BASinOutput.Editors1.Caption :='Editoren';
-        BASinOutput.GraphEditor1.Caption :='Cheq Grafik-Editor';
+        BASinOutput.GraphEditor1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.SnippetEditor1.Caption :='Snippet-Editor';
         BASinOutput.N27.Caption :='-';
         BASinOutput.ProjectNotesEditor1.Caption :='Projektnotizen-Editor';
@@ -1399,7 +1412,7 @@ if (lang='Deutsch') then
         BASinOutput.ShowaTip1.Caption :='Tipp anzeigen';
         BASinOutput.BasinCOfficialDiscordServer1.Caption :='Offizieller BasinC Discord-Server';
         BASinOutput.BasinCShare1.Caption :='BasinC Teilen...';
-        BASinOutput.CheqEditPage1.Caption :='CheqEdit Grafik-Editor holen';
+        BASinOutput.CheqEditPage1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.GetPasmo1.Caption :='Pasmo-0.5.3 Windows holen';
         BASinOutput.N23.Caption :='-';
         BASinOutput.CheckUpdates1.Caption :='Auf Updates prüfen';
@@ -1453,7 +1466,7 @@ if (lang='Deutsch') then
         BASinOutput.ImportBASIC1.Hint :='BASIC- oder CODE-Daten aus beliebiger Datei lesen';
         BASinOutput.ImportfromTapeImage1.Hint :='Virtuelles Kassettenabbild einlegen und davon laden';
         BASinOutput.Save1.Hint :='Das aktuelle Programm speichern';
-        BASinOutput.SaveBASICas1.Hint :='Das aktuelle Programm aus dem Speicher extrahieren';
+        BASinOutput.SaveBASICas1.Hint :='Das aktuelle Programm in einer neuen Datei speichern';
         BASinOutput.Print1.Hint :='Das aktuelle Programm drucken';
         BASinOutput.Exit1.Hint :='BASin beenden';
         BASinOutput.Undo1.Hint :='Letzte Programmänderung rückgängig machen';
@@ -1594,12 +1607,12 @@ if (lang='Spanish') then
         BASinOutput.Item61.Caption :='Item6';
         BASinOutput.Item71.Caption :='Item7';
         BASinOutput.Item81.Caption :='Item8';
-        BASinOutput.ImportBASIC1.Caption :='Importar Binario...';
+        BASinOutput.ImportBASIC1.Caption :='Importar...';
         BASinOutput.ImportfromTapeImage1.Caption :='Insertar Cinta...';
         BASinOutput.N1.Caption :='-';
         BASinOutput.Save1.Caption :='Guardar';
         BASinOutput.SaveBASICas1.Caption :='Guardar Como...';
-        BASinOutput.N2.Caption :='-';
+        
         BASinOutput.Print1.Caption :='Imprimir...';
         BASinOutput.N9.Caption :='-';
         BASinOutput.Exit1.Caption :='Salir';
@@ -1738,7 +1751,7 @@ if (lang='Spanish') then
 // Missing BasinMain captions (from BasinMain.dfm)
         BASinOutput.Label2.Caption :='Ir a sub';
         BASinOutput.LoadBasinState1.Caption :='Abrir espacio de trabajo...';
-        BASinOutput.ExportTap1.Caption :='Exportar Tap...';
+        BASinOutput.ExportTap1.Caption :='Exportar...';
         BASinOutput.SendtoExternalUtiility1.Caption :='Enviar SNA a utilidad externa...';
         BASinOutput.SaveWorkspace1.Caption :='Guardar espacio de trabajo...';
         BASinOutput.CopyAsPlainText2.Caption :='Copiar como texto plano';
@@ -1750,6 +1763,7 @@ if (lang='Spanish') then
         BASinOutput.AutoDetectGOTOs2.Caption :='Autodetectar GO TOs';
         BASinOutput.PreviewOrigins1.Caption :='Mostrar orígenes de salto';
         BASinOutput.InfoLine1.Caption :='Línea de información';
+
         BASinOutput.CodeControlIcons1.Caption :='Iconos de control de puntos de ruptura';
         BASinOutput.SmartIndenting1.Caption :='Indentación inteligente';
         BASinOutput.SnaptoEditor1.Caption :='Acoplar a ventana del editor';
@@ -1763,7 +1777,7 @@ if (lang='Spanish') then
         BASinOutput.simplecon1.Caption :='Interfaz SimpleCon';
         BASinOutput.N22.Caption :='-';
         BASinOutput.Editors1.Caption :='Editores';
-        BASinOutput.GraphEditor1.Caption :='Editor gráfico Cheq';
+        BASinOutput.GraphEditor1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.SnippetEditor1.Caption :='Editor de fragmentos';
         BASinOutput.N27.Caption :='-';
         BASinOutput.ProjectNotesEditor1.Caption :='Editor de notas del proyecto';
@@ -1771,7 +1785,7 @@ if (lang='Spanish') then
         BASinOutput.ShowaTip1.Caption :='Mostrar un consejo';
         BASinOutput.BasinCOfficialDiscordServer1.Caption :='Servidor oficial de Discord de BasinC';
         BASinOutput.BasinCShare1.Caption :='Compartir BasinC...';
-        BASinOutput.CheqEditPage1.Caption :='Obtener editor gráfico CheqEdit';
+        BASinOutput.CheqEditPage1.Caption :=GraphTileMapEditorName(lang);
         BASinOutput.GetPasmo1.Caption :='Obtener Pasmo-0.5.3 Windows';
         BASinOutput.N23.Caption :='-';
         BASinOutput.CheckUpdates1.Caption :='Buscar actualizaciones';
@@ -1825,7 +1839,7 @@ if (lang='Spanish') then
         BASinOutput.ImportBASIC1.Hint :='Leer datos BASIC o CODE desde cualquier archivo';
         BASinOutput.ImportfromTapeImage1.Hint :='Insertar una imagen de cinta virtual y cargar desde ella';
         BASinOutput.Save1.Hint :='Guardar el programa actual';
-        BASinOutput.SaveBASICas1.Hint :='Extraer el programa actual de la memoria';
+        BASinOutput.SaveBASICas1.Hint :='Guardar el programa actual en un nuevo archivo';
         BASinOutput.Print1.Hint :='Imprimir el programa actual';
         BASinOutput.Exit1.Hint :='Salir de BASin';
         BASinOutput.Undo1.Hint :='Deshacer el último cambio del programa';
@@ -1945,6 +1959,7 @@ if (lang='Spanish') then
         end;
 
         SetErrors(lang);
+        if Assigned(FormCheqEdit) then FormCheqEdit.RefreshLanguage;
 end;
 
 end.

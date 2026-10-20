@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, FastIMG, ExtCtrls, FastDIB, Utility, Math, FastDraw, ClipBrd,
-  Menus, ComCtrls, z80Assembler, ROMUtils, FindWindow, Tabs;
+  Menus, ComCtrls, z80Assembler, ROMUtils, FindWindow, Tabs, ToolWin;
 
 type
 
@@ -76,6 +76,13 @@ type
     SyntaxHighlightingOptions1: TMenuItem;
     UsePasmo1: TMenuItem;
     oBridge1: TMenuItem;
+    ToolBar1: TToolBar;
+    ToolNew: TToolButton;
+    ToolSave: TToolButton;
+    ToolStore: TToolButton;
+    ToolCompile: TToolButton;
+    ToolRun: TToolButton;
+    ToolRecall: TToolButton;
     procedure FormShow(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -97,6 +104,7 @@ type
     procedure Edit2KeyPress(Sender: TObject; var Key: Char);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure Assemble1Click(Sender: TObject);
+    procedure ToolBarButtonClick(Sender: TObject);
   private
     { Private declarations }
     procedure CMDialogKey(var msg: TCMDialogKey); message CM_DIALOGKEY;
@@ -269,7 +277,11 @@ implementation
 {$R *.DFM}
 
 Uses FastCore, InputUtils, Filing, Sound, AsmForm, AddCode, Tapes,BinaryForm,
-  ReplaceWindow, CPUDisplay;
+  ReplaceWindow, CPUDisplay, BasinMain;
+
+Var
+  AsmStoredState: TEmulationState;
+  AsmStateStored: Boolean = False;
 
 procedure TASMEditorWindow.CMDialogKey(var msg: TCMDialogKey);
 begin
@@ -1013,13 +1025,20 @@ Begin
 End;
 
 procedure TASMEditorWindow.FormResize(Sender: TObject);
+Var
+  ToolBarHeight: Integer;
 begin
   If ScrollBox1 <> nil Then Begin
 
-     If Opt_AsmStatusBar Then
-        Panel1.SetBounds(0, 0, ClientWidth, ClientHeight - TabSet1.Height - StatusBar2.Height - 2)
+     If ToolBar1 <> nil Then
+        ToolBarHeight := ToolBar1.Height
      Else
-        Panel1.SetBounds(0, 0, CLientWidth, ClientHeight - TabSet1.Height - 2);
+        ToolBarHeight := 0;
+
+     If Opt_AsmStatusBar Then
+        Panel1.SetBounds(0, ToolBarHeight, ClientWidth, ClientHeight - ToolBarHeight - TabSet1.Height - StatusBar2.Height - 2)
+     Else
+        Panel1.SetBounds(0, ToolBarHeight, ClientWidth, ClientHeight - ToolBarHeight - TabSet1.Height - 2);
 
      FastIMG1.SetBounds(ScrollBox1.Left+2, ScrollBox1.Top+2, ScrollBox1.ClientWidth, ScrollBox1.ClientHeight);
      StatusBar2.Panels[0].Width := StatusBar2.ClientWidth - Canvas.TextWidth('Ln: 000 Col: 000');
@@ -1029,7 +1048,7 @@ begin
         TabSet1.SetBounds(0, StatusBar2.Top - TabSet1.Height, ClientWidth, TabSet1.Height)
      Else
         TabSet1.SetBounds(0, ClientHeight - TabSet1.Height, ClientWidth, TabSet1.Height);
-     listBox1.SetBounds(0, 0, ListBox1.Width, ClientHeight - StatusBar2.Height - TabSet1.Height);
+     listBox1.SetBounds(0, 0, ListBox1.Width, Panel1.ClientHeight);
      Splitter1.SetBounds(ListBox1.Width, 0, Splitter1.Width, ListBox1.Width);
 
      RepaintASM(True);
@@ -2140,6 +2159,42 @@ Begin
 
   End;
 
+End;
+
+procedure TASMEditorWindow.ToolBarButtonClick(Sender: TObject);
+Var
+  OrgAdr: Integer;
+Begin
+  Case (Sender As TToolButton).Tag Of
+     1: NewFile('');
+     2: SaveAsm(TabSet1.TabIndex, False);
+     3: Begin
+           SaveEmulationState(AsmStoredState);
+           AsmStateStored := True;
+           ToolRecall.Enabled := True;
+        End;
+     4: If UsePasmo1.Checked Then
+           AssembleWithPasmo
+        Else
+           Assemble;
+     5: Begin
+           OrgAdr := GetOrg;
+           If OrgAdr < 0 Then Begin
+              MessageBox(Handle, pChar('Please specify an ORG <address> as start address.'), pChar('Run Error'), MB_OK or MB_ICONWARNING);
+              Exit;
+           End;
+
+           PutEditLine('RANDOMIZE USR '+IntToStr(OrgAdr), Memory);
+           EmulateRET;
+           Registers.A := 13;
+           Registers.PC := $0F48;       // Skip the key click sound.
+           ControlEmulation(True);
+        End;
+     6: If AsmStateStored Then
+           LoadEmulationState(AsmStoredState, True);
+  End;
+
+  If Visible Then Edit2.SetFocus;
 End;
 
 procedure TASMEditorWindow.SimpleComp;

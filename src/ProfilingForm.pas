@@ -50,6 +50,13 @@ implementation
 
 Uses Profiling, BASinMain, FastCore, Utility;
 
+const
+  ProfileHitsSubItem = 1;
+  ProfileUsageSubItem = 3;
+  ProfileShowSelectedCaption = 'Show Selected Lines';
+  ProfileShowAllCaption = 'Show All Lines';
+  ProfileSelectionButtonWidth = 112;
+
 procedure TProfileForm.FormShow(Sender: TObject);
 begin
   if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
@@ -65,7 +72,7 @@ Var
   NewItem: TListItem;
   Frames, Secs: Extended;
   TotalTStates, TStates: Int64;
-  Idx, LineNum, StatementNum: Integer;
+  Idx, LineNum, StatementNum, ProfileIndex: Integer;
 Begin
 
   if ProfilingEnabled then Begin
@@ -84,16 +91,16 @@ Begin
   If (SelectedList.Count = 0) or (Not ShowingSelected) Then Begin
      SelectedList.Clear;
      SelectedList.AddStrings(ProfileBASICList);
-     Button2.Caption := 'Show Selected';
+     ShowingSelected := False;
+     Button2.Caption := ProfileShowSelectedCaption;
      Button2.Enabled := False;
   End Else Begin
-     Button2.Caption := 'Show All';
+     Button2.Caption := ProfileShowAllCaption;
      Button2.Enabled := True;
   End;
 
+  TotalTStates := 0;
   If SelectedList.Count > 0 Then Begin
-
-     TotalTStates := 0;
      For Idx := 0 To SelectedList.Count -1 Do Begin
 
         Str := SelectedList[Idx];
@@ -117,14 +124,19 @@ Begin
         StatementNum := StrToInt(Copy(Str, 1, Pos(#255, Str)-1));
         Str := Copy(Str, Pos(#255, Str)+1, 99999);
 
-        TStates := Round((ProfileArray[(LineNum*255)+StatementNum -1]/TotalTStates)*100);
-        If TStates = 0 Then
+        ProfileIndex := (LineNum*255) + StatementNum -1;
+        TStates := 0;
+        If TotalTStates > 0 Then
+           TStates := Round((ProfileArray[ProfileIndex]/TotalTStates)*100);
+        If (TStates = 0) and (ProfileArray[ProfileIndex] > 0) Then
            TStates := 1;
 
         NewItem := ListView1.Items.Add;
         NewItem.SubItems.Add(IntToStr(LineNum)+':'+IntToStr(StatementNum));
+        NewItem.SubItems.Add(IntToStr(Int64(ProfileHits[ProfileIndex])));
         NewItem.SubItems.Add(Str);
-        If ProfileArray[(LineNum*255)+(StatementNum -1)] = 0 Then
+        // Keep the usage percentage after the visible columns for custom drawing.
+        If TStates = 0 Then
            NewItem.SubItems.Add('')
         Else
            NewItem.SubItems.Add(IntToStr(TStates));
@@ -168,6 +180,7 @@ end;
 procedure TProfileForm.FormCreate(Sender: TObject);
 begin
   if Opt_ToolFontSize>0 Then ListView1.Font.Size:=Opt_ToolFontSize;
+  Button2.Width := ProfileSelectionButtonWidth;
   Button1.SetBounds(ClientWidth - Button1.Width - 8, ClientHeight - Button1.Height - 8, Button1.Width, Button1.Height);
   Button2.SetBounds(Button1.Left - Button2.Width - Button3.Width - 12, Button1.Top, Button2.Width, Button2.Height);
   Button3.SetBounds(Button1.Left - Button3.Width - 4, Button1.Top, Button3.Width, Button1.Height);
@@ -192,7 +205,7 @@ begin
 
   // Stretch the list headers
 
-  ListView1.Columns[2].Width := ListView1.ClientWidth - (ListView1.Columns[0].Width + ListView1.Columns[1].Width);
+  ListView1.Columns[3].Width := ListView1.ClientWidth - (ListView1.Columns[0].Width + ListView1.Columns[1].Width + ListView1.Columns[2].Width);
   Label2.SetBounds(8, Label1.Top + Label1.Height + 8, ClientWidth - 24, Label2.Height);
   Label3.SetBounds(8, Label2.Top + Label2.Height + 8, ClientWidth - 24, Label3.Height);
 
@@ -214,14 +227,16 @@ begin
   Else
      ListView1.Canvas.Brush.Color := ClNavy;
 
-  If Item.SubItems[2] = '' Then
+  If Item.SubItems[ProfileHitsSubItem] = '0' Then
      ListView1.Canvas.Font.Color := ClGrayText
   Else Begin
-     ItemRect := Item.DisplayRect(drLabel);
-     InflateRect(ItemRect, -1, -1);
-     ItemRect.Right := ItemRect.Left + StrToIntDef(Item.SubItems[2], 0) +1;
-     ItemRect.Bottom := ItemRect.Bottom + 1;
-     ListView1.Canvas.Rectangle(ItemRect);
+     If Item.SubItems[ProfileUsageSubItem] <> '' Then Begin
+        ItemRect := Item.DisplayRect(drLabel);
+        InflateRect(ItemRect, -1, -1);
+        ItemRect.Right := ItemRect.Left + StrToIntDef(Item.SubItems[ProfileUsageSubItem], 0) +1;
+        ItemRect.Bottom := ItemRect.Bottom + 1;
+        ListView1.Canvas.Rectangle(ItemRect);
+     End;
      ListView1.Canvas.Font.Color := ClWindowText;
   End;
   ListView1.Canvas.Pen.Style := PsSolid;
@@ -251,11 +266,7 @@ Var
   Secs, Frames: Extended;
   Idx, LineNum, StatementNum: Integer;
 begin
-  If (ListView1.SelCount = 0) and (Button2.Caption = 'Show Selected') Then
-     Button2.Enabled := False
-  Else Begin
-     Button2.Enabled := True;
-  End;
+  Button2.Enabled := ShowingSelected or (ListView1.SelCount > 0);
 
   If ListView1.SelCount > 0 Then Begin
 
@@ -299,7 +310,7 @@ procedure TProfileForm.Button2Click(Sender: TObject);
 Var
   Idx: Integer;
 begin
-  If Button2.Caption = 'Show Selected' Then Begin
+  If Not ShowingSelected Then Begin
      If ListView1.SelCount <> 0 Then Begin
         SelectedList.Clear;
         For Idx := 0 To ListView1.Items.Count -1 Do

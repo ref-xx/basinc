@@ -74,6 +74,11 @@ type
     Edit11: TEdit;
     Edit12: TEdit;
     SendToUDGEditor1: TMenuItem;
+    Edit13: TEdit;
+    RadioButton1: TRadioButton;
+    RadioButton2: TRadioButton;
+    RadioButton3: TRadioButton;
+    CheckBox4: TCheckBox;
     procedure Button1Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -93,8 +98,10 @@ type
     procedure ChkMemoryEmbedZX0Click(Sender: TObject);
     procedure ChkTapeCompressZX0Click(Sender: TObject);
     procedure ChkTapeEmbedZX0Click(Sender: TObject);
+    procedure UDGTargetClick(Sender: TObject);
   private
     { Private declarations }
+    Procedure UpdateUDGTargetControls;
   public
     { Public declarations }
     BinaryFiles, CodeToAdd: TStringlist;
@@ -137,6 +144,9 @@ Begin
   Options[Num].Add('32768');
   Options[Num].Add(Chr(10));
   Options[Num].Add(Chr(10));
+  Options[Num].Add('0'); // UDG target: create new set
+  Options[Num].Add('1'); // UDG target index
+  Options[Num].Add('0'); // UDG insert characters
 
 End;
 
@@ -154,6 +164,9 @@ Begin
   Options[Num].Add(IntToStr(Address));
   Options[Num].Add(Chr(10));
   Options[Num].Add(Chr(10));
+  Options[Num].Add('0'); // UDG target: create new set
+  Options[Num].Add('1'); // UDG target index
+  Options[Num].Add('0'); // UDG insert characters
 
 End;
 
@@ -314,6 +327,7 @@ begin
 
   LastSelected := -1;
   PopulateListBox;
+  UpdateUDGTargetControls;
 
 end;
 
@@ -487,11 +501,17 @@ Begin
                     Options[Index].Add(Edit10.Text);
               End;
            7: Begin // Send to UDG Editor
+                 While Options[Index].Count < 10 Do Options[Index].Add('0');
                  Options[Index].Strings[4] := Edit12.Text; // Address
-                 if Options[Index].Count > 5 then
-                    Options[Index].Strings[5] := Edit11.Text // Name
-                 else
-                    Options[Index].Add(Edit11.Text);
+                 Options[Index].Strings[5] := Edit11.Text; // Name
+                 If RadioButton2.Checked Then
+                    Options[Index].Strings[7] := '1'
+                 Else If RadioButton3.Checked Then
+                    Options[Index].Strings[7] := '2'
+                 Else
+                    Options[Index].Strings[7] := '0';
+                 Options[Index].Strings[8] := Edit13.Text;
+                 Options[Index].Strings[9] := IntToStr(Ord(CheckBox4.Checked));
               End;
 
         End;
@@ -631,6 +651,14 @@ Begin
               end;
               Edit11.Text := Options[Index].Strings[5];
 
+              While Options[Index].Count < 10 Do Options[Index].Add('0');
+              Edit13.Text := Options[Index].Strings[8];
+              If Trim(Edit13.Text) = '' Then Edit13.Text := '1';
+              CheckBox4.Checked := StrToIntDef(Options[Index].Strings[9], 0) <> 0;
+              RadioButton1.Checked := StrToIntDef(Options[Index].Strings[7], 0) = 0;
+              RadioButton2.Checked := StrToIntDef(Options[Index].Strings[7], 0) = 1;
+              RadioButton3.Checked := StrToIntDef(Options[Index].Strings[7], 0) = 2;
+
               // Panelleri ayarla
               Panel1.Visible := False;
               Panel3.Visible := False;
@@ -656,12 +684,37 @@ Begin
   End;
 
   CheckBox2Click(Nil);
+  UpdateUDGTargetControls;
 
 End;
 
+Procedure TBinaryWindow.UpdateUDGTargetControls;
+Var
+  UDGOpen: Boolean;
+Begin
+
+  UDGOpen := False;
+  If UDGWindow <> Nil Then
+     UDGOpen := UDGWindow.Visible;
+
+  RadioButton2.Enabled := UDGOpen;
+  If RadioButton2.Checked and Not UDGOpen Then
+     RadioButton1.Checked := True;
+
+  Edit13.Enabled := RadioButton3.Checked;
+  CheckBox4.Enabled := RadioButton2.Checked or RadioButton3.Checked;
+
+End;
+
+procedure TBinaryWindow.UDGTargetClick(Sender: TObject);
+begin
+
+  UpdateUDGTargetControls;
+
+end;
 Function TBinaryWindow.ValidateInput(Item: Integer): Boolean;
 Var
-  Value: Integer;
+  CharSize, DataChars, DataLength, DataPos, MaxIndex, TargetMode, Value: Integer;
   Error: Boolean;
   ErrorControl: TWinControl;
 Begin
@@ -800,28 +853,81 @@ Begin
         End;
 
         7: Begin // Send to UDG Editor
-           // 1. Adres Validasyonu
-           Value := Round(EvaluateNum(Options[Item].Strings[4], -1));
-           If (Value < 0) or (Value > 65535) Then Begin
-              MessageBox(Handle, pChar('Valid Addresses range from 0 to 65535'), pChar('Invalid Address'), MB_OK or MB_ICONWARNING);
-              ErrorControl := Edit12; 
-              Error := True;
-           End Else Begin
-              Options[Item].Strings[4] := IntToStr(Value);
-              // 2. Isim Validasyonu
-              If Trim(Options[Item].Strings[5]) = '' Then Begin
-                 MessageBox(Handle, pChar('Please enter a valid Name.'), pChar('Invalid Name'), MB_OK or MB_ICONWARNING);
-                 ErrorControl := Edit11;
+           While Options[Item].Count < 10 Do Options[Item].Add('0');
+           TargetMode := StrToIntDef(Options[Item].Strings[7], 0);
+
+           If TargetMode = 0 Then Begin
+              // Creating a new set keeps the original name/address behaviour.
+              Value := Round(EvaluateNum(Options[Item].Strings[4], -1));
+              If (Value < 0) or (Value > 65535) Then Begin
+                 MessageBox(Handle, pChar('Valid Addresses range from 0 to 65535'), pChar('Invalid Address'), MB_OK or MB_ICONWARNING);
+                 ErrorControl := Edit12;
                  Error := True;
-              End Else
-                 Options[Item].Strings[5] := Trim(Options[Item].Strings[5]);
+              End Else Begin
+                 Options[Item].Strings[4] := IntToStr(Value);
+                 If Trim(Options[Item].Strings[5]) = '' Then Begin
+                    MessageBox(Handle, pChar('Please enter a valid Name.'), pChar('Invalid Name'), MB_OK or MB_ICONWARNING);
+                    ErrorControl := Edit11;
+                    Error := True;
+                 End Else
+                    Options[Item].Strings[5] := Trim(Options[Item].Strings[5]);
+              End;
+           End Else Begin
+              If UDGWindow = Nil Then Begin
+                 MessageBox(Handle, pChar('No UDG set is available.'), pChar('UDG Editor'), MB_OK or MB_ICONWARNING);
+                 ErrorControl := RadioButton1;
+                 Error := True;
+              End Else If (TargetMode = 1) and Not UDGWindow.Visible Then Begin
+                 MessageBox(Handle, pChar('The UDG Editor must be open to use the selected UDG.'), pChar('UDG Editor'), MB_OK or MB_ICONWARNING);
+                 ErrorControl := RadioButton2;
+                 Error := True;
+              End Else Begin
+                 If TargetMode = 1 Then
+                    Value := UDGWindow.CurChar
+                 Else Begin
+                    Value := Round(EvaluateNum(Options[Item].Strings[8], -1));
+                    MaxIndex := UDGWindow.NumChars;
+                    If StrToIntDef(Options[Item].Strings[9], 0) <> 0 Then
+                       Inc(MaxIndex);
+                    If (Value < 1) or (Value > MaxIndex) Then Begin
+                       MessageBox(Handle, pChar('Enter a valid UDG index.'), pChar('Invalid Index'), MB_OK or MB_ICONWARNING);
+                       ErrorControl := Edit13;
+                       Error := True;
+                    End;
+                 End;
+
+                 If Not Error Then Begin
+                    Options[Item].Strings[8] := IntToStr(Value);
+                    CharSize := UDGWindow.DataWidth * UDGWindow.DataHeight;
+                    DataPos := Pos('|', BinaryFiles[Item]);
+                    DataLength := Length(BinaryFiles[Item]) - DataPos;
+                    If (CharSize <= 0) or (DataLength < CharSize) or
+                       (DataLength Mod CharSize <> 0) Then Begin
+                       MessageBox(Handle, pChar('The data size must contain complete characters for the current UDG format.'), pChar('Invalid Data'), MB_OK or MB_ICONWARNING);
+                       ErrorControl := RadioButton1;
+                       Error := True;
+                    End Else Begin
+                       DataChars := DataLength Div CharSize;
+                       If (StrToIntDef(Options[Item].Strings[9], 0) <> 0) and
+                          (UDGWindow.NumChars + DataChars > 255) Then Begin
+                          MessageBox(Handle, pChar('The UDG set cannot contain more than 255 characters.'), pChar('Too Many Characters'), MB_OK or MB_ICONWARNING);
+                          ErrorControl := CheckBox4;
+                          Error := True;
+                       End;
+                    End;
+                 End;
+              End;
            End;
 
            If Error Then Begin
               Panel1.Visible := False;
-              // ... digerlerini gizle ...
+              Panel3.Visible := False;
+              Panel4.Visible := False;
+              Panel5.Visible := False;
+              Panel6.Visible := False;
+              Panel7.Visible := False;
               Panel8.Visible := True;
-              // ErrorControl.SetFocus; // Istege bagli
+              ErrorControl.SetFocus;
            End;
         End;
 
@@ -860,7 +966,7 @@ Var
   // Idx degiskenine artik ihtiyacimiz yok
   NewCode: TStringlist;
   NewCodePresent: Boolean;
-  Target: Integer;
+  StartIndex, Target, TargetMode: Integer;
 begin
 
   // 1. ÖNCE MEVCUT DÜZENLEMEYI KAYDET
@@ -941,12 +1047,23 @@ begin
            End;
            7: Begin // Send to UDG Editor
               NewCodePresent := False; // Kod penceresine kod eklemeyecegiz
+              TargetMode := StrToIntDef(Options[0].Strings[7], 0);
 
-              UDGWindow.ImportRawData(
-                  Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) + 1, 999999), // Data
-                  Options[0].Strings[5], // Name
-                  StrToIntDef(Options[0].Strings[4], 0) // Address
-              );
+              If TargetMode = 0 Then
+                 UDGWindow.ImportRawData(
+                     Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) + 1, 999999),
+                     Options[0].Strings[5],
+                     StrToIntDef(Options[0].Strings[4], 0))
+              Else Begin
+                 If TargetMode = 1 Then
+                    StartIndex := UDGWindow.CurChar
+                 Else
+                    StartIndex := StrToIntDef(Options[0].Strings[8], 1);
+                 UDGWindow.ImportRawDataAt(
+                     Copy(BinaryFiles[0], Pos('|', BinaryFiles[0]) + 1, 999999),
+                     StartIndex,
+                     StrToIntDef(Options[0].Strings[9], 0) <> 0);
+              End;
            End;
 
         End;

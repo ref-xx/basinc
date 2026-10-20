@@ -50,6 +50,7 @@ type
     Grab1: TMenuItem;
     FromUDGs1: TMenuItem;
     FromCurrentCHARS1: TMenuItem;
+    FromROMChars1: TMenuItem;
     FromMemory1: TMenuItem;
     N5: TMenuItem;
     Send1: TMenuItem;
@@ -121,6 +122,7 @@ type
     procedure Exit1Click(Sender: TObject);
     procedure FromUDGs1Click(Sender: TObject);
     procedure FromCurrentCHARS1Click(Sender: TObject);
+    procedure FromROMChars1Click(Sender: TObject);
     procedure SaveAs1Click(Sender: TObject);
     procedure Open1Click(Sender: TObject);
     procedure Copy1Click(Sender: TObject);
@@ -174,6 +176,11 @@ type
     procedure FromMemoryManager1Click(Sender: TObject);
   private
     { Private declarations }
+    FPreserveUndo: Boolean;
+    FUndoAddress: Word;
+    FUndoDataWidth, FUndoDataHeight, FUndoEditWidth, FUndoEditHeight: Integer;
+    FUndoAssignedChars, FUndoOnionChars, FUndoFileName, FUndoCaption: AnsiString;
+    FUndoChanged: Boolean;
     procedure CreateWnd; override;
     procedure UpdateDropTarget(Accept: Boolean);
   public
@@ -252,6 +259,8 @@ type
     Procedure AnimScrollInView(Index: Integer);
     Procedure FileIsDropped(Var Msg: TMessage); Message WM_DropFiles; //arda
     Procedure ImportRawData(Data: AnsiString; Name: String; StartAddr: Word);
+    Procedure ImportRawDataAt(Data: AnsiString; StartIndex: Integer; InsertChars: Boolean);
+    procedure ImportCharacterSet(FromUDGs: Boolean);
   end;
 
 var
@@ -326,6 +335,70 @@ begin
 end;
 
 
+Procedure TUDGWindow.ImportRawDataAt(Data: AnsiString; StartIndex: Integer; InsertChars: Boolean);
+Var
+  CharIndex, CharSize, CopyChars, DataChars, Idx, NewIndex: Integer;
+Begin
+
+  CharSize := DataWidth * DataHeight;
+  If (Length(Data) = 0) or (CharSize <= 0) Then Exit;
+
+  DataChars := Length(Data) Div CharSize;
+  If DataChars <= 0 Then Exit;
+
+  If InsertChars Then Begin
+     If (StartIndex < 1) or (StartIndex > NumChars +1) Then Exit;
+     DataChars := Min(DataChars, 255 - NumChars);
+     If DataChars <= 0 Then Exit;
+  End Else Begin
+     If (StartIndex < 1) or (StartIndex > NumChars) Then Exit;
+     DataChars := Min(DataChars, NumChars - StartIndex +1);
+     If DataChars <= 0 Then Exit;
+  End;
+
+  StoreUndo;
+
+  If InsertChars Then Begin
+     CurChars := Copy(CurChars, 1, (StartIndex -1) * CharSize) +
+                 Copy(Data, 1, DataChars * CharSize) +
+                 Copy(CurChars, ((StartIndex -1) * CharSize) +1, 999999);
+     Inc(NumChars, DataChars);
+
+     // Keep grid and onion-skin assignments pointing at their original data.
+     For Idx := 0 To (Length(AssignedChars) Div 2) -1 Do Begin
+        CharIndex := GetWord(@AssignedChars[(Idx * 2) +1]);
+        If CharIndex >= StartIndex Then Begin
+           NewIndex := CharIndex + DataChars;
+           PutWord(@AssignedChars[(Idx * 2) +1], NewIndex);
+        End;
+        CharIndex := GetWord(@OnionChars[(Idx * 2) +1]);
+        If CharIndex >= StartIndex Then Begin
+           NewIndex := CharIndex + DataChars;
+           PutWord(@OnionChars[(Idx * 2) +1], NewIndex);
+        End;
+     End;
+  End Else Begin
+     CopyChars := DataChars;
+     For Idx := 1 To CopyChars * CharSize Do
+        CurChars[((StartIndex -1) * CharSize) + Idx] := Data[Idx];
+  End;
+
+  CurChar := StartIndex;
+  If InsertChars Then
+     SetPaletteSize;
+  FormResize(nil);
+  RepaintChars;
+  GetBIGChar(True);
+  UpdateStatusBar;
+
+  If Not changed Then
+     UDGWindow.Caption := UDGWindow.Caption + '*';
+  changed := True;
+  FirstRun := False;
+  UDGWindow.Show;
+  UDGWindow.BringToFront;
+
+End;
 Procedure TUDGWindow.FileIsDropped(Var Msg: TMessage);
 Var
   hDrop: THandle;
@@ -1036,6 +1109,23 @@ begin
   Close;
 end;
 
+procedure TUDGWindow.ImportCharacterSet(FromUDGs: Boolean);
+var StartAddress: Integer;
+begin
+  if FromUDGs then StartAddress := GetWord(@Memory[UDG])
+  else StartAddress := (GetWord(@Memory[CHARS])+256) and $FFFF;
+  if StartAddress > 65528 then
+    raise ERangeError.Create('The character address does not contain a complete 8-byte character.');
+  StoreUndo;
+  FPreserveUndo := True;
+  try
+    FirstRun := False;
+    if FromUDGs then FromUDGs1Click(nil) else FromCurrentCHARS1Click(nil);
+    UdgFileName := '';
+    Changed := True;
+  finally FPreserveUndo := False; end;
+end;
+
 procedure TUDGWindow.FromUDGs1Click(Sender: TObject);
 begin
   If ProgramIs128k Then
@@ -1058,6 +1148,32 @@ begin
   DataHeight := 8;
   While (Address -1 + (NumChars*8) > 65535) or (NumChars > 96) Do Dec(NumChars);
   GrabFromMemory;
+  MouseDown := False;
+end;
+
+procedure TUDGWindow.FromROMChars1Click(Sender: TObject);
+const ROMCharsAddress = $3D00;
+begin
+  StoreUndo;
+  NumChars := 96;
+  DataWidth := 1;
+  DataHeight := 8;
+  SetLength(CurChars, NumChars * DataHeight);
+  { The source is independent of CHARS and the currently paged ROM.
+    Keep Address as the destination selected by the previous import/export. }
+  Move(Rom48k[ROMCharsAddress], CurChars[1], Length(CurChars));
+  CurChar := 1;
+  AssignedChars := #1#0;
+  FirstRun := False;
+  UdgFileName := '';
+  Changed := True;
+  Caption := 'UDG Character Editor - ROM Chars*';
+  SetUpGrid(EditWidth, EditHeight, DataWidth, DataHeight);
+  SetPaletteSize;
+  FormResize(nil);
+  UpdateStatusBar;
+  RepaintChars;
+  GetBIGChar(True);
   MouseDown := False;
 end;
 
@@ -1243,16 +1359,32 @@ End;
 
 Procedure TUDGWindow.StoreUndo;
 begin
+  if FPreserveUndo then Exit;
   UndoBuffer := AnsiChar(CurChar)+CurChars;
+  FUndoAddress := Address;
+  FUndoDataWidth := DataWidth; FUndoDataHeight := DataHeight;
+  FUndoEditWidth := EditWidth; FUndoEditHeight := EditHeight;
+  FUndoAssignedChars := AssignedChars; FUndoOnionChars := OnionChars;
+  FUndoFileName := UdgFileName; FUndoCaption := Caption; FUndoChanged := Changed;
   GotUndo := True;
 End;
 
 Procedure TUDGWindow.RestoreUndo;
 begin
+  if not GotUndo or (UndoBuffer = '') then Exit;
   CurChars := Copy(UndoBuffer, 2, 999999);
+  Address := FUndoAddress;
+  DataWidth := FUndoDataWidth; DataHeight := FUndoDataHeight;
   NumChars := Length(CurChars) Div (DataWidth * DataHeight);
-  CurChar := Ord(UndoBuffer[1]);
+  CurChar := Max(1, Min(NumChars, Ord(UndoBuffer[1])));
+  SetUpGrid(FUndoEditWidth, FUndoEditHeight, DataWidth, DataHeight);
+  AssignedChars := FUndoAssignedChars; OnionChars := FUndoOnionChars;
+  UdgFileName := FUndoFileName; Caption := FUndoCaption; Changed := FUndoChanged;
+  FirstRun := False;
   GotUndo := False;
+  SetPaletteSize;
+  FormResize(nil);
+  UpdateStatusBar;
   RepaintChars;
   GetBIGChar(True);
 End;
@@ -3116,8 +3248,10 @@ begin
 end;
 
 procedure TUDGWindow.SetupCount1Click(Sender: TObject);
+Var
+  Idx, OldDataLength, NewDataLength: Integer;
 begin
-GridSetUpWindow.EditType := 3;
+  GridSetUpWindow.EditType := 3;
   GridSetUpWindow.NumChars := NumChars;
   GridSetUpWindow.Address := Address;
 
@@ -3125,13 +3259,32 @@ GridSetUpWindow.EditType := 3;
   ShowWindow(GridSetupWindow, True);
   If Not GridSetUpWindow.Cancelled Then Begin
 
+        StoreUndo;
         Address := GridSetUpWindow.Address;
         NumChars := GridSetUpWindow.NumChars;
-        While (Address -1 + (NumChars*8) > 65535) or (NumChars > 96) Do Dec(NumChars);
-        GrabFromMemory;
+        While (Address -1 + (NumChars * DataWidth * DataHeight) > 65535) or (NumChars > 96) Do Dec(NumChars);
 
-     FormResize(nil);
-     RepaintChars;
+        // Resize the current character set in place. Loading it again from
+        // memory here discarded all edits made in the UDG editor.
+        OldDataLength := Length(CurChars);
+        NewDataLength := NumChars * DataWidth * DataHeight;
+        SetLength(CurChars, NewDataLength);
+        For Idx := OldDataLength +1 To NewDataLength Do
+           CurChars[Idx] := #0;
+
+        If CurChar > NumChars Then CurChar := NumChars;
+        For Idx := 0 To (Length(AssignedChars) Div 2) -1 Do Begin
+           If GetWord(@AssignedChars[(Idx * 2) +1]) > NumChars Then
+              PutWord(@AssignedChars[(Idx * 2) +1], 0);
+           If GetWord(@OnionChars[(Idx * 2) +1]) > NumChars Then
+              PutWord(@OnionChars[(Idx * 2) +1], 0);
+        End;
+
+        SetPaletteSize;
+        FormResize(nil);
+        RepaintChars;
+        UpdateStatusBar;
+        changed := True;
   End;
   MouseDown := False;
 end;

@@ -7,9 +7,11 @@ uses
   ExtCtrls, StdCtrls, FileCtrl, ClipBrd, Math;
 
   Procedure Compile;
+  Function  CompileToFile(const OutputFilename: String): Boolean;
   Function  CompileLine(LineLabel, BASIC: String): String;
   Procedure AddAsm(AsmText: String);
   Procedure AddLibs;
+  Procedure AddProgramPrologue;
   Procedure AllocVars;
   Procedure AddStringConstants;
   Procedure FormatComments;
@@ -56,6 +58,7 @@ Var
   Lines: TStringlist;
   Strings: TStringlist;
   LineNumbers: TStringlist;
+  FORLoopTargets: TStringlist;
   AsmOutput: TStringlist;
 
   Flags: Array[0..999] of Boolean;
@@ -86,7 +89,7 @@ implementation
 
 Uses BASinMain, ROMUtils, FastCore, BASSupport, Utility, AsmEditor;
 
-Procedure Compile;
+Function CompileProgram(ShowEditor: Boolean): Boolean;
 Var
   Idx, Index: Integer;
   LineNum, StatementNum: Word;
@@ -94,12 +97,14 @@ Var
   CurLine, NewStr, AsmText: String;
   InString: Boolean;
 Begin
+  Result := False;
 
   // Is there a program to compile?
 
   If GetWord(@Memory[PROG]) = GetWord(@Memory[VARS]) Then Begin
 
-     MessageBox(BASinOutput.Handle, pChar('There is currently no BASIC program'#13'in memory.'), pChar('Compiler Error'), MB_OK or MB_ICONINFORMATION);
+     If ShowEditor Then
+        MessageBox(BASinOutput.Handle, pChar('There is currently no BASIC program'#13'in memory.'), pChar('Compiler Error'), MB_OK or MB_ICONINFORMATION);
      Exit;
 
   End;
@@ -115,6 +120,7 @@ Begin
   Variables.Clear;
   Lines.Clear;
   LineNumbers.Clear;
+  FORLoopTargets.Clear;
   Strings.Clear;
   AsmOutput.Clear;
 
@@ -224,7 +230,12 @@ Begin
 
   End;
 
-  // And add the final RET that will return us to BASIC
+  // Restore the keyboard channel before returning to the BASIC editor.
+
+  If Flags[Use_HelperPrints] Then Begin
+     AsmOutput.Add('   LD   A,0          ; Keyboard channel');
+     AsmOutput.Add('   CALL $1601        ; [ROM] OPEN-CHANNEL');
+  End;
 
   AsmOutput.Add('   RET   ; END OF PROGRAM');
   AsmOutput.Add('');
@@ -234,6 +245,7 @@ Begin
   AddLibs;
   AllocVars;
   AddStringConstants;
+  AddProgramPrologue;
 
   // Prettify the comments. Automatically commented code. How cool is that?
 
@@ -245,9 +257,25 @@ Begin
   For Idx := 0 To AsmOutput.Count -1 Do
      AsmText := AsmText + AsmOutput[Idx] + #13;
 
-  AsmEditorWindow.NewFromText('CompiledBASIC.asm', AsmOutput);
-  ShowWindow(AsmEditorWindow, False);
+  If ShowEditor Then Begin
+     AsmEditorWindow.NewFromText('CompiledBASIC.asm', AsmOutput);
+     ShowWindow(AsmEditorWindow, False);
+  End;
 
+  Result := True;
+
+End;
+
+Procedure Compile;
+Begin
+  CompileProgram(True);
+End;
+
+Function CompileToFile(const OutputFilename: String): Boolean;
+Begin
+  Result := CompileProgram(False);
+  If Result Then
+     AsmOutput.SaveToFile(OutputFilename);
 End;
 
 Procedure AddAsm(AsmText: String);
@@ -929,6 +957,7 @@ Begin
 
   If NextLineIdx < LineNumbers.Count  Then Begin
      NextLine := LineNumbers[NextLineIdx];
+     FORLoopTargets.Values[VarName] := NextLine;
      Result := StepCode + LimitCode + StartCode;
      Result := Result + '   LD   DE,(Var_'+VarName+')   ; Address the var in VARS area'+#13;
      Result := Result + '   LD   BC,Line'+NextLine+'        ; Store the address of the next line'+#13;
@@ -942,15 +971,24 @@ End;
 
 Function CompileNEXT(BASIC: String; var Index: Integer): String;
 Var
-  VarName: String;
+  VarName, LoopTarget: String;
+  TargetIdx: Integer;
 Begin
 
   // NEXT <Var>
 
   Inc(Index);
   VarName := GetVarName(BASIC, Index);
+  LoopTarget := FORLoopTargets.Values[VarName];
   Result :=          '   LD   HL,(Var_'+VarName+')   ; Address the var in VARS area'+#13;
-  Result := Result + '   CALL DoNext                 ; And sort out the loop where necessary.'+#13#13;
+  Result := Result + '   CALL DoNext                 ; Increment and test the loop variable.'+#13;
+  If LoopTarget <> '' Then Begin
+     Result := Result + '   JP   NC,Line'+LoopTarget+'             ; Continue with the FOR body.'+#13#13;
+     TargetIdx := FORLoopTargets.IndexOfName(VarName);
+     If TargetIdx >= 0 Then
+        FORLoopTargets.Delete(TargetIdx);
+  End Else
+     Result := Result + '   ; [NEXT without matching FOR]'+#13#13;
   Flags[Use_DoNext] := True;
 
 End;
@@ -1203,16 +1241,7 @@ Begin
      AsmOutput.Add('   DEFB $38                ;; end-calc');
      AsmOutput.Add('');
      AsmOutput.Add('   CALL $1DDA              ; [ROM] routine NEXT-LOOP tests against limit.');
-     AsmOutput.Add('   RET  C                  ; return if no more iterations possible.');
-     AsmOutput.Add('');
-     AsmOutput.Add('   LD   HL,($5C68)         ; find start of variable contents from MEM.');
-     AsmOutput.Add('   LD   DE,$F              ; add 3*5 to');
-     AsmOutput.Add('   ADD  HL,DE              ; address the looping address');
-     AsmOutput.Add('   LD   E,(HL)');
-     AsmOutput.Add('   INC  HL');
-     AsmOutput.Add('   LD   D,(HL)');
-     AsmOutput.Add('   EX   DE,HL');
-     AsmOutput.Add('   JP   (HL)               ; and go there');
+     AsmOutput.Add('   RET                      ; Carry is set when the loop has completed.');
      AsmOutput.Add('');
 
   End;
@@ -1572,6 +1601,42 @@ Begin
 
 End;
 
+Procedure AddProgramPrologue;
+Var
+  Idx: Integer;
+  Prologue: TStringlist;
+Begin
+  Prologue := TStringlist.Create;
+  Try
+     Prologue.Add('org 32768');
+     Prologue.Add('');
+
+     If Variables.Count > 0 Then Begin
+        Prologue.Add('NumVars EQU '+IntToStr(Variables.Count));
+        Prologue.Add('');
+     End;
+
+     Prologue.Add('Main:');
+
+     // ROM print routines use the currently selected stream. Sinclair BASIC
+     // normally selects the screen channel before PRINT, but compiled code
+     // bypasses that interpreter setup.
+     If Flags[Use_HelperPrints] Then Begin
+        Prologue.Add('   LD   A,2          ; Main screen channel');
+        Prologue.Add('   CALL $1601        ; [ROM] OPEN-CHANNEL');
+     End;
+
+     If Variables.Count > 0 Then
+        Prologue.Add('   CALL AllocateVars');
+
+     Prologue.Add('');
+     For Idx := Prologue.Count -1 Downto 0 Do
+        AsmOutput.Insert(0, Prologue[Idx]);
+  Finally
+     Prologue.Free;
+  End;
+End;
+
 Procedure AllocVars;
 Var
   AllocSpace, Idx, Count: Integer;
@@ -1593,11 +1658,6 @@ Begin
   // below them.
 
   If Variables.Count = 0 Then Exit;
-
-  AsmOutput.Insert(0, '');
-  AsmOutput.Insert(0, '   CALL AllocateVars');
-  AsmOutput.Insert(0, '');
-  AsmOutput.Insert(0, 'NumVars EQU '+IntToStr(Variables.Count));
 
   // Ensure that Arrays and Strings are allocated *after* the numeric vars
 
@@ -1819,6 +1879,7 @@ Strings := TStringlist.Create;
 Variables := TStringlist.Create;
 Lines := TStringlist.Create;
 LineNumbers := TStringlist.Create;
+FORLoopTargets := TStringlist.Create;
 AsmOutput := TStringlist.Create;
 
 Finalization
@@ -1827,6 +1888,7 @@ Strings.Free;
 Variables.Free;
 Lines.Free;
 LineNumbers.Free;
+FORLoopTargets.Free;
 AsmOutput.Free;
 
 end.

@@ -161,6 +161,8 @@ type
     RewriteAllBlocks1: TMenuItem;
     Refresh1: TMenuItem;
     OpenRecent1: TMenuItem;
+    NewVarTracker1: TMenuItem;
+    VariableTimer: TTimer;
     procedure FormResize(Sender: TObject);
     procedure Button1Click(Sender: TObject);
      Procedure DrawLayout;
@@ -192,6 +194,7 @@ type
     procedure Button2Click(Sender: TObject);
     procedure Feedback1Click(Sender: TObject);
     procedure HelponMemoryManagerWindow1Click(Sender: TObject);
+    procedure VariableTimerTimer(Sender: TObject);
 
 
 
@@ -214,15 +217,24 @@ type
     FDragCurrentAddr: Integer;  // Sürükleme esnasindaki geçici adres
     FDragMinLimit: Integer;     // Sola gidebilecegi en son nokta
     FDragMaxLimit: Integer;     // Saga gidebilecegi en son nokta
+    FListViewWindowProc: TWndMethod;
+    FHexEditorWindowProc: TWndMethod;
     procedure LiftBlockFromLayout;
     // Helpers to calculate scale and offset based on Zoom Mode
     procedure GetViewParams(out StartAddr: Integer; out BytesPerPixel: Double);
     function AddrToPixel(Addr: Integer): Integer;
     function PixelToAddr(X: Integer): Integer;
+    procedure DrawMemoryOccupancy;
     procedure PerformZoom(ZoomIn: Boolean);
     procedure ChangeBlockLength(BlockIndex: Integer; NewLength: Integer);
     procedure CheckChanges;
     procedure ExportMetaData;
+    procedure RegisterDropTargets(Accept: Boolean);
+    procedure ListViewDropWindowProc(var Msg: TMessage);
+    procedure HexEditorDropWindowProc(var Msg: TMessage);
+    procedure WMDropFiles(var Msg: TMessage); message WM_DROPFILES;
+    function VariableValueText(BlockIndex: Integer): String;
+    procedure RefreshVariableValues;
 
   public
     { Public declarations }
@@ -234,7 +246,7 @@ type
       Procedure BuildManList;
       Function CreateMBlock(FileName:string; wAddress, wLength, BlockType, SetStatusBits, wPage: integer;  CanBreak, Enabled: Boolean ; DataChunk: TByteArray ): Byte;
       Function DuplicateMBlock(index: integer): Byte;
-      Procedure LoadFileToByteArray;
+      Procedure LoadFileToByteArray(FileName: string = '');
       function StringToTBytes(Value: string):  TByteArray;
       function PackArrayToTBytes(Value:  TZX0ByteArray): TByteArray ;
       procedure SaveManagementProject(FileName: String);
@@ -282,6 +294,7 @@ const
   MB_AY      = 7;
   MB_ZX0     = 8;  //decompressor - not relocatable
   MB_PACKED  = 9;  //packed data only
+  MB_VARIABLE= 10; //virtual memory value tracker
 
 MAXSLOTS: Integer = 1023;
 BMM_SIGNATURE = 'BMM1'; // Signature: Basin Memory Manager Version 1
@@ -312,7 +325,7 @@ var
 
 implementation
 
-uses Tapes, Binaries,AddCode;
+uses Tapes, Binaries,AddCode, MemManagerNewVarTracker;
 
 {$R *.DFM}
 
@@ -367,6 +380,52 @@ begin
   BuildManList;
 end;
 
+
+function TMemManagerForm.VariableValueText(BlockIndex: Integer): String;
+var
+  i, AddressValue, SizeValue: Integer;
+begin
+  Result := 'Invalid address';
+  if (BlockIndex < 0) or (BlockIndex > MAXSLOTS) then Exit;
+
+  AddressValue := ManArray[BlockIndex].wAddress;
+  SizeValue := ManArray[BlockIndex].wLength;
+  if (SizeValue < 1) or (SizeValue > 8) or
+     (AddressValue < 0) or ((AddressValue + SizeValue) > 65536) then Exit;
+
+  Result := '$';
+  for i := SizeValue - 1 downto 0 do
+    Result := Result + IntToHex(Memory[AddressValue + i], 2);
+
+  if (ManArray[BlockIndex].Status and MS_TRACKED) <> 0 then
+    Result := '[T] ' + Result
+  else
+    Result := '[ ] ' + Result;
+end;
+
+procedure TMemManagerForm.RefreshVariableValues;
+var
+  i, RealIndex: Integer;
+begin
+  if not Visible then Exit;
+
+  for i := 0 to ListView1.Items.Count - 1 do
+  begin
+    if (i + 1) <= Length(ManList) then
+    begin
+      RealIndex := Ord(ManList[i + 1]);
+      if ManArray[RealIndex].Valid and
+         (ManArray[RealIndex].BlockType = MB_VARIABLE) and
+         (ListView1.Items[i].SubItems.Count > 4) then
+        ListView1.Items[i].SubItems[4] := VariableValueText(RealIndex);
+    end;
+  end;
+end;
+
+procedure TMemManagerForm.VariableTimerTimer(Sender: TObject);
+begin
+  RefreshVariableValues;
+end;
 
 procedure TMemManagerForm.ChangeBlockLength(BlockIndex: Integer; NewLength: Integer);
 var
@@ -495,6 +554,54 @@ begin
   if Result > 65535 then Result := 65535;
 end;
 
+procedure TMemManagerForm.DrawMemoryOccupancy;
+var
+  X, Addr: Integer;
+  StartAddr, ClusterStart, ClusterEnd: Integer;
+  Y1, Y2, MidY: Integer;
+  BPP: Double;
+  HasData: Boolean;
+  OccupiedColor: TFColor;
+begin
+  if (FastIMG1.Bmp.Width <= 4) or (FastIMG1.Bmp.AbsHeight <= 4) then Exit;
+
+  GetViewParams(StartAddr, BPP);
+  if BPP <= 0 then Exit;
+
+  OccupiedColor.b := 80;
+  OccupiedColor.g := 80;
+  OccupiedColor.r := 80;
+
+  MidY := FastIMG1.Bmp.AbsHeight div 2;
+  Y1 := Max(2, MidY - 4);
+  Y2 := Min(FastIMG1.Bmp.AbsHeight - 3, MidY + 4);
+
+  for X := 2 to FastIMG1.Bmp.Width - 3 do
+  begin
+    ClusterStart := StartAddr + Floor((X - 2) * BPP);
+    ClusterEnd := StartAddr + Ceil((X - 1) * BPP) - 1;
+
+    if ClusterEnd < ClusterStart then
+      ClusterEnd := ClusterStart;
+
+    ClusterStart := Max(0, Min(65535, ClusterStart));
+    ClusterEnd := Max(0, Min(65535, ClusterEnd));
+
+    HasData := False;
+    for Addr := ClusterStart to ClusterEnd do
+    begin
+      if Memory[Addr] <> 0 then
+      begin
+        HasData := True;
+        Break;
+      end;
+    end;
+
+    if HasData then
+      Line(FastIMG1.Bmp, X, Y1, X, Y2, OccupiedColor);
+  end;
+end;
+
 Procedure TMemManagerForm.AddMemBlock(BlockName: String; Address: Integer; Data: TByteArray);
 Var
   RealIdx: Integer;
@@ -544,6 +651,8 @@ begin
   SelIdx := ListView1.Selected.Index;
   RealIdx := Ord(ManList[SelIdx + 1]);
 
+  if ManArray[RealIdx].BlockType = MB_VARIABLE then Exit;
+
   if ManArray[RealIdx].Valid then  Begin
      ManArray[RealIdx].Status :=0;
      //ManArray[RealIdx].State:=0;
@@ -572,8 +681,11 @@ begin
   SelIdx := ListView1.Selected.Index;
   RealIdx := Ord(ManList[SelIdx + 1]);
 
-
-
+  if ManArray[RealIdx].BlockType = MB_VARIABLE then
+  begin
+    ShowMessage('Variable trackers are virtual blocks and cannot be inserted into memory.');
+    Exit;
+  end;
 
   if ManArray[RealIdx].Valid then
   begin
@@ -749,6 +861,10 @@ Begin
                  LI.Checked:=False; 
               End;
            9: LI.SubItems.Add('Packed'+PackS);
+          10: Begin
+                 LI.SubItems.Add('Variable');
+                 LI.Checked := False;
+              End;
         End;
 
         if  ManArray[f].wAddress >-1  then LI.SubItems.add(inttostr(ManArray[f].waddress)) Else LI.SubItems.add('n/a') ;
@@ -780,6 +896,9 @@ Begin
            packS := packS + '[*] '; // Modified in Editor
 
         packS := Trim(packS);
+
+        if ManArray[F].BlockType = MB_VARIABLE then
+          packS := VariableValueText(F);
         
         LI.SubItems.Add(packS);
         LI.SubItems.add(inttostr(ManArray[f].wPage));
@@ -945,6 +1064,7 @@ Var
 
     // 2. CLEAR
     FillRect(FastIMG1.Bmp, 0, 0, FastIMG1.Bmp.Width , FastIMG1.Bmp.AbsHeight , tfPremiereBgk);
+    DrawMemoryOccupancy;
 
     // 3. 16KB GUIDES
     X := 0;
@@ -1166,9 +1286,91 @@ End;
 end;
 
 
+procedure TMemManagerForm.RegisterDropTargets(Accept: Boolean);
+begin
+  DragAcceptFiles(Handle, Accept);
+
+  if ListView1.HandleAllocated then
+  begin
+    DragAcceptFiles(ListView1.Handle, Accept);
+    if Accept then
+    begin
+      if not Assigned(FListViewWindowProc) then
+      begin
+        FListViewWindowProc := ListView1.WindowProc;
+        ListView1.WindowProc := ListViewDropWindowProc;
+      end;
+    end
+    else if Assigned(FListViewWindowProc) then
+    begin
+      ListView1.WindowProc := FListViewWindowProc;
+      FListViewWindowProc := nil;
+    end;
+  end;
+
+  if MPHexEditor1.HandleAllocated then
+  begin
+    DragAcceptFiles(MPHexEditor1.Handle, Accept);
+    if Accept then
+    begin
+      if not Assigned(FHexEditorWindowProc) then
+      begin
+        FHexEditorWindowProc := MPHexEditor1.WindowProc;
+        MPHexEditor1.WindowProc := HexEditorDropWindowProc;
+      end;
+    end
+    else if Assigned(FHexEditorWindowProc) then
+    begin
+      MPHexEditor1.WindowProc := FHexEditorWindowProc;
+      FHexEditorWindowProc := nil;
+    end;
+  end;
+end;
+
+procedure TMemManagerForm.ListViewDropWindowProc(var Msg: TMessage);
+begin
+  if Msg.Msg = WM_DROPFILES then
+    WMDropFiles(Msg)
+  else if Assigned(FListViewWindowProc) then
+    FListViewWindowProc(Msg);
+end;
+
+procedure TMemManagerForm.HexEditorDropWindowProc(var Msg: TMessage);
+begin
+  if Msg.Msg = WM_DROPFILES then
+    WMDropFiles(Msg)
+  else if Assigned(FHexEditorWindowProc) then
+    FHexEditorWindowProc(Msg);
+end;
+
+procedure TMemManagerForm.WMDropFiles(var Msg: TMessage);
+var
+  Drop: HDROP;
+  FileCount, i: Integer;
+  Buffer: array[0..MAX_PATH] of Char;
+  DroppedFile: string;
+begin
+  Drop := HDROP(Msg.WParam);
+  try
+    FileCount := DragQueryFile(Drop, $FFFFFFFF, nil, 0);
+    for i := 0 to FileCount - 1 do
+    begin
+      FillChar(Buffer, SizeOf(Buffer), 0);
+      if DragQueryFile(Drop, i, Buffer, Length(Buffer)) > 0 then
+      begin
+        DroppedFile := StrPas(Buffer);
+        LoadFileToByteArray(DroppedFile);
+      end;
+    end;
+  finally
+    DragFinish(Drop);
+  end;
+  Msg.Result := 0;
+end;
 procedure TMemManagerForm.FormShow(Sender: TObject);
 begin
   OnHide := FormHide;
+  RegisterDropTargets(True);
   if Assigned(BASinOutput) Then
      BASinOutput.SpeedButtonEditorMemory.Down := True;
 
@@ -1179,10 +1381,14 @@ begin
   MPHexEditor1.DeleteSelection;
   MPHexEditor1.AppendBuffer(@Memory[0], 65536);
   MPHexEditor1.ResetSelection(True);
+  VariableTimer.Enabled := True;
+  RefreshVariableValues;
 end;
 
 procedure TMemManagerForm.FormHide(Sender: TObject);
 begin
+  VariableTimer.Enabled := False;
+  RegisterDropTargets(False);
   if Assigned(BASinOutput) Then
      BASinOutput.SpeedButtonEditorMemory.Down := False;
 end;
@@ -1486,13 +1692,24 @@ begin
               // update the address to the current Red Cursor position.
               if PopupMenu1.PopupComponent = FastIMG1 then
               begin
-                 ManArray[f].wAddress := FCurrentAddr;
-                 // Ensure the block is marked as "In Memory" since we explicitly placed it
-                 ManArray[f].Status := ManArray[f].Status or MS_INMEMORY;
-                 ManArray[f].Modified := 1;   // paste as in memory
+                 if ManArray[f].BlockType = MB_VARIABLE then
+                 begin
+                    ManArray[f].Status := ManArray[f].Status and (not MS_INMEMORY);
+                    ManArray[f].Modified := 0;
+                 end
+                 else
+                 begin
+                    ManArray[f].wAddress := FCurrentAddr;
+                    // Ensure the block is marked as "In Memory" since we explicitly placed it
+                    ManArray[f].Status := ManArray[f].Status or MS_INMEMORY;
+                    ManArray[f].Modified := 1;   // paste as in memory
+                 end;
               end else begin
                  ManArray[f].Modified := 0;   // paste as not in memory
-                 ManArray[f].Status:= 0;
+                 if ManArray[f].BlockType = MB_VARIABLE then
+                   ManArray[f].Status := ManArray[f].Status and MS_TRACKED
+                 else
+                   ManArray[f].Status := 0;
                  //ManArray[F].State := 0;
 
               end;
@@ -1550,7 +1767,8 @@ begin
          if ListView1.Selected <> nil then
          begin
             idx := Ord(ManList[ListView1.Selected.Index + 1]);
-            if (ManArray[idx].Status And MS_INMEMORY)<>0 Then Begin
+            if ((ManArray[idx].Status And MS_INMEMORY)<>0) and
+               (ManArray[idx].BlockType <> MB_VARIABLE) Then Begin
                MessageDlg('You cannot resize blocks already in memory.'#13#10'Lift the block first.', mtWarning, [mbOk], 0);
                Exit;
             End;
@@ -1561,7 +1779,9 @@ begin
                begin
                   f := StrToIntDef(SelS, -1); // f degiskenini NewLen olarak kullaniyoruz
 
-                  if (f >= 0) and (f <= 65536) then
+                  if ((ManArray[idx].BlockType = MB_VARIABLE) and (f >= 1) and (f <= 8) and
+                      ((ManArray[idx].wAddress + f) <= 65536)) or
+                     ((ManArray[idx].BlockType <> MB_VARIABLE) and (f >= 0) and (f <= 65536)) then
                   begin
                      if f < ManArray[idx].wLength then
                      begin
@@ -1578,7 +1798,10 @@ begin
                   end
                   else
                   begin
-                     ShowMessage('Invalid length! Please enter a value between 0 and 65536.');
+                     if ManArray[idx].BlockType = MB_VARIABLE then
+                       ShowMessage('Invalid length! Variable size must be between 1 and 8 bytes.')
+                     else
+                       ShowMessage('Invalid length! Please enter a value between 0 and 65536.');
                   end;
                end;
             end;
@@ -1591,7 +1814,8 @@ begin
          if ListView1.Selected <> nil then
          begin
             idx := Ord(ManList[ListView1.Selected.Index + 1]);
-            if (ManArray[idx].Status And MS_INMEMORY)=0 Then Begin
+            if ((ManArray[idx].Status And MS_INMEMORY)=0) and
+               (ManArray[idx].BlockType <> MB_VARIABLE) Then Begin
                MessageDlg('You cannot track blocks unless they are in memory.'#13#10'Insert the block first.', mtWarning, [mbOk], 0);
                Exit;
             End;
@@ -1937,6 +2161,11 @@ begin
 
         // Get current block index and info
         f := Ord(ManList[ListView1.Selected.Index + 1]);
+        if ManArray[f].BlockType = MB_VARIABLE then
+        begin
+          ShowMessage('Variable trackers are virtual blocks and cannot be inserted into memory.');
+          Exit;
+        end;
 
         // Define variable for target address (-1 means not valid yet)
         idx := -1; 
@@ -2080,15 +2309,19 @@ end;
 procedure TMemManagerForm.PopupMenu1Popup(Sender: TObject);
 var
   HasSelection: Boolean;
+  IsVariable: Boolean;
 begin
      // 1. Seçim Durumunu Kontrol Et
      HasSelection := (ListView1.Selected <> nil);
+     IsVariable := False;
+     if HasSelection then
+       IsVariable := ManArray[Ord(ManList[ListView1.Selected.Index + 1])].BlockType = MB_VARIABLE;
 
      // 2. Seçim Gerektiren Islemler
-     Insertintomemory1.Enabled         := HasSelection; // Move/Insert into cursor
-     Rewrite1.Enabled                  := HasSelection; // Rewrite to location
-     Putto1.Enabled                    := HasSelection; // Send to preset location (Parent Menu)
-     Lift1.Enabled                     := HasSelection; // Lift
+     Insertintomemory1.Enabled         := HasSelection and not IsVariable; // Move/Insert into cursor
+     Rewrite1.Enabled                  := HasSelection and not IsVariable; // Rewrite to location
+     Putto1.Enabled                    := HasSelection and not IsVariable; // Send to preset location (Parent Menu)
+     Lift1.Enabled                     := HasSelection and not IsVariable; // Lift
      SetType1.Enabled                  := HasSelection; // Change Type (Parent Menu)
      
      Deselect1.Enabled                 := HasSelection;
@@ -2323,6 +2556,27 @@ begin
                  HexCursor;
         End;
 
+        52: //new Var Tracker
+        Begin
+          if MemManagerVarTracker.Execute(FCurrentAddr) then
+          begin
+            iSize := MemManagerVarTracker.TrackerSize;
+            SetLength(EmptyData, iSize);
+            if iSize > 0 then
+              Move(Memory[MemManagerVarTracker.TrackerAddress], EmptyData[0], iSize);
+
+            if MemManagerVarTracker.TrackerEnabled then
+              Res := MS_TRACKED
+            else
+              Res := 0;
+
+            CreateMBlock(MemManagerVarTracker.TrackerName,
+                         MemManagerVarTracker.TrackerAddress,
+                         iSize, MB_VARIABLE, Res, 0, False, False, EmptyData);
+            BuildManList;
+          end;
+        End;
+
         100: // Create a new empty Block
       Begin
           sInput := '768'; // Default value
@@ -2391,11 +2645,10 @@ begin
   DrawLayout; 
 end;
 
-Procedure TMemManagerForm.LoadFileToByteArray;
+Procedure TMemManagerForm.LoadFileToByteArray(FileName: string);
 var
   FileStream: TFileStream;
   Size: Integer;
-  FileName: string;
   FTypes: TBASICFiles;
   fileContents: Array of byte;
 begin
@@ -2404,7 +2657,7 @@ begin
   If Filename = '' Then Filename := OpenFile(Handle, 'Import Binary', FTypes, '', False, True);
   If Filename = '' Then Exit;
    Size := FileSizeX(FileName);
-   if  (Size >= 0) and (Size < 131072) Then Begin
+   if (Size > 0) and (Size < 131072) Then Begin
          FileStream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
            try
             // Set the length of the byte array to match the file size
@@ -2417,6 +2670,7 @@ begin
             FileStream.Free;
             CreateMblock(ExtractFileName(FileName),16384,Size,MB_RAW,0,0,false,True,ArrayToTBytes(fileContents,0,0));
             BuildManList;
+            DrawLayout;
           end;
    End
    Else
