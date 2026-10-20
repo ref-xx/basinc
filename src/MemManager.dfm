@@ -1,6 +1,6 @@
 object MemManagerForm: TMemManagerForm
-  Left = 514
-  Top = 226
+  Left = 967
+  Top = 322
   Width = 741
   Height = 348
   Caption = 'BasinC Memory Manager (Beta)'
@@ -140,7 +140,7 @@ object MemManagerForm: TMemManagerForm
       end
       item
         Caption = 'Status'
-        Width = 85
+        Width = 145
       end
       item
         Caption = 'Page'
@@ -256,6 +256,11 @@ object MemManagerForm: TMemManagerForm
         Tag = 43
         Caption = 'New ZX0 header...'
         Hint = 'Create a zx0 decompresser block without any data attached to it'
+        OnClick = MenuClick
+      end
+      object NewVarTracker1: TMenuItem
+        Tag = 52
+        Caption = 'New Var Tracker...'
         OnClick = MenuClick
       end
       object Importbinaryfromfile1: TMenuItem
@@ -607,5 +612,12 @@ object MemManagerForm: TMemManagerForm
       Caption = 'Paste Text'
       OnClick = ContextMenuClick
     end
+  end
+  object VariableTimer: TTimer
+    Enabled = False
+    Interval = 200
+    OnTimer = VariableTimerTimer
+    Left = 232
+    Top = 256
   end
 end

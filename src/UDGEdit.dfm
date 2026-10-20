@@ -866,6 +866,10 @@ object UDGWindow: TUDGWindow
           Caption = 'From Current CHARS'
           OnClick = FromCurrentCHARS1Click
         end
+        object FromROMChars1: TMenuItem
+          Caption = 'Import From ROM Chars'
+          OnClick = FromROMChars1Click
+        end
         object FromMemory1: TMenuItem
           Caption = 'From Specified Address...'
           OnClick = FromMemory1Click

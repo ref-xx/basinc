@@ -1092,7 +1092,12 @@ object ScrPaintForm: TScrPaintForm
       end
       object PacktoMemory1: TMenuItem
         Tag = 63
-        Caption = 'Export...'
+        Caption = 'Send to...'
+        OnClick = MainMenuClick
+      end
+      object SendSelectionto1: TMenuItem
+        Tag = 64
+        Caption = 'Send Selection to...'
         OnClick = MainMenuClick
       end
       object SendtoCurrentScreen1: TMenuItem

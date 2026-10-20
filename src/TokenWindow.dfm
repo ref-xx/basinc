@@ -112,7 +112,7 @@ object TokenForm: TTokenForm
     Top = 4
     Width = 440
     Height = 213
-    ActivePage = TabSheet3
+    ActivePage = TabSheet1
     Anchors = [akLeft, akTop, akRight, akBottom]
     TabOrder = 0
     OnChange = PageControl1Change

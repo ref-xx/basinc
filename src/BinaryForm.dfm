@@ -519,31 +519,29 @@ object BinaryWindow: TBinaryWindow
     end
   end
   object Panel8: TPanel
-    Left = 29
-    Top = 152
+    Left = 5
+    Top = 160
     Width = 481
     Height = 81
     Anchors = [akLeft, akRight, akBottom]
     BevelOuter = bvNone
     BorderStyle = bsSingle
-    Caption = 'No Options Available For This Type'
     TabOrder = 11
     Visible = False
     DesignSize = (
       477
       77)
     object Label16: TLabel
-      Left = 220
+      Left = 28
       Top = 12
-      Width = 54
+      Width = 128
       Height = 13
       Anchors = [akTop, akRight]
-      Caption = 'Block Name'
-      Visible = False
+      Caption = 'Where to insert new data?'
     end
     object Edit11: TEdit
-      Left = 288
-      Top = 8
+      Left = 8
+      Top = 32
       Width = 65
       Height = 21
       Anchors = [akTop, akRight]
@@ -552,14 +550,64 @@ object BinaryWindow: TBinaryWindow
       Visible = False
     end
     object Edit12: TEdit
-      Left = 392
-      Top = 8
+      Left = 8
+      Top = 56
       Width = 65
       Height = 21
       Anchors = [akTop, akRight]
       TabOrder = 1
       Text = '32768'
       Visible = False
+    end
+    object Edit13: TEdit
+      Left = 408
+      Top = 52
+      Width = 33
+      Height = 21
+      Anchors = [akTop, akRight]
+      Enabled = False
+      TabOrder = 2
+      Text = '1'
+    end
+    object RadioButton1: TRadioButton
+      Left = 280
+      Top = 8
+      Width = 137
+      Height = 17
+      Caption = 'Create New UDG Set'
+      Checked = True
+      OnClick = UDGTargetClick
+      TabOrder = 3
+      TabStop = True
+    end
+    object RadioButton2: TRadioButton
+      Left = 280
+      Top = 32
+      Width = 129
+      Height = 17
+      Caption = 'Selected UDG'
+      OnClick = UDGTargetClick
+      TabOrder = 4
+    end
+    object RadioButton3: TRadioButton
+      Left = 280
+      Top = 56
+      Width = 113
+      Height = 17
+      Caption = 'Send to Index #'
+      OnClick = UDGTargetClick
+      TabOrder = 5
+    end
+    object CheckBox4: TCheckBox
+      Left = 32
+      Top = 48
+      Width = 161
+      Height = 17
+      Hint = 'Compress Content using zx0'
+      Anchors = [akTop, akRight]
+      Caption = 'Insert as New Characters'
+      Enabled = False
+      TabOrder = 6
     end
   end
   object PopupMenu1: TPopupMenu

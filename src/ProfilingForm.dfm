@@ -1,7 +1,7 @@
 object ProfileForm: TProfileForm
   Tag = 1
-  Left = 840
-  Top = 225
+  Left = 1333
+  Top = 148
   Width = 490
   Height = 493
   BorderIcons = [biSystemMenu]
@@ -151,6 +151,11 @@ object ProfileForm: TProfileForm
         Width = 65
       end
       item
+        Alignment = taRightJustify
+        Caption = 'Hits'
+        Width = 90
+      end
+      item
         Caption = 'Contents'
       end>
     ColumnClick = False
@@ -171,7 +176,7 @@ object ProfileForm: TProfileForm
   object CheckBox1: TCheckBox
     Left = 8
     Top = 433
-    Width = 121
+    Width = 97
     Height = 17
     Anchors = [akLeft, akBottom]
     Caption = 'Relative'
@@ -179,14 +184,14 @@ object ProfileForm: TProfileForm
     OnClick = CheckBox1Click
   end
   object Button2: TButton
-    Left = 265
+    Left = 241
     Top = 430
-    Width = 87
+    Width = 112
     Height = 21
     Anchors = [akRight, akBottom]
-    Caption = 'Show Selected'
+    Caption = 'Show Selected Lines'
     TabOrder = 2
-    OnClick = Button4Click
+    OnClick = Button2Click
   end
   object Button3: TButton
     Left = 359
@@ -199,7 +204,7 @@ object ProfileForm: TProfileForm
     OnClick = Button3Click
   end
   object Button4: TButton
-    Left = 143
+    Left = 111
     Top = 430
     Width = 57
     Height = 21
@@ -209,7 +214,7 @@ object ProfileForm: TProfileForm
     OnClick = Button4Click
   end
   object Button5: TButton
-    Left = 209
+    Left = 177
     Top = 430
     Width = 55
     Height = 21

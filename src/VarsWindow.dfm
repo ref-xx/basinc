@@ -1,6 +1,6 @@
 object VariablesWindow: TVariablesWindow
-  Left = 745
-  Top = 225
+  Left = 330
+  Top = 161
   Width = 389
   Height = 422
   BorderIcons = [biSystemMenu]
@@ -172,6 +172,16 @@ object VariablesWindow: TVariablesWindow
     Caption = 'Help'
     TabOrder = 4
     OnClick = Button4Click
+  end
+  object CheckBox1: TCheckBox
+    Left = 136
+    Top = 312
+    Width = 113
+    Height = 17
+    Anchors = [akLeft, akBottom]
+    Caption = 'View Unassigned'
+    TabOrder = 5
+    Visible = False
   end
   object PopupMenu1: TPopupMenu
     OnPopup = PopupMenu1Popup

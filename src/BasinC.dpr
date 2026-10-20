@@ -6,6 +6,7 @@ uses
   Messages,
   SysUtils,
   dialogs,
+  CommandLine in 'CommandLine.pas',
   BasinMain in 'BasinMain.pas' {BASinOutput},
   Display in 'Display.pas' {DisplayWindow},
   GridSetup in 'GridSetup.pas' {GridSetUpWindow},
@@ -40,7 +41,12 @@ uses
   SysVars in 'SysVars.pas' {SysVarsWindow},
   ProfilingForm in 'ProfilingForm.pas' {ProfileForm},
   TokenWindow in 'TokenWindow.pas' {TokenForm},
-  UDGEdit in 'UDGEdit.pas' {UDGWindow};
+  UDGEdit in 'UDGEdit.pas' {UDGWindow},
+  MemManagerNewVarTracker in 'MemManagerNewVarTracker.pas' {MemManagerVarTracker},
+  External in 'External.pas',
+  BasinGpuRenderer in 'BasinGpuRenderer.pas',
+  BinaryForm in 'BinaryForm.pas' {BinaryWindow},
+  CheqEdit in 'CheqEdit.pas' {FormCheqEdit};
 
 {$R *.RES}
 {$R WindowsXP.RES}
@@ -64,7 +70,9 @@ begin
 
    MyMsg := RegisterWindowMessage('Basinc_Mutex');
   Mutex := CreateMutex(nil, True, 'Basinc_Mutex');
-  if ( (Mutex = 0) OR (GetLastError = ERROR_ALREADY_EXISTS)) AND (FileExists(BasinDir +'\allowinstance.opt')=false) then
+  if (not IsDebugCommandLine) and (not IsFastCommandLine) and
+     ((Mutex = 0) OR (GetLastError = ERROR_ALREADY_EXISTS)) AND
+     (FileExists(BasinDir +'\allowinstance.opt')=false) then
   begin
 
     //this is a second instance, send a message to first instance and quit silently.
@@ -114,6 +122,10 @@ begin
   Application.CreateForm(TProfileForm, ProfileForm);
   Application.CreateForm(TTokenForm, TokenForm);
   Application.CreateForm(TUDGWindow, UDGWindow);
+  Application.CreateForm(TMemManagerVarTracker, MemManagerVarTracker);
+  Application.CreateForm(TBinaryWindow, BinaryWindow);
+  Application.CreateForm(TFormCheqEdit, FormCheqEdit);
+  StartDebugCommandProcessing;
   Application.Run;
   if Mutex <> 0 then CloseHandle(Mutex);
 

@@ -386,6 +386,13 @@ object TapeWindow: TTapeWindow
         ShortCut = 16453
         OnClick = RedirectSAVEcommands1Click
       end
+      object N8: TMenuItem
+        Caption = '-'
+      end
+      object AutoRewindTapes1: TMenuItem
+        Caption = 'Auto Rewind Tapes'
+        OnClick = AutoRewindTapes1Click
+      end
     end
     object Help1: TMenuItem
       Caption = 'Help'

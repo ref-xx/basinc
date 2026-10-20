@@ -1,6 +1,6 @@
 object BASinOutput: TBASinOutput
-  Left = 216
-  Top = 173
+  Left = 300
+  Top = 243
   HorzScrollBar.Visible = False
   VertScrollBar.ButtonSize = 20
   VertScrollBar.Style = ssHotTrack
@@ -8,8 +8,8 @@ object BASinOutput: TBASinOutput
   Anchors = []
   AutoScroll = False
   Caption = 'BASinC WIP'
-  ClientHeight = 616
-  ClientWidth = 1003
+  ClientHeight = 578
+  ClientWidth = 1450
   Color = clBtnFace
   UseDockManager = True
   Font.Charset = ANSI_CHARSET
@@ -35,23 +35,23 @@ object BASinOutput: TBASinOutput
   TextHeight = 13
   object Bevel5: TThemeBevel
     Left = 0
-    Top = 588
-    Width = 1003
+    Top = 550
+    Width = 1450
     Height = 2
     Align = alBottom
   end
   object Bevel6: TThemeBevel
     Left = 0
     Top = 0
-    Width = 1003
+    Width = 1450
     Height = 2
     Align = alTop
   end
   object Panel1: TPanel
     Left = 0
     Top = 49
-    Width = 1003
-    Height = 488
+    Width = 1450
+    Height = 450
     Align = alClient
     Alignment = taLeftJustify
     AutoSize = True
@@ -902,8 +902,8 @@ object BASinOutput: TBASinOutput
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 590
-    Width = 1003
+    Top = 552
+    Width = 1450
     Height = 26
     Panels = <
       item
@@ -923,8 +923,8 @@ object BASinOutput: TBASinOutput
   end
   object Panel2: TCoolBar
     Left = 0
-    Top = 552
-    Width = 1003
+    Top = 514
+    Width = 1450
     Height = 36
     Align = alBottom
     BandBorderStyle = bsNone
@@ -956,8 +956,8 @@ object BASinOutput: TBASinOutput
   end
   object RulerIMG: TFastIMG
     Left = 0
-    Top = 537
-    Width = 1003
+    Top = 499
+    Width = 1450
     Height = 15
     Transparent = False
     Picture = '(None)'
@@ -973,9 +973,8 @@ object BASinOutput: TBASinOutput
   object CoolBar1: TCoolBar
     Left = 0
     Top = 2
-    Width = 1003
+    Width = 1450
     Height = 47
-    BandBorderStyle = bsNone
     Bands = <
       item
         Break = False
@@ -991,7 +990,7 @@ object BASinOutput: TBASinOutput
         ImageIndex = -1
         MinHeight = 48
         MinWidth = 140
-        Width = 153
+        Width = 208
       end
       item
         Break = False
@@ -999,7 +998,7 @@ object BASinOutput: TBASinOutput
         ImageIndex = -1
         MinHeight = 48
         MinWidth = 90
-        Width = 103
+        Width = 107
       end
       item
         Break = False
@@ -1015,7 +1014,7 @@ object BASinOutput: TBASinOutput
         ImageIndex = -1
         MinHeight = 48
         MinWidth = 180
-        Width = 400
+        Width = 193
       end
       item
         Break = False
@@ -1023,7 +1022,15 @@ object BASinOutput: TBASinOutput
         ImageIndex = -1
         MinHeight = 48
         MinWidth = 228
-        Width = 253
+        Width = 241
+      end
+      item
+        Break = False
+        Control = PanelFontSizeSelector
+        ImageIndex = -1
+        MinHeight = 33
+        MinWidth = 64
+        Width = 77
       end
       item
         Break = False
@@ -1031,7 +1038,7 @@ object BASinOutput: TBASinOutput
         ImageIndex = -1
         MinHeight = 33
         MinWidth = 250
-        Width = 577
+        Width = 263
       end
       item
         Break = False
@@ -1039,7 +1046,15 @@ object BASinOutput: TBASinOutput
         ImageIndex = -1
         MinHeight = 30
         MinWidth = 160
-        Width = 173
+        Width = 746
+      end
+      item
+        Break = False
+        Control = PanelProjectDuration
+        ImageIndex = -1
+        MinHeight = 30
+        MinWidth = 180
+        Width = 702
       end>
     Ctl3D = False
     EdgeBorders = []
@@ -1430,9 +1445,9 @@ object BASinOutput: TBASinOutput
       end
     end
     object PanelToolbarBand1: TPanel
-      Left = 163
+      Left = 165
       Top = 0
-      Width = 140
+      Width = 195
       Height = 48
       BevelOuter = bvNone
       TabOrder = 1
@@ -1674,9 +1689,9 @@ object BASinOutput: TBASinOutput
       end
     end
     object PanelToolbarBand2: TPanel
-      Left = 316
+      Left = 375
       Top = 0
-      Width = 90
+      Width = 94
       Height = 48
       BevelOuter = bvNone
       TabOrder = 2
@@ -1910,7 +1925,7 @@ object BASinOutput: TBASinOutput
       end
     end
     object PanelToolbarBand3: TPanel
-      Left = 419
+      Left = 484
       Top = 0
       Width = 180
       Height = 48
@@ -2768,9 +2783,9 @@ object BASinOutput: TBASinOutput
       end
     end
     object PanelToolbarBand4: TPanel
-      Left = 612
+      Left = 679
       Top = 0
-      Width = 387
+      Width = 180
       Height = 48
       BevelOuter = bvNone
       TabOrder = 7
@@ -4408,12 +4423,12 @@ object BASinOutput: TBASinOutput
       end
     end
     object PanelToolbarBand5: TPanel
-      Left = 9
-      Top = 48
-      Width = 240
+      Left = 874
+      Top = 0
+      Width = 228
       Height = 48
       BevelOuter = bvNone
-      TabOrder = 5
+      TabOrder = 8
       object SpeedButtonEditorUDG: TSpeedButton
         Tag = 47
         Left = 0
@@ -6455,16 +6470,54 @@ object BASinOutput: TBASinOutput
         OnClick = MenuItemClick
       end
     end
+    object PanelFontSizeSelector: TPanel
+      Left = 1117
+      Top = 7
+      Width = 64
+      Height = 33
+      BevelOuter = bvNone
+      TabOrder = 9
+      object ComboFontSize: TComboBox
+        Left = 0
+        Top = 5
+        Width = 61
+        Height = 24
+        BevelInner = bvNone
+        BevelOuter = bvNone
+        Style = csDropDownList
+        Font.Charset = ANSI_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ItemHeight = 16
+        ItemIndex = 1
+        ParentFont = False
+        ParentShowHint = False
+        ShowHint = False
+        TabOrder = 0
+        TabStop = False
+        Text = '2x'
+        OnChange = ComboFontSizeChange
+        OnClick = ComboFontSizeClick
+        OnCloseUp = ComboFontSizeCloseUp
+        Items.Strings = (
+          '1x'
+          '2x'
+          '3x'
+          '4x')
+      end
+    end
     object Panel3: TPanel
-      Left = 262
-      Top = 55
-      Width = 360
+      Left = 1196
+      Top = 7
+      Width = 250
       Height = 33
       BevelOuter = bvNone
       Constraints.MaxWidth = 360
       TabOrder = 0
       DesignSize = (
-        360
+        250
         33)
       object Label2: TLabel
         Left = 0
@@ -6477,7 +6530,7 @@ object BASinOutput: TBASinOutput
       object ComboFuncs: TComboBox
         Left = 0
         Top = 5
-        Width = 357
+        Width = 247
         Height = 24
         BevelInner = bvNone
         BevelOuter = bvNone
@@ -6501,16 +6554,16 @@ object BASinOutput: TBASinOutput
       end
     end
     object PanelToolbarInfo: TPanel
-      Left = 839
-      Top = 57
-      Width = 160
+      Left = 9
+      Top = 50
+      Width = 733
       Height = 30
       BevelOuter = bvNone
       TabOrder = 4
       object Label1: TLabel
         Left = 0
         Top = 0
-        Width = 160
+        Width = 733
         Height = 30
         Align = alClient
         Alignment = taRightJustify
@@ -6519,6 +6572,32 @@ object BASinOutput: TBASinOutput
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
         Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ParentFont = False
+        Transparent = True
+        Layout = tlCenter
+      end
+    end
+    object PanelProjectDuration: TPanel
+      Left = 757
+      Top = 50
+      Width = 689
+      Height = 30
+      BevelOuter = bvNone
+      TabOrder = 5
+      object LabelProjectDuration: TLabel
+        Left = 0
+        Top = 0
+        Width = 689
+        Height = 30
+        Align = alClient
+        Alignment = taCenter
+        AutoSize = False
+        Caption = 'Duration 00m 00s'
+        Font.Charset = ANSI_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
         Font.Name = 'Tahoma'
         Font.Style = []
         ParentFont = False
@@ -6555,6 +6634,66 @@ object BASinOutput: TBASinOutput
         Caption = 'Open Workspace...'
         Enabled = False
         Visible = False
+      end
+      object ImportfromTapeImage1: TMenuItem
+        Tag = 84
+        Caption = 'Attach Tape Image...'
+        Hint = 'Insert a virtual tape image and load from it'
+        Visible = False
+        OnClick = MenuItemClick
+      end
+      object N1: TMenuItem
+        Caption = '-'
+      end
+      object Save1: TMenuItem
+        Tag = 63
+        Caption = 'Save'
+        Hint = 'Save the current program'
+        ShortCut = 16467
+        OnClick = MenuItemClick
+      end
+      object SaveBASICas1: TMenuItem
+        Tag = 13
+        Caption = 'Save As...'
+        Hint = 'Save the current program to a new file'
+        OnClick = MenuItemClick
+      end
+      object ExportTap1: TMenuItem
+        Tag = 119
+        Caption = 'Export...'
+        OnClick = MenuItemClick
+      end
+      object SendtoExternalUtiility1: TMenuItem
+        Tag = 120
+        Caption = 'Send SNA to External Utility...'
+        ShortCut = 16453
+        OnClick = MenuItemClick
+      end
+      object SaveWorkspace1: TMenuItem
+        Caption = 'Save Workspace...'
+        Enabled = False
+        Visible = False
+      end
+      object N2: TMenuItem
+        Caption = '-'
+      end
+      object ImportBASIC1: TMenuItem
+        Tag = 68
+        Caption = 'Import Binary...'
+        Hint = 'Read BASIC or CODE data from any file'
+        OnClick = MenuItemClick
+      end
+      object N30: TMenuItem
+        Caption = '-'
+      end
+      object Print1: TMenuItem
+        Tag = 14
+        Caption = 'Print...'
+        Hint = 'Print the current program'
+        OnClick = MenuItemClick
+      end
+      object N9: TMenuItem
+        Caption = '-'
       end
       object ReLOAD1: TMenuItem
         Caption = 'Recent Files'
@@ -6609,60 +6748,7 @@ object BASinOutput: TBASinOutput
           OnClick = MenuItemClick
         end
       end
-      object ImportBASIC1: TMenuItem
-        Tag = 68
-        Caption = 'Import Binary...'
-        Hint = 'Read BASIC or CODE data from any file'
-        OnClick = MenuItemClick
-      end
-      object ImportfromTapeImage1: TMenuItem
-        Tag = 84
-        Caption = 'Attach Tape Image...'
-        Hint = 'Insert a virtual tape image and load from it'
-        OnClick = MenuItemClick
-      end
-      object N1: TMenuItem
-        Caption = '-'
-      end
-      object Save1: TMenuItem
-        Tag = 63
-        Caption = 'Save'
-        Hint = 'Save the current program'
-        ShortCut = 16467
-        OnClick = MenuItemClick
-      end
-      object SaveBASICas1: TMenuItem
-        Tag = 13
-        Caption = 'Save As...'
-        Hint = 'Extract the current program from memory'
-        OnClick = MenuItemClick
-      end
-      object ExportTap1: TMenuItem
-        Tag = 119
-        Caption = 'Export Tap...'
-        OnClick = MenuItemClick
-      end
-      object SendtoExternalUtiility1: TMenuItem
-        Tag = 120
-        Caption = 'Send SNA to External Utility...'
-        ShortCut = 16453
-        OnClick = MenuItemClick
-      end
-      object SaveWorkspace1: TMenuItem
-        Caption = 'Save Workspace...'
-        Enabled = False
-        Visible = False
-      end
-      object N2: TMenuItem
-        Caption = '-'
-      end
-      object Print1: TMenuItem
-        Tag = 14
-        Caption = 'Print...'
-        Hint = 'Print the current program'
-        OnClick = MenuItemClick
-      end
-      object N9: TMenuItem
+      object N31: TMenuItem
         Caption = '-'
       end
       object Exit1: TMenuItem
@@ -6759,10 +6845,42 @@ object BASinOutput: TBASinOutput
       Caption = '&View'
       Enabled = False
       OnClick = View1Click
-      object ToolBar1: TMenuItem
-        Tag = 89
+      object oolBar1: TMenuItem
         Caption = 'Tool Bar'
-        OnClick = MenuItemClick
+        object ToolBar1: TMenuItem
+          Tag = 89
+          Caption = 'Tool Bar Toggle'
+          OnClick = MenuItemClick
+        end
+        object ResetToolbars1: TMenuItem
+          Tag = 142
+          Caption = 'Reset Tool Bar'
+          Hint = 'Reset toolbar band order and visibility'
+          OnClick = MenuItemClick
+        end
+        object MultiRowToolbar1: TMenuItem
+          Tag = 147
+          Caption = 'Use Multi-Row Tool Bar'
+          OnClick = MenuItemClick
+        end
+      end
+      object Information1: TMenuItem
+        Caption = 'Info Bars'
+        object InfoLine1: TMenuItem
+          Tag = 134
+          Caption = 'Info Bar'
+          OnClick = MenuItemClick
+        end
+        object ProjectDuration1: TMenuItem
+          Tag = 151
+          Caption = 'Project Duration'
+          OnClick = MenuItemClick
+        end
+        object StatusBar2: TMenuItem
+          Tag = 54
+          Caption = 'Status Bar'
+          OnClick = MenuItemClick
+        end
       end
       object SubRoutineList1: TMenuItem
         Caption = 'Sub-Routine List'
@@ -6801,14 +6919,14 @@ object BASinOutput: TBASinOutput
         Caption = 'Filing Icons'
         OnClick = MenuItemClick
       end
-      object InfoLine1: TMenuItem
-        Tag = 134
-        Caption = 'Info Line'
+      object QuickTools1: TMenuItem
+        Tag = 145
+        Caption = 'Tool Icons'
         OnClick = MenuItemClick
       end
-      object StatusBar2: TMenuItem
-        Tag = 54
-        Caption = 'Status Bar'
+      object EditorIcons1: TMenuItem
+        Tag = 146
+        Caption = 'Editor Icons'
         OnClick = MenuItemClick
       end
       object CodeControlIcons1: TMenuItem
@@ -6819,29 +6937,16 @@ object BASinOutput: TBASinOutput
       end
       object Evaluators1: TMenuItem
         Tag = 143
-        Caption = 'Evaluators'
+        Caption = 'Evaluator Icons'
         OnClick = MenuItemClick
       end
-      object QuickTools1: TMenuItem
-        Tag = 145
-        Caption = 'Quick Tools'
+      object ViewFontSizeSelector1: TMenuItem
+        Tag = 150
+        Caption = 'Font Size Selector'
         OnClick = MenuItemClick
       end
-      object EditorIcons1: TMenuItem
-        Tag = 146
-        Caption = 'Editors'
-        OnClick = MenuItemClick
-      end
-      object ResetToolbars1: TMenuItem
-        Tag = 142
-        Caption = 'Reset Toolbar'
-        Hint = 'Reset toolbar band order and visibility'
-        OnClick = MenuItemClick
-      end
-      object MultiRowToolbar1: TMenuItem
-        Tag = 147
-        Caption = 'Use Multi-Row Toolbar'
-        OnClick = MenuItemClick
+      object N29: TMenuItem
+        Caption = '-'
       end
       object AlwaysOnTopTools1: TMenuItem
         Tag = 148
@@ -7385,14 +7490,19 @@ object BASinOutput: TBASinOutput
       end
       object Compiler1: TMenuItem
         Tag = 69
-        Caption = 'Compiler'
+        Caption = 'Compiler (48K)'
         Hint = 'Compile the current program to asm text'
-        Visible = False
         OnClick = MenuItemClick
       end
       object AIChatPanel1: TMenuItem
         Tag = 137
         Caption = 'AI Chat Panel'
+        OnClick = MenuItemClick
+      end
+      object BasinCInternalCompiler1: TMenuItem
+        Tag = 149
+        Caption = 'BasinC Internal Compiler'
+        Visible = False
         OnClick = MenuItemClick
       end
     end
@@ -7408,8 +7518,7 @@ object BASinOutput: TBASinOutput
       end
       object GraphEditor1: TMenuItem
         Tag = 131
-        Caption = 'Cheq Graph Editor'
-        Visible = False
+        Caption = 'Graph Tile Map Editor'
         OnClick = MenuItemClick
       end
       object ScreenPaintbox1: TMenuItem
@@ -7515,7 +7624,8 @@ object BASinOutput: TBASinOutput
       end
       object CheqEditPage1: TMenuItem
         Tag = 131
-        Caption = 'Get CheqEdit Graph Editor'
+        Caption = 'Graph Tile Map Editor'
+        Visible = False
         OnClick = MenuItemClick
       end
       object GetPasmo1: TMenuItem
@@ -7843,6 +7953,12 @@ object BASinOutput: TBASinOutput
     Interval = 320
     OnTimer = Timer1Timer
     Left = 136
+    Top = 136
+  end
+  object TimerProjectDuration: TTimer
+    Enabled = False
+    OnTimer = TimerProjectDurationTimer
+    Left = 232
     Top = 136
   end
   object Timer3: TTimer

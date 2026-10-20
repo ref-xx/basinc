@@ -1,9 +1,9 @@
 object ASMEditorWindow: TASMEditorWindow
   Tag = 1
-  Left = 244
-  Top = 128
+  Left = 1298
+  Top = 309
   Width = 490
-  Height = 352
+  Height = 394
   BorderIcons = [biSystemMenu]
   Caption = 'BASIC Editor'
   Color = clBtnFace
@@ -25,8 +25,8 @@ object ASMEditorWindow: TASMEditorWindow
   PixelsPerInch = 96
   TextHeight = 14
   object Edit2: TEdit
-    Left = 76
-    Top = 8
+    Left = 348
+    Top = 24
     Width = 121
     Height = 22
     TabOrder = 2
@@ -35,7 +35,7 @@ object ASMEditorWindow: TASMEditorWindow
   end
   object StatusBar2: TStatusBar
     Left = 0
-    Top = 265
+    Top = 305
     Width = 471
     Height = 26
     Align = alNone
@@ -50,7 +50,7 @@ object ASMEditorWindow: TASMEditorWindow
   end
   object TabSet1: TTabSet
     Left = 0
-    Top = 244
+    Top = 284
     Width = 471
     Height = 21
     DitherBackground = False
@@ -63,7 +63,7 @@ object ASMEditorWindow: TASMEditorWindow
   end
   object Panel1: TPanel
     Left = 4
-    Top = 4
+    Top = 44
     Width = 465
     Height = 237
     BevelOuter = bvNone
@@ -107,6 +107,67 @@ object ASMEditorWindow: TASMEditorWindow
       ParentFont = False
       TabOrder = 1
       OnDblClick = ListBox1DblClick
+    end
+  end
+  object ToolBar1: TToolBar
+    Left = 0
+    Top = 0
+    Width = 474
+    Height = 24
+    AutoSize = True
+    ButtonWidth = 63
+    Caption = 'ToolBar1'
+    Flat = True
+    ShowCaptions = True
+    TabOrder = 0
+    object ToolNew: TToolButton
+      Tag = 1
+      Left = 0
+      Top = 0
+      AutoSize = True
+      Caption = 'New'
+      OnClick = ToolBarButtonClick
+    end
+    object ToolSave: TToolButton
+      Tag = 2
+      Left = 32
+      Top = 0
+      AutoSize = True
+      Caption = 'Save'
+      OnClick = ToolBarButtonClick
+    end
+    object ToolStore: TToolButton
+      Tag = 3
+      Left = 71
+      Top = 0
+      AutoSize = True
+      Caption = 'Store'
+      OnClick = ToolBarButtonClick
+    end
+    object ToolCompile: TToolButton
+      Tag = 4
+      Left = 117
+      Top = 0
+      AutoSize = True
+      Caption = 'Assemble'
+      OnClick = ToolBarButtonClick
+    end
+    object ToolRun: TToolButton
+      Tag = 5
+      Left = 184
+      Top = 0
+      AutoSize = True
+      Caption = 'Run'
+      OnClick = ToolBarButtonClick
+    end
+    object ToolRecall: TToolButton
+      Tag = 6
+      Left = 216
+      Top = 0
+      AutoSize = True
+      Caption = 'Recall'
+      Enabled = False
+      OnClick = ToolBarButtonClick
     end
   end
   object Timer1: TTimer

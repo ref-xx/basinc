@@ -1,7 +1,7 @@
 object OptionsWindow: TOptionsWindow
   Tag = 1
-  Left = 302
-  Top = 127
+  Left = 710
+  Top = 142
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Options'
@@ -177,7 +177,7 @@ object OptionsWindow: TOptionsWindow
         Width = 173
         Height = 21
         Style = csDropDownList
-        ItemHeight = 13
+        ItemHeight = 0
         TabOrder = 6
       end
       object CheckBox12: TCheckBox
@@ -802,7 +802,7 @@ object OptionsWindow: TOptionsWindow
         Top = 352
         Width = 201
         Height = 21
-        ItemHeight = 13
+        ItemHeight = 0
         TabOrder = 7
       end
       object btnAImodelFetch: TButton
@@ -1119,7 +1119,7 @@ object OptionsWindow: TOptionsWindow
       end
       object Label5: TLabel
         Left = 132
-        Top = 116
+        Top = 108
         Width = 72
         Height = 13
         Caption = 'Scaling Method'
@@ -1208,7 +1208,7 @@ object OptionsWindow: TOptionsWindow
       end
       object ComboBox2: TComboBox
         Left = 212
-        Top = 112
+        Top = 104
         Width = 98
         Height = 21
         Style = csDropDownList
@@ -1262,6 +1262,15 @@ object OptionsWindow: TOptionsWindow
         Height = 17
         Caption = 'Automatically skip if necessary'
         TabOrder = 5
+        OnClick = CheckBox5Click
+      end
+      object CheckBox36: TCheckBox
+        Left = 132
+        Top = 324
+        Width = 169
+        Height = 17
+        Caption = 'Experimental GPU Renderer'
+        TabOrder = 8
         OnClick = CheckBox5Click
       end
     end

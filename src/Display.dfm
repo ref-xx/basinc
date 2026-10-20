@@ -58,8 +58,26 @@ object DisplayWindow: TDisplayWindow
     Top = 248
     Width = 328
     Height = 19
-    Panels = <>
-    SimplePanel = True
+    Panels = <
+      item
+        Style = psOwnerDraw
+        Text = 'Normal'
+        Width = 24
+      end
+      item
+        Text = 'Border'
+        Width = 304
+      end>
+    SimplePanel = False
+    ShowHint = True
+    OnDrawPanel = DisplayStatusBar1DrawPanel
+  end
+  object SpeedStatusTimer: TTimer
+    Enabled = False
+    Interval = 100
+    OnTimer = SpeedStatusTimerTimer
+    Left = 36
+    Top = 4
   end
   object PopupMenu1: TPopupMenu
     OwnerDraw = True
@@ -259,6 +277,31 @@ object DisplayWindow: TDisplayWindow
         Caption = 'Toggle Full Speed'
         ShortCut = 112
         OnClick = FullSpeed1Click
+      end
+      object N7: TMenuItem
+        Caption = '-'
+      end
+      object ViewMicrovitecCub1: TMenuItem
+        Tag = 17
+        Caption = 'View Microvitec Cub'
+        OnClick = MenuItemClick
+      end
+      object GPUFilterMenu1: TMenuItem
+        Caption = 'CRT Filter'
+        object GPUFilterOff1: TMenuItem
+          Tag = 18
+          Caption = 'Off'
+          GroupIndex = 1
+          RadioItem = True
+          OnClick = MenuItemClick
+        end
+        object GPUFilterLottes1: TMenuItem
+          Tag = 19
+          Caption = 'Lottes CRT'
+          GroupIndex = 1
+          RadioItem = True
+          OnClick = MenuItemClick
+        end
       end
     end
     object Help1: TMenuItem
